@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="1012" viewBox="0 0 1180 1012" font-family="Microsoft YaHei, PingFang SC, Source Han Sans SC, sans-serif">
+  <rect x="0" y="0" width="1180" height="1012" fill="#ffffff"/>
+
+  <text x="590" y="42" text-anchor="middle" font-size="21" font-weight="700" fill="#1b3a2c">角色用例图</text>
+  <text x="590" y="66" text-anchor="middle" font-size="12.5" fill="#7a8b83">8 类角色分级授权，所有用例均先经登录认证与权限拦截（RBAC + 数据范围双层校验）</text>
+
+  <!-- 系统边界 -->
+  <rect x="300" y="92" width="580" height="852" rx="12" fill="#fbfdfc" stroke="#c8ddd2" stroke-width="1.6"/>
+  <text x="590" y="116" text-anchor="middle" font-size="13" font-weight="700" fill="#2f6b4f">农产品质量安全溯源系统</text>
+
+  <g font-size="12.5" text-anchor="middle">
+    <ellipse cx="590" cy="170" rx="150" ry="26" fill="#e8f5ee" stroke="#7cc4a0"/>
+    <text x="590" y="175" fill="#1f6f4a">批次建档（编码 + 溯源码）</text>
+    <ellipse cx="590" cy="230" rx="150" ry="26" fill="#e8f5ee" stroke="#7cc4a0"/>
+    <text x="590" y="235" fill="#1f6f4a">农事记录登记</text>
+    <ellipse cx="590" cy="290" rx="150" ry="26" fill="#e8f5ee" stroke="#7cc4a0"/>
+    <text x="590" y="295" fill="#1f6f4a">采收登记</text>
+    <ellipse cx="590" cy="350" rx="150" ry="26" fill="#fdf6e6" stroke="#dfc078"/>
+    <text x="590" y="355" fill="#8a6a1f">村级核验</text>
+    <ellipse cx="590" cy="410" rx="150" ry="26" fill="#e6f0fb" stroke="#7aa7e0"/>
+    <text x="590" y="415" fill="#1f4f8a">质检报告上传</text>
+    <ellipse cx="590" cy="470" rx="150" ry="26" fill="#fdf0e3" stroke="#e0b078"/>
+    <text x="590" y="475" fill="#8a5a1f">物流交接登记</text>
+    <ellipse cx="590" cy="530" rx="150" ry="26" fill="#f3ecfb" stroke="#a98ed6"/>
+    <text x="590" y="535" fill="#5b3f8a">销售登记</text>
+    <ellipse cx="590" cy="590" rx="150" ry="26" fill="#fdeaea" stroke="#d97777"/>
+    <text x="590" y="595" fill="#b03a36">异常批次熔断</text>
+    <ellipse cx="590" cy="650" rx="150" ry="26" fill="#fdeaea" stroke="#d97777"/>
+    <text x="590" y="655" fill="#b03a36">异常处置与追溯定责</text>
+    <ellipse cx="590" cy="710" rx="150" ry="26" fill="#fffaf0" stroke="#dfc078"/>
+    <text x="590" y="715" fill="#8a6a1f">链上链下一致性校验</text>
+    <ellipse cx="590" cy="770" rx="150" ry="26" fill="#eaf6f2" stroke="#7cc4a0"/>
+    <text x="590" y="775" fill="#1f6f4a">溯源查询与扫码验真</text>
+    <ellipse cx="590" cy="830" rx="150" ry="26" fill="#eef1f6" stroke="#9aabc0"/>
+    <text x="590" y="835" fill="#455a70">用户与基础数据管理</text>
+    <ellipse cx="590" cy="890" rx="150" ry="26" fill="#eef1f6" stroke="#9aabc0"/>
+    <text x="590" y="895" fill="#455a70">操作日志审计</text>
+  </g>
+
+  <!-- ===== 左侧参与者 ===== -->
+  <g fill="none" stroke-width="1.6">
+    <g stroke="#2f6b4f">
+      <circle cx="130" cy="171" r="9" fill="#2f6b4f" stroke="none"/>
+      <line x1="130" y1="180" x2="130" y2="203"/><line x1="114" y1="189" x2="146" y2="189"/>
+      <line x1="130" y1="203" x2="118" y2="221"/><line x1="130" y1="203" x2="142" y2="221"/>
+      <circle cx="130" cy="331" r="9" fill="#2f6b4f" stroke="none"/>
+      <line x1="130" y1="340" x2="130" y2="363"/><line x1="114" y1="349" x2="146" y2="349"/>
+      <line x1="130" y1="363" x2="118" y2="381"/><line x1="130" y1="363" x2="142" y2="381"/>
+    </g>
+    <g stroke="#8a6a1f">
+      <circle cx="130" cy="491" r="9" fill="#8a6a1f" stroke="none"/>
+      <line x1="130" y1="500" x2="130" y2="523"/><line x1="114" y1="509" x2="146" y2="509"/>
+      <line x1="130" y1="523" x2="118" y2="541"/><line x1="130" y1="523" x2="142" y2="541"/>
+    </g>
+    <g stroke="#1f4f8a">
+      <circle cx="130" cy="641" r="9" fill="#1f4f8a" stroke="none"/>
+      <line x1="130" y1="650" x2="130" y2="673"/><line x1="114" y1="659" x2="146" y2="659"/>
+      <line x1="130" y1="673" x2="118" y2="691"/><line x1="130" y1="673" x2="142" y2="691"/>
+    </g>
+  </g>
+  <g font-size="12.5" text-anchor="middle" font-weight="600">
+    <text x="130" y="241" fill="#2f6b4f">生产主体</text>
+    <text x="130" y="401" fill="#2f6b4f">农户</text>
+    <text x="130" y="561" fill="#8a6a1f">村级管理员</text>
+    <text x="130" y="711" fill="#1f4f8a">检测机构</text>
+  </g>
+
+  <!-- ===== 右侧参与者 ===== -->
+  <g fill="none" stroke-width="1.6">
+    <g stroke="#8a5a1f">
+      <circle cx="1050" cy="451" r="9" fill="#8a5a1f" stroke="none"/>
+      <line x1="1050" y1="460" x2="1050" y2="483"/><line x1="1034" y1="469" x2="1066" y2="469"/>
+      <line x1="1050" y1="483" x2="1038" y2="501"/><line x1="1050" y1="483" x2="1062" y2="501"/>
+    </g>
+    <g stroke="#5b3f8a">
+      <circle cx="1050" cy="551" r="9" fill="#5b3f8a" stroke="none"/>
+      <line x1="1050" y1="560" x2="1050" y2="583"/><line x1="1034" y1="569" x2="1066" y2="569"/>
+      <line x1="1050" y1="583" x2="1038" y2="601"/><line x1="1050" y1="583" x2="1062" y2="601"/>
+    </g>
+    <g stroke="#b03a36">
+      <circle cx="1050" cy="651" r="9" fill="#b03a36" stroke="none"/>
+      <line x1="1050" y1="660" x2="1050" y2="683"/><line x1="1034" y1="669" x2="1066" y2="669"/>
+      <line x1="1050" y1="683" x2="1038" y2="701"/><line x1="1050" y1="683" x2="1062" y2="701"/>
+    </g>
+    <g stroke="#3f7a63">
+      <circle cx="1050" cy="771" r="9" fill="#3f7a63" stroke="none"/>
+      <line x1="1050" y1="780" x2="1050" y2="803"/><line x1="1034" y1="789" x2="1066" y2="789"/>
+      <line x1="1050" y1="803" x2="1038" y2="821"/><line x1="1050" y1="803" x2="1062" y2="821"/>
+    </g>
+    <g stroke="#455a70">
+      <circle cx="1050" cy="871" r="9" fill="#455a70" stroke="none"/>
+      <line x1="1050" y1="880" x2="1050" y2="903"/><line x1="1034" y1="889" x2="1066" y2="889"/>
+      <line x1="1050" y1="903" x2="1038" y2="921"/><line x1="1050" y1="903" x2="1062" y2="921"/>
+    </g>
+  </g>
+  <g font-size="12.5" text-anchor="middle" font-weight="600">
+    <text x="1050" y="521" fill="#8a5a1f">物流企业</text>
+    <text x="1050" y="621" fill="#5b3f8a">销售商</text>
+    <text x="1050" y="721" fill="#b03a36">监管人员</text>
+    <text x="1050" y="841" fill="#3f7a63">消费者</text>
+    <text x="1050" y="941" fill="#455a70">系统管理员</text>
+  </g>
+
+  <!-- ===== 关联连线 ===== -->
+  <g stroke-width="1.2" fill="none" opacity="0.7">
+    <path d="M146,187 L438,172" stroke="#2f6b4f"/>
+    <path d="M146,347 L438,232" stroke="#2f6b4f"/>
+    <path d="M146,347 L438,288" stroke="#2f6b4f"/>
+    <path d="M146,507 L438,352" stroke="#8a6a1f"/>
+    <path d="M146,657 L438,412" stroke="#1f4f8a"/>
+    <path d="M146,657 L438,586" stroke="#1f4f8a" stroke-dasharray="5 3"/>
+    <path d="M1034,467 L742,472" stroke="#8a5a1f"/>
+    <path d="M1034,567 L742,532" stroke="#5b3f8a"/>
+    <path d="M1034,667 L742,652" stroke="#b03a36"/>
+    <path d="M1034,667 L742,710" stroke="#b03a36"/>
+    <path d="M1034,787 L742,772" stroke="#3f7a63"/>
+    <path d="M1034,887 L742,832" stroke="#455a70"/>
+    <path d="M1034,887 L742,888" stroke="#455a70"/>
+  </g>
+
+  <!-- 图例 -->
+  <g font-size="11" fill="#7a8b83">
+    <line x1="300" y1="972" x2="336" y2="972" stroke="#1f4f8a" stroke-width="1.4"/>
+    <text x="342" y="976">角色与用例的关联</text>
+    <line x1="500" y1="972" x2="536" y2="972" stroke="#1f4f8a" stroke-width="1.4" stroke-dasharray="5 3"/>
+    <text x="542" y="976">系统规则自动触发（质检不合格即熔断）</text>
+  </g>
+
+  <text x="590" y="1002" text-anchor="middle" font-size="11" fill="#9aaaa2">图 2　角色用例图（8 类角色 + 13 个核心用例）</text>
+</svg>

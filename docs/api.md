@@ -187,12 +187,20 @@ GET /batch/page
 | --- | --- | --- | --- | --- |
 | `page` | long | 否 | 1 | 页码 |
 | `size` | long | 否 | 10 | 每页条数 |
-| `keyword` | string | 否 | — | 匹配批次号 / 溯源码 / 产品名 |
+| `keyword` | string | 否 | — | 匹配批次号 / 产品名 / 农户姓名 |
 | `status` | string | 否 | — | 批次状态 |
 | `abnormalFlag` | int | 否 | — | `1` 仅异常，`0` 仅正常 |
 | `villageId` | long | 否 | — | 行政村筛选（仅 ALL 范围生效） |
+| `farmId` | long | 否 | — | **按生产主体筛选**：指定地块/农场 |
+| `farmerId` | long | 否 | — | **按生产主体筛选**：指定农户 |
+| `startDate` | string | 否 | — | **按时间筛选**：建档日期起，格式 `yyyy-MM-dd`（含当天） |
+| `endDate` | string | 否 | — | **按时间筛选**：建档日期止，格式 `yyyy-MM-dd`（含当天） |
 
-> 非 `ALL` 数据范围的账号会被自动注入 `village_id` / `farmer_id` 条件，无需前端传参。
+> **任务书「按批次、主体和时间查询」的对应关系**：按批次 → `keyword`（批次号精确/模糊匹配）；按主体 → `farmId` 或 `farmerId`；按时间 → `startDate` + `endDate`（对 `create_time` 取日期部分比较）。
+>
+> 主体与时间筛选**叠加在数据范围之上**（AND 关系），不会突破角色可见范围。例如农户传了 `farmerId=6`（他人），仍会被 `applyScope` 追加 `farmer_id = 当前用户`，结果为空而不是越权返回。
+>
+> 非 `ALL` 数据范围的账号会被自动注入 `village_id` / `farmer_id` / `create_by` 条件，无需前端传参。
 
 **响应 `records[]` 元素**（`BizBatch` 主要字段）
 

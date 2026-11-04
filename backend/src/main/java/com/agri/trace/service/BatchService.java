@@ -94,6 +94,16 @@ public class BatchService {
 
     public PageResult<BizBatch> page(long page, long size, String keyword, String status,
                                      Integer abnormalFlag, Long villageId) {
+        return page(page, size, keyword, status, abnormalFlag, villageId, null, null, null, null);
+    }
+
+    /**
+     * 批次分页查询：支持按批次（keyword）、主体（farmId / farmerId）、时间（startDate~endDate，按建批次时间）筛选。
+     * 主体与时间筛选在数据范围（applyScope）之上叠加，均为 AND 关系，不会突破角色可见范围。
+     */
+    public PageResult<BizBatch> page(long page, long size, String keyword, String status,
+                                     Integer abnormalFlag, Long villageId, Long farmId, Long farmerId,
+                                     String startDate, String endDate) {
         LambdaQueryWrapper<BizBatch> wrapper = Wrappers.<BizBatch>lambdaQuery()
                 .and(keyword != null && !keyword.isEmpty(), w -> w
                         .like(BizBatch::getBatchNo, keyword).or()
@@ -102,6 +112,10 @@ public class BatchService {
                 .eq(status != null && !status.isEmpty(), BizBatch::getStatus, status)
                 .eq(abnormalFlag != null, BizBatch::getAbnormalFlag, abnormalFlag)
                 .eq(villageId != null, BizBatch::getVillageId, villageId)
+                .eq(farmId != null, BizBatch::getFarmId, farmId)
+                .eq(farmerId != null, BizBatch::getFarmerId, farmerId)
+                .apply(startDate != null && !startDate.isEmpty(), "DATE(create_time) >= {0}", startDate)
+                .apply(endDate != null && !endDate.isEmpty(), "DATE(create_time) <= {0}", endDate)
                 .orderByDesc(BizBatch::getId);
         applyScope(wrapper, UserContext.require());
         return PageResult.of(batchMapper.selectPage(new Page<>(page, size), wrapper));

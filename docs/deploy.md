@@ -572,3 +572,44 @@ echo "  H5  : http://localhost:5174"
 echo "  API : http://localhost:8080/api"
 wait
 ```
+
+---
+
+## 十一、参考资料
+
+实训任务书「素材准备」要求准备的 FISCO BCOS 官方开发文档，统一收录于此，便于搭建与排错时查证。
+
+### 11.1 FISCO BCOS
+
+| 资料 | 地址 |
+| --- | --- |
+| 官方文档总入口 | https://fisco-bcos-documentation.readthedocs.io/zh-cn/latest/ |
+| 2.9.x 版本文档 | https://fisco-bcos-documentation.readthedocs.io/zh-cn/v2.9.0/ |
+| 搭建联盟链（build_chain.sh） | https://fisco-bcos-documentation.readthedocs.io/zh-cn/v2.9.0/docs/installation.html |
+| Java SDK 使用说明 | https://fisco-bcos-documentation.readthedocs.io/zh-cn/v2.9.0/docs/sdk/java_sdk.html |
+| 合约开发（Solidity） | https://fisco-bcos-documentation.readthedocs.io/zh-cn/v2.9.0/docs/smartcontract/ |
+| 控制台使用 | https://fisco-bcos-documentation.readthedocs.io/zh-cn/v2.9.0/docs/manual/console.html |
+| 源码仓库 | https://github.com/FISCO-BCOS/FISCO-BCOS |
+| Java SDK 仓库 | https://github.com/FISCO-BCOS/java-sdk |
+
+> **版本提示**：本工程按 **链 2.9.x + Java SDK 2.9.1** 适配。SDK 3.x 的 API 与 2.9.x 差异较大（`TransactionProcessor` 系列类已重构），不要混用，否则会出现 `NoSuchMethodError`。
+
+### 11.2 业务标准
+
+| 标准号 | 名称 | 在本项目中的用途 |
+| --- | --- | --- |
+| GB 2763-2021 | 食品安全国家标准 食品中农药最大残留限量 | 质检报告的农残限量判定依据（毒死蜱 0.02 mg/kg） |
+| GB 2762-2022 | 食品安全国家标准 食品中污染物限量 | 重金属判定依据（镉 0.05 mg/kg） |
+
+> 上述限量为教学演示取值，实际判定应以标准原文和检测机构出具的限量要求为准。
+
+### 11.3 框架文档
+
+| 框架 | 文档 |
+| --- | --- |
+| Spring Boot 2.7 | https://docs.spring.io/spring-boot/docs/2.7.x/reference/html/ |
+| MyBatis-Plus | https://baomidou.com/ |
+| Vue 3 | https://cn.vuejs.org/guide/ |
+| Element Plus | https://element-plus.org/zh-CN/ |
+| Vant 4 | https://vant-ui.github.io/vant/ |
+| Solidity 0.6.10 | https://docs.soliditylang.org/en/v0.6.10/ |

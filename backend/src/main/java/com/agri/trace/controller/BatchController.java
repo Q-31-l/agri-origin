@@ -37,7 +37,7 @@ public class BatchController {
     @Resource
     private ChainService chainService;
 
-    @Operation(summary = "批次分页查询（按角色自动收窄数据范围）")
+    @Operation(summary = "批次分页查询（支持按批次 / 主体 / 时间筛选，按角色自动收窄数据范围）")
     @RequirePerm("batch:list")
     @GetMapping("/page")
     public R<PageResult<BizBatch>> page(@RequestParam(defaultValue = "1") long page,
@@ -45,8 +45,13 @@ public class BatchController {
                                         @RequestParam(required = false) String keyword,
                                         @RequestParam(required = false) String status,
                                         @RequestParam(required = false) Integer abnormalFlag,
-                                        @RequestParam(required = false) Long villageId) {
-        return R.ok(batchService.page(page, size, keyword, status, abnormalFlag, villageId));
+                                        @RequestParam(required = false) Long villageId,
+                                        @RequestParam(required = false) Long farmId,
+                                        @RequestParam(required = false) Long farmerId,
+                                        @RequestParam(required = false) String startDate,
+                                        @RequestParam(required = false) String endDate) {
+        return R.ok(batchService.page(page, size, keyword, status, abnormalFlag,
+                villageId, farmId, farmerId, startDate, endDate));
     }
 
     @Operation(summary = "批次下拉选项")

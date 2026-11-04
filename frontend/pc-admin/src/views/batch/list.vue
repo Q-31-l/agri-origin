@@ -14,6 +14,18 @@
         <el-select v-model="query.status" placeholder="批次状态" clearable>
           <el-option v-for="item in statusOptions" :key="item.code" :label="item.label" :value="item.code" />
         </el-select>
+        <el-select v-model="query.farmId" placeholder="生产主体（地块）" clearable filterable>
+          <el-option v-for="f in farms" :key="f.id" :label="`${f.farmName} · ${f.farmerName}`" :value="f.id" />
+        </el-select>
+        <el-date-picker
+          v-model="query.dateRange"
+          type="daterange"
+          value-format="YYYY-MM-DD"
+          start-placeholder="建档开始"
+          end-placeholder="建档结束"
+          unlink-panels
+          style="width: 250px"
+        />
         <el-select v-model="query.abnormalFlag" placeholder="异常标记" clearable>
           <el-option label="仅异常批次" :value="1" />
           <el-option label="正常批次" :value="0" />
@@ -214,7 +226,15 @@ const products = ref([])
 const farms = ref([])
 const statusOptions = ref([])
 
-const query = reactive({ page: 1, size: 10, keyword: '', status: '', abnormalFlag: null })
+const query = reactive({
+  page: 1,
+  size: 10,
+  keyword: '',
+  status: '',
+  abnormalFlag: null,
+  farmId: null,
+  dateRange: []
+})
 
 const canCreate = computed(() => store.hasPerm('batch:create'))
 const canAudit = computed(() => store.hasPerm('batch:audit'))
@@ -230,7 +250,10 @@ const load = async () => {
       size: query.size,
       keyword: query.keyword || undefined,
       status: query.status || undefined,
-      abnormalFlag: query.abnormalFlag === null || query.abnormalFlag === '' ? undefined : query.abnormalFlag
+      abnormalFlag: query.abnormalFlag === null || query.abnormalFlag === '' ? undefined : query.abnormalFlag,
+      farmId: query.farmId || undefined,
+      startDate: query.dateRange && query.dateRange[0] ? query.dateRange[0] : undefined,
+      endDate: query.dateRange && query.dateRange[1] ? query.dateRange[1] : undefined
     })
     rows.value = res.data.records || []
     total.value = res.data.total || 0
@@ -245,7 +268,15 @@ const reload = () => {
 }
 
 const reset = () => {
-  Object.assign(query, { page: 1, size: 10, keyword: '', status: '', abnormalFlag: null })
+  Object.assign(query, {
+    page: 1,
+    size: 10,
+    keyword: '',
+    status: '',
+    abnormalFlag: null,
+    farmId: null,
+    dateRange: []
+  })
   load()
 }
 
@@ -362,6 +393,13 @@ const submitCorrection = async () => {
 
 onMounted(async () => {
   load()
+  // 主体筛选下拉：部分角色（如物流、销售）没有 farm:list 权限，失败时静默降级为空列表，不影响主流程
+  try {
+    const f = await farmList()
+    farms.value = f.data || []
+  } catch (e) {
+    farms.value = []
+  }
   try {
     const d = await dict('batch_status')
     statusOptions.value = (d.data || []).map((i) => ({ code: i.dictCode, label: i.dictLabel }))
