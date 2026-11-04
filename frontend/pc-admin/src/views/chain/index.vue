@@ -41,6 +41,22 @@
         <el-table-column prop="blockNumber" label="区块" width="100" />
         <el-table-column prop="createTime" label="时间" width="165" />
         <el-table-column prop="errorMsg" label="失败原因" min-width="160" show-overflow-tooltip />
+        <template #empty>
+          <div class="chain-empty">
+            <el-icon class="chain-empty-icon"><Link /></el-icon>
+            <div class="chain-empty-title">
+              {{ chain.enabled ? '暂无存证记录' : '当前为演示模式，未接入区块链' }}
+            </div>
+            <div class="chain-empty-desc" v-if="!chain.enabled">
+              业务数据已正常落库，存证环节被标记为 <code>SKIPPED</code> 并如实留痕，
+              不生成虚假交易哈希。将 <code>application.yml</code> 中 <code>chain.enabled</code>
+              设为 <code>true</code> 并配置节点证书与合约地址后，新建的业务记录会实时上链。
+            </div>
+            <div class="chain-empty-desc" v-else>
+              新建批次或登记农事、采收、质检等业务节点后，系统会自动写入链上并存证。
+            </div>
+          </div>
+        </template>
       </el-table>
 
       <div class="pager">
@@ -101,7 +117,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CircleCheck, Search } from '@element-plus/icons-vue'
+import { CircleCheck, Link, Search } from '@element-plus/icons-vue'
 import ChainBadge from '@/components/ChainBadge.vue'
 import { chainPage, chainStatus, chainVerifyByNo } from '@/api'
 
@@ -229,5 +245,40 @@ onMounted(async () => {
 
 .v-count b {
   font-size: 22px;
+}
+
+.chain-empty {
+  padding: 26px 16px 32px;
+  text-align: center;
+  line-height: 1.9;
+}
+
+.chain-empty-icon {
+  font-size: 34px;
+  color: #c4d3ca;
+  margin-bottom: 6px;
+}
+
+.chain-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2c3b34;
+  margin-bottom: 6px;
+}
+
+.chain-empty-desc {
+  font-size: 13px;
+  color: #7b8c84;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.chain-empty-desc code {
+  background: #eef4f0;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  color: #2f7a52;
 }
 </style>

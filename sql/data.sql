@@ -146,7 +146,8 @@ INSERT INTO `base_village` (`id`,`village_code`,`village_name`,`region_code`,`re
 -- ---------------- 农场 ----------------
 INSERT INTO `base_farm` (`id`,`farm_code`,`farm_name`,`farmer_id`,`farmer_name`,`village_id`,`village_name`,`address`,`area`,`soil_type`,`water_source`,`cert_no`,`status`) VALUES
 (1, 'FARM-350121-001', '溪头一号草莓大棚', 5, '张大山', 1, '溪头村', '溪头村一组 12 号田', 8.50, '沙壤土', '山泉水灌溉', 'TD-2021-0081', 1),
-(2, 'FARM-350121-002', '上寨脐橙园',       6, '李桂花', 2, '上寨村', '上寨村二组后山',     23.00, '红壤',   '水库引水',   'TD-2020-0157', 1);
+(2, 'FARM-350121-002', '上寨脐橙园',       6, '李桂花', 2, '上寨村', '上寨村二组后山',     23.00, '红壤',   '水库引水',   'TD-2020-0157', 1),
+(3, 'FARM-350121-003', '溪头蔬菜基地',     5, '张大山', 1, '溪头村', '溪头村三组菜田',     15.20, '沙壤土', '山塘灌溉',   'TD-2021-0093', 1);
 
 -- ---------------- 产品 ----------------
 INSERT INTO `base_product` (`id`,`product_code`,`product_name`,`category`,`variety`,`unit`,`shelf_life_days`,`origin_region`,`description`) VALUES
@@ -162,25 +163,25 @@ INSERT INTO `biz_batch`
 VALUES
 (1,'AG20260512001','TC20260512001',1,'红颜草莓','红颜',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
  '2026-02-10','2026-05-10',1200.00,'kg','SOLD','APPROVED','王秀兰','2026-05-11 09:20:00','资料齐全，准予建档',0,'NONE','示范：全流程正常批次',3),
-(2,'AG20260515002','TC20260515002',3,'小白菜','上海青',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
+(2,'AG20260515002','TC20260515002',3,'小白菜','上海青',3,'溪头蔬菜基地',5,'张大山',1,'溪头村',
  '2026-04-01','2026-05-14',600.00,'kg','ABNORMAL','APPROVED','王秀兰','2026-05-15 08:40:00','准予建档',1,'NONE','示范：农药残留超标拦截批次',3),
 (3,'AG20260601003','TC20260601003',2,'脐橙','纽荷尔',2,'上寨脐橙园',6,'李桂花',2,'上寨村',
  '2026-03-01',NULL,3000.00,'kg','PLANTING','PENDING',NULL,NULL,NULL,0,'NONE','示范：种植中批次',3),
 (4,'AG20260518004','TC20260518004',1,'红颜草莓','红颜',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
  '2026-02-15','2026-05-16',800.00,'kg','SOLD','APPROVED','王秀兰','2026-05-17 10:05:00','抽检资料完整，准予建档',0,'NONE','示范：二茬草莓正常批次',3),
-(5,'AG20260520005','TC20260520005',3,'小白菜','上海青',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
+(5,'AG20260520005','TC20260520005',3,'小白菜','上海青',3,'溪头蔬菜基地',5,'张大山',1,'溪头村',
  '2026-04-05','2026-05-18',500.00,'kg','SOLD','APPROVED','王秀兰','2026-05-19 09:10:00','记录齐全，准予建档',0,'NONE','示范：叶菜正常批次',3),
 (6,'AG20260522006','TC20260522006',2,'脐橙','纽荷尔',2,'上寨脐橙园',6,'李桂花',2,'上寨村',
  '2026-03-05','2026-05-20',2000.00,'kg','ABNORMAL','APPROVED','王秀兰','2026-05-21 14:30:00','准予建档',1,'NONE','示范：重金属超标熔断批次',3),
 (7,'AG20260525007','TC20260525007',1,'红颜草莓','红颜',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
  '2026-03-01','2026-05-23',650.00,'kg','QUALIFIED','APPROVED','王秀兰','2026-05-24 08:50:00','资料齐全，准予建档',0,'NONE','示范：质检合格待发运批次',3),
-(8,'AG20260528008','TC20260528008',3,'小白菜','上海青',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
+(8,'AG20260528008','TC20260528008',3,'小白菜','上海青',3,'溪头蔬菜基地',5,'张大山',1,'溪头村',
  '2026-04-10','2026-05-26',700.00,'kg','ON_SALE','APPROVED','王秀兰','2026-05-27 09:00:00','记录齐全，准予建档',0,'NONE','示范：销售中批次（部分售出）',3),
 (9,'AG20260602009','TC20260602009',2,'脐橙','纽荷尔',2,'上寨脐橙园',6,'李桂花',2,'上寨村',
  '2026-03-15','2026-06-01',1500.00,'kg','HARVESTED','APPROVED','王秀兰','2026-06-02 10:20:00','采收记录属实，准予建档',0,'NONE','示范：已采收待送检批次',3),
 (10,'AG20260605010','TC20260605010',1,'红颜草莓','红颜',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
  '2026-03-20',NULL,900.00,'kg','PLANTING','PENDING',NULL,NULL,NULL,0,'NONE','示范：草莓生长期批次',3),
-(11,'AG20260608011','TC20260608011',3,'小白菜','上海青',1,'溪头一号草莓大棚',5,'张大山',1,'溪头村',
+(11,'AG20260608011','TC20260608011',3,'小白菜','上海青',3,'溪头蔬菜基地',5,'张大山',1,'溪头村',
  '2026-04-25',NULL,550.00,'kg','PLANTING','PENDING',NULL,NULL,NULL,0,'NONE','示范：叶菜生长期批次',3),
 (12,'AG20260610012','TC20260610012',2,'脐橙','纽荷尔',2,'上寨脐橙园',6,'李桂花',2,'上寨村',
  '2026-03-25',NULL,1800.00,'kg','PLANTING','PENDING',NULL,NULL,NULL,0,'NONE','示范：脐橙生长期批次',3);
@@ -333,3 +334,19 @@ INSERT INTO `sys_dict` (`dict_type`,`dict_code`,`dict_label`,`sort_no`) VALUES
 ('audit_status','PENDING','待审核',1),
 ('audit_status','APPROVED','审核通过',2),
 ('audit_status','REJECTED','审核驳回',3);
+
+-- -------------------------------------------------------------
+-- 建档时间分布：分散到最近 7 天，使看板「近 7 日批次趋势」有实际曲线
+-- 使用相对时间，保证任何日期导入后统计图都有数据
+-- -------------------------------------------------------------
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 6 DAY) WHERE `id` = 10;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 6 DAY) WHERE `id` = 11;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 5 DAY) WHERE `id` = 9;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 5 DAY) WHERE `id` = 3;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 4 DAY) WHERE `id` = 7;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 3 DAY) WHERE `id` = 12;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 3 DAY) WHERE `id` = 8;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 2 DAY) WHERE `id` = 5;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 1 DAY) WHERE `id` = 2;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 1 DAY) WHERE `id` = 6;
+UPDATE `biz_batch` SET `create_time` = DATE_SUB(NOW(), INTERVAL 1 DAY) WHERE `id` = 4;

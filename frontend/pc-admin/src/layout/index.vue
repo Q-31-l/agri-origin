@@ -141,11 +141,17 @@ const currentTitle = computed(() => route.meta.title || '首页')
 
 const visibleMenus = computed(() =>
   menuRoutes
+    // 无子菜单的项原样保留，避免被补上空 children 后在最后一步被误剔除
+    .map((item) =>
+      item.children && item.children.length
+        ? {
+            ...item,
+            children: item.children.filter((c) => !c.meta?.perm || store.hasPerm(c.meta.perm))
+          }
+        : item
+    )
     .filter((item) => !item.meta?.perm || store.hasPerm(item.meta.perm))
-    .map((item) => ({
-      ...item,
-      children: (item.children || []).filter((c) => !c.meta?.perm || store.hasPerm(c.meta.perm))
-    }))
+    // 分组项若子菜单全部无权限则整组隐藏
     .filter((item) => !item.children || item.children.length > 0)
 )
 

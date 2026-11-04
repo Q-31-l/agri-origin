@@ -57,7 +57,46 @@
 7. **基层网格化**：村级管理员对辖区农户一对多管理，农户提交数据需村管审核后进入收购/质检环节。
 8. **多端适配**：PC 管理端（数据看板、全流程后台）；H5（农户录入、拍照上传、消费者扫码）。
 
-## 五、仓库结构
+## 五、界面预览
+
+以下截图取自本工程实际启动后的运行状态（`chain.enabled=false` 演示模式，数据来自 `sql/data.sql`）。
+
+### 5.1 PC 管理端
+
+**数据看板**：批次总量、异常批次、上链成功率、状态分布与近 7 日建档趋势。
+
+![数据看板](docs/assets/screenshots/pc-02-dashboard.png)
+
+**批次管理**：支持按批次号、状态、生产主体、建档时间区间组合筛选，表格内直接展示村级核验与存证状态。
+
+![批次管理](docs/assets/screenshots/pc-03-batch-list.png)
+
+**批次详情**：档案信息、溯源二维码、全流程时间轴（含投入品与操作人）。
+
+![批次详情](docs/assets/screenshots/pc-04-batch-detail.png)
+
+**异常管控**：不合格批次自动熔断，可追溯上下游并登记处置结果。
+
+![异常管控](docs/assets/screenshots/pc-06-abnormal.png)
+
+**链上存证**：全部上链流水与回执；演示模式下如实显示未上链，不伪造交易哈希。
+
+![链上存证](docs/assets/screenshots/pc-07-chain.png)
+
+### 5.2 移动端 H5
+
+**消费者溯源**（免登录扫码）：产品档案、质检结论、链上存证校验、全流程时间轴。
+
+<img src="docs/assets/screenshots/h5-05-trace.png" width="320" alt="消费者溯源" />
+
+**农户工作台**：我的批次、农事记录、采收提交、扫码溯源四个入口。
+
+<img src="docs/assets/screenshots/h5-02-home.png" width="300" alt="农户工作台" />
+<img src="docs/assets/screenshots/h5-04-planting.png" width="300" alt="农事记录" />
+
+> 全部 14 张截图见 [docs/assets/screenshots/](docs/assets/screenshots/)，含 PC 登录/质量检测/溯源查询/系统用户与 H5 登录/批次列表。
+
+## 六、仓库结构
 
 ```
 agri-origin/
@@ -82,7 +121,7 @@ agri-origin/
 └── docs/                    # 项目说明、部署手册、测试用例、接口文档
 ```
 
-## 六、快速启动
+## 七、快速启动
 
 ### 1. 环境要求
 
@@ -137,7 +176,7 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 | seller01 | 123456 | 销售商 |
 | regulator01 | 123456 | 监管人员 |
 
-## 七、文档索引
+## 八、文档索引
 
 - [docs/README.md](docs/README.md) —— 项目详细说明与架构图
 - [docs/deploy.md](docs/deploy.md) —— 部署操作手册（本地 / 云服务器 / 链节点）
@@ -146,7 +185,7 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 - [docs/assets/README.md](docs/assets/README.md) —— 流程图、用例图、模拟质检报告与农产品图片素材
 - [contracts/README.md](contracts/README.md) —— 合约设计与部署说明
 
-## 八、验收演示路径（建议 10 分钟）
+## 九、验收演示路径（建议 10 分钟）
 
 1. 农户 H5 登录 → 提交农事记录（拍照）→ 提交采收 → 查看上链回执；
 2. 村管 PC 审核 → 生产主体创建批次并绑定农户采收数据；
@@ -156,7 +195,7 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 6. 另建批次质检"不合格" → 销售登记被拦截 → 监管处置 → 上下游追溯定位责任主体；
 7. 用农户账号调用质检接口 → 403 越权拦截；重复提交采收 → 409 重复校验。
 
-## 九、开发分工
+## 十、开发分工
 
 | 角色 | 负责目录 | 说明 |
 | --- | --- | --- |
@@ -167,6 +206,6 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 
 模块间仅通过 HTTP 接口与链上合约解耦，单模块修改不影响其他目录。
 
-## 十、License
+## 十一、License
 
 [MIT](LICENSE) © 2026 agri-origin

@@ -61,7 +61,7 @@
         <el-table-column label="存证" width="100">
           <template #default="{ row }"><ChainBadge :status="row.chainStatus" /></template>
         </el-table-column>
-        <el-table-column prop="createTime" label="建档时间" width="165" />
+        <el-table-column prop="createTime" label="建档时间" min-width="170" show-overflow-tooltip />
         <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="goDetail(row)">详情</el-button>
