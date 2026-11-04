@@ -1,0 +1,114 @@
+:root {
+  --primary: #2f9e63;
+  --primary-dark: #1f7a4c;
+  --primary-light: #eaf7f0;
+  --bg: #f4f7f5;
+  --text: #1f2d3d;
+  --text-secondary: #6b7c8f;
+  --border: #e9eef2;
+  --danger: #e05252;
+  --warning: #e6a23c;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  min-height: 100vh;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+
+.page-plain {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 12px 14px;
+  box-shadow: 0 6px 18px rgba(31, 61, 45, 0.05);
+}
+
+.muted {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.mono {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 18px 16px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.page-leave-to {
+  opacity: 0;
+}
+
+/* Vant 主题微调 */
+:root:root {
+  --van-primary-color: #2f9e63;
+  --van-success-color: #2f9e63;
+  --van-button-primary-background: #2f9e63;
+  --van-button-primary-border-color: #2f9e63;
+  --van-tabbar-item-active-color: #2f9e63;
+  --van-nav-bar-icon-color: #1f2d3d;
+}
+
+.van-nav-bar {
+  background: #fff;
+}
+
+.van-cell-group--inset {
+  margin: 12px 14px;
+  border-radius: var(--radius);
+  overflow: hidden;
+}

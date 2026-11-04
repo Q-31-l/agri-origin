@@ -1,0 +1,134 @@
+package com.agri.trace.service;
+
+import com.agri.trace.common.BizException;
+import com.agri.trace.common.Constants;
+import com.agri.trace.common.DigestHelper;
+import com.agri.trace.common.PageResult;
+import com.agri.trace.dto.AuditDTO;
+import com.agri.trace.dto.HarvestDTO;
+import com.agri.trace.entity.BizBatch;
+import com.agri.trace.entity.BizHarvestRecord;
+import com.agri.trace.mapper.BizBatchMapper;
+import com.agri.trace.mapper.BizHarvestRecordMapper;
+import com.agri.trace.security.LoginUser;
+import com.agri.trace.security.UserContext;
+import com.agri.trace.sdk.ChainResult;
+import com.agri.trace.sdk.TraceContractService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.annotation.Resource;
+
+/**
+ * 采收登记
+ */
+@Service
+public class HarvestService {
+
+    @Resource
+    private BizHarvestRecordMapper harvestMapper;
+    @Resource
+    private BizBatchMapper batchMapper;
+    @Resource
+    private BatchService batchService;
+    @Resource
+    private ChainService chainService;
+    @Resource
+    private TraceContractService contractService;
+
+    public PageResult<BizHarvestRecord> page(long page, long size, Long batchId, String batchNo) {
+        LambdaQueryWrapper<BizHarvestRecord> wrapper = Wrappers.<BizHarvestRecord>lambdaQuery()
+                .eq(batchId != null, BizHarvestRecord::getBatchId, batchId)
+                .like(batchNo != null && !batchNo.isEmpty(), BizHarvestRecord::getBatchNo, batchNo)
+                .orderByDesc(BizHarvestRecord::getId);
+        if (Constants.ROLE_FARMER.equals(UserContext.roleCode())) {
+            wrapper.eq(BizHarvestRecord::getOperatorId, UserContext.userId());
+        }
+        return PageResult.of(harvestMapper.selectPage(new Page<>(page, size), wrapper));
+    }
+
+    @Transactional
+    public Long create(HarvestDTO dto) {
+        LoginUser user = UserContext.require();
+        if (!Constants.ROLE_FARMER.equals(user.getRoleCode())
+                && !Constants.ROLE_ADMIN.equals(user.getRoleCode())) {
+            throw BizException.forbidden("仅农户可提交采收信息");
+        }
+        BizBatch batch = batchService.getById(dto.getBatchId());
+        if (Constants.ROLE_FARMER.equals(user.getRoleCode())
+                && !user.getUserId().equals(batch.getFarmerId())) {
+            throw BizException.forbidden("无权操作其他农户的批次");
+        }
+        if (Constants.BATCH_ABNORMAL.equals(batch.getStatus())) {
+            throw BizException.status("异常批次已锁定，禁止采收登记");
+        }
+        if (!Constants.AUDIT_APPROVED.equals(batch.getAuditStatus())) {
+            throw BizException.status("批次尚未通过村级核验");
+        }
+        if (!Constants.BATCH_PLANTING.equals(batch.getStatus())) {
+            throw BizException.status("该批次已采收，请勿重复提交");
+        }
+
+        // 一个批次仅允许一条采收记录
+        Long exists = harvestMapper.selectCount(Wrappers.<BizHarvestRecord>lambdaQuery()
+                .eq(BizHarvestRecord::getBatchId, dto.getBatchId()));
+        if (exists != null && exists > 0) {
+            throw BizException.conflict("该批次已存在采收记录，请勿重复提交");
+        }
+
+        BizHarvestRecord record = new BizHarvestRecord();
+        record.setBatchId(batch.getId());
+        record.setBatchNo(batch.getBatchNo());
+        record.setHarvestDate(dto.getHarvestDate());
+        record.setQuantity(dto.getQuantity());
+        record.setUnit(dto.getUnit() == null ? batch.getUnit() : dto.getUnit());
+        record.setQualityLevel(dto.getQualityLevel());
+        record.setWeather(dto.getWeather());
+        record.setOperatorId(user.getUserId());
+        record.setOperatorName(user.getRealName());
+        record.setImages(dto.getImages());
+        record.setRemark(dto.getRemark());
+        record.setAuditStatus(Constants.AUDIT_PENDING);
+        record.setChainStatus(Constants.CHAIN_NONE);
+        harvestMapper.insert(record);
+
+        String dataHash = DigestHelper.harvest(record);
+        record.setDataHash(dataHash);
+        ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_HARVEST,
+                String.valueOf(record.getId()), dataHash, null, user.getRealName());
+        record.setChainStatus(chain.getStatus());
+        record.setChainTxHash(chain.getTxHash());
+        record.setBlockNumber(chain.getBlockNumber());
+        harvestMapper.updateById(record);
+        chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_HARVEST, record.getId(),
+                "HARVEST_RECORD", dataHash, null, chain);
+
+        batch.setHarvestDate(dto.getHarvestDate());
+        batch.setStatus(Constants.BATCH_HARVESTED);
+        batchMapper.updateById(batch);
+        return record.getId();
+    }
+
+    @Transactional
+    public void audit(Long id, AuditDTO dto) {
+        BizHarvestRecord record = harvestMapper.selectById(id);
+        if (record == null) {
+            throw BizException.notFound("采收记录不存在");
+        }
+        BizBatch batch = batchService.getAuthorized(record.getBatchId());
+        LoginUser user = UserContext.require();
+        if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())
+                && !user.getVillageId().equals(batch.getVillageId())) {
+            throw BizException.forbidden("无权审核其他村的采收记录");
+        }
+        if (!Constants.AUDIT_PENDING.equals(record.getAuditStatus())) {
+            throw BizException.conflict("该记录已审核，请勿重复操作");
+        }
+        record.setAuditStatus(dto.getAuditStatus());
+        record.setAuditRemark(dto.getAuditRemark());
+        harvestMapper.updateById(record);
+    }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "agri-trace-mobile-h5",
+  "version": "1.0.0",
+  "private": true,
+  "description": "农产品溯源系统移动端（农户端 + 消费者扫码溯源）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "pinia": "^2.1.7",
+    "qrcode": "^1.5.3",
+    "vant": "^4.9.1",
+    "vue": "^3.4.27",
+    "vue-router": "^4.3.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.11"
+  }
+}

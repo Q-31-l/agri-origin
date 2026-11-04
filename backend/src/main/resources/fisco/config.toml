@@ -1,0 +1,20 @@
+[cryptoMaterial]
+# SDK 证书目录，需包含 ca.crt / sdk.crt / sdk.key
+# 从 FISCO-BCOS 节点目录 nodes/127.0.0.1/sdk/ 拷贝而来
+certPath = "conf"
+useSMCrypto = "false"
+
+[network]
+# 节点 channel 端口，build_chain.sh 默认 20200 起
+peers = ["127.0.0.1:20200", "127.0.0.1:20201"]
+
+[account]
+keyStoreDir = "account"
+accountFileFormat = "pem"
+# 留空则使用 SDK 生成的账户；生产环境建议指定固定账户
+accountAddress = ""
+
+[threadPool]
+channelProcessorThreadSize = "16"
+cardProcessorThreadSize = "16"
+maxBlockingQueueSize = "102400"

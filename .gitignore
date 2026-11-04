@@ -1,0 +1,62 @@
+# ---------- Java / Maven ----------
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+backend/logs/
+logs/
+*.log
+
+# ---------- Node ----------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- IDE ----------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+*.swo
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Runtime / upload ----------
+uploads/
+backend/uploads/
+/tmp/
+*.tmp
+
+# ---------- FISCO-BCOS 节点与证书（按需保留，勿提交私钥） ----------
+nodes/
+127.0.0.1/
+*.pem
+!backend/src/main/resources/fisco/*.pem
+ca.crt
+sdk.crt
+sdk.key
+
+# ---------- Env ----------
+.env
+.env.*
+!.env.example
+
+# 合约部署时释放的 SDK 配置目录
+chain-conf/
+account/
