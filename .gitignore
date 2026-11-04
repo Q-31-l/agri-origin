@@ -60,3 +60,6 @@ sdk.key
 # 合约部署时释放的 SDK 配置目录
 chain-conf/
 account/
+
+# 本地工作区数据（IDE/助手缓存）
+.workbuddy/
