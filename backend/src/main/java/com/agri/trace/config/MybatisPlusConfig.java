@@ -3,12 +3,15 @@ package com.agri.trace.config;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * MyBatis-Plus 配置：分页插件 + 全表更新/删除拦截
+ * MyBatis-Plus 配置：分页插件 + 乐观锁 + 全表更新/删除拦截
+ *
+ * <p>插件顺序遵循官方建议：多租户/动态表名 → 分页 → 乐观锁 → 防全表更新。
  */
 @Configuration
 public class MybatisPlusConfig {
@@ -20,6 +23,7 @@ public class MybatisPlusConfig {
         pagination.setMaxLimit(200L);
         pagination.setOverflow(false);
         interceptor.addInnerInterceptor(pagination);
+        interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         interceptor.addInnerInterceptor(new BlockAttackInnerInterceptor());
         return interceptor;
     }

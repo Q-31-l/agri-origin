@@ -1,0 +1,41 @@
+/* 跨端标签差异修正 */
+page {
+  background: $bg-page;
+  color: $text-1;
+  font-size: $fs;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  line-height: 1.55;
+}
+
+view,
+text,
+image,
+scroll-view,
+input,
+textarea,
+button {
+  box-sizing: border-box;
+}
+
+image {
+  display: block;
+}
+
+/* 去掉 button 默认样式 */
+button {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border-radius: 0;
+  line-height: normal;
+  font-size: $fs;
+}
+button::after {
+  border: none;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}

@@ -1,0 +1,375 @@
+{
+  "easycom": {
+    "autoscan": true
+  },
+  "pages": [
+    {
+      "path": "pages/launch/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "农安链溯源"
+      }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/auth/wx-bind",
+      "style": {
+        "navigationBarTitleText": "绑定账号"
+      }
+    },
+    {
+      "path": "pages/auth/password",
+      "style": {
+        "navigationBarTitleText": "修改密码"
+      }
+    },
+    {
+      "path": "pages/tabbar/home",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "工作台",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/tabbar/batch",
+      "style": {
+        "navigationBarTitleText": "我的批次",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/tabbar/trace",
+      "style": {
+        "navigationBarTitleText": "扫码溯源"
+      }
+    },
+    {
+      "path": "pages/tabbar/mine",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/batch/list",
+      "style": {
+        "navigationBarTitleText": "批次管理",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/batch/detail",
+      "style": {
+        "navigationBarTitleText": "批次详情",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/batch/create",
+      "style": {
+        "navigationBarTitleText": "新建批次"
+      }
+    },
+    {
+      "path": "pages/batch/edit",
+      "style": {
+        "navigationBarTitleText": "编辑批次"
+      }
+    },
+    {
+      "path": "pages/planting/list",
+      "style": {
+        "navigationBarTitleText": "农事记录",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/planting/form",
+      "style": {
+        "navigationBarTitleText": "新增农事记录"
+      }
+    },
+    {
+      "path": "pages/harvest/form",
+      "style": {
+        "navigationBarTitleText": "采收登记"
+      }
+    },
+    {
+      "path": "pages/quality/list",
+      "style": {
+        "navigationBarTitleText": "质量检测",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/quality/form",
+      "style": {
+        "navigationBarTitleText": "质检录入"
+      }
+    },
+    {
+      "path": "pages/logistics/form",
+      "style": {
+        "navigationBarTitleText": "物流登记"
+      }
+    },
+    {
+      "path": "pages/sales/form",
+      "style": {
+        "navigationBarTitleText": "销售登记"
+      }
+    },
+    {
+      "path": "pages/abnormal/index",
+      "style": {
+        "navigationBarTitleText": "异常管控",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/chain/index",
+      "style": {
+        "navigationBarTitleText": "链上存证",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/trace/index",
+      "style": {
+        "navigationBarTitleText": "溯源查询"
+      }
+    },
+    {
+      "path": "pages/common/403",
+      "style": {
+        "navigationBarTitleText": "无权访问"
+      }
+    },
+    {
+      "path": "pages/common/404",
+      "style": {
+        "navigationBarTitleText": "页面不存在"
+      }
+    },
+    {
+      "path": "pages/common/settings",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
+    },
+    // #ifdef H5
+    {
+      "path": "pages-pc/dashboard/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "数据看板"
+      }
+    },
+    {
+      "path": "pages-pc/batch/list",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "批次管理"
+      }
+    },
+    {
+      "path": "pages-pc/batch/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "批次详情"
+      }
+    },
+    {
+      "path": "pages-pc/planting/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "农事记录"
+      }
+    },
+    {
+      "path": "pages-pc/harvest/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "采收登记"
+      }
+    },
+    {
+      "path": "pages-pc/quality/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "质量检测"
+      }
+    },
+    {
+      "path": "pages-pc/logistics/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "物流运输"
+      }
+    },
+    {
+      "path": "pages-pc/sales/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "销售管理"
+      }
+    },
+    {
+      "path": "pages-pc/abnormal/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "异常管控"
+      }
+    },
+    {
+      "path": "pages-pc/chain/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "链上存证"
+      }
+    },
+    {
+      "path": "pages-pc/trace/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "溯源查询"
+      }
+    },
+    {
+      "path": "pages-pc/system/user",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "用户与角色"
+      }
+    },
+    {
+      "path": "pages-pc/system/farm",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "农场档案"
+      }
+    },
+    {
+      "path": "pages-pc/system/product",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "产品品类"
+      }
+    },
+    {
+      "path": "pages-pc/system/log",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "操作日志"
+      }
+    },
+    // #endif
+    // #ifdef MP-WEIXIN
+    {
+      "path": "pages-mp/poster/index",
+      "style": {
+        "navigationBarTitleText": "分享海报"
+      }
+    },
+    {
+      "path": "pages-mp/subscribe/index",
+      "style": {
+        "navigationBarTitleText": "消息订阅"
+      }
+    },
+    {
+      "path": "pages-mp/privacy/index",
+      "style": {
+        "navigationBarTitleText": "隐私保护指引"
+      }
+    },
+    // #endif
+    // #ifdef APP-PLUS
+    {
+      "path": "pages-app/update/index",
+      "style": {
+        "navigationBarTitleText": "版本更新"
+      }
+    },
+    {
+      "path": "pages-app/permission/index",
+      "style": {
+        "navigationBarTitleText": "权限说明"
+      }
+    },
+    {
+      "path": "pages-app/about/index",
+      "style": {
+        "navigationBarTitleText": "关于"
+      }
+    }
+    // #endif
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "农安链溯源",
+    "navigationBarBackgroundColor": "#1f7a4d",
+    "backgroundColor": "#f4f6f8",
+    "backgroundColorTop": "#f4f6f8",
+    "backgroundColorBottom": "#f4f6f8",
+    "rpxCalcMaxDeviceWidth": 960,
+    "rpxCalcBaseDeviceWidth": 375,
+    "rpxCalcIncludeWidth": 750
+  },
+  "tabBar": {
+    "color": "#8a94a6",
+    "selectedColor": "#1f7a4d",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "fontSize": "10px",
+    "list": [
+      {
+        "pagePath": "pages/tabbar/home",
+        "text": "工作台",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/tabbar/batch",
+        "text": "批次",
+        "iconPath": "static/tabbar/batch.png",
+        "selectedIconPath": "static/tabbar/batch-active.png"
+      },
+      {
+        "pagePath": "pages/tabbar/trace",
+        "text": "溯源",
+        "iconPath": "static/tabbar/trace.png",
+        "selectedIconPath": "static/tabbar/trace-active.png"
+      },
+      {
+        "pagePath": "pages/tabbar/mine",
+        "text": "我的",
+        "iconPath": "static/tabbar/mine.png",
+        "selectedIconPath": "static/tabbar/mine-active.png"
+      }
+    ]
+  },
+  "condition": {
+    "current": 0,
+    "list": [
+      {
+        "name": "批次详情",
+        "path": "pages/batch/detail",
+        "query": "id=1"
+      },
+      {
+        "name": "溯源页",
+        "path": "pages/trace/index",
+        "query": "code=AGRI20241101001"
+      }
+    ]
+  }
+}

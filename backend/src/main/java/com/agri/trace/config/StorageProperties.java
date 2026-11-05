@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public class StorageProperties {
 
     private String uploadDir = "./uploads";
-    private String allowedExt = "jpg,jpeg,png,webp,pdf";
-    private long maxSize = 20 * 1024 * 1024L;
+    private String allowedExt = "jpg,jpeg,png,webp,pdf,mp4,mov,m4v,webm";
+    private long maxSize = 100 * 1024 * 1024L;
     private String publicPrefix = "/api/file/download/";
 }

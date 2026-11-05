@@ -2,6 +2,7 @@ package com.agri.trace.service;
 
 import com.agri.trace.common.BizException;
 import com.agri.trace.common.Constants;
+import com.agri.trace.common.Db;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.dto.FarmDTO;
 import com.agri.trace.dto.ProductDTO;
@@ -151,7 +152,7 @@ public class BaseDataService {
         farm.setWaterSource(dto.getWaterSource());
         farm.setCertNo(dto.getCertNo());
         farm.setStatus(dto.getStatus() == null ? farm.getStatus() : dto.getStatus());
-        farmMapper.updateById(farm);
+        Db.updated(farmMapper.updateById(farm));
     }
 
     private String generateFarmCode(BaseVillage village) {

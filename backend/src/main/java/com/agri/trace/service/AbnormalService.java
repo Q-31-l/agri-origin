@@ -2,6 +2,7 @@ package com.agri.trace.service;
 
 import com.agri.trace.common.BizException;
 import com.agri.trace.common.Constants;
+import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.dto.DisposeDTO;
@@ -18,6 +19,7 @@ import com.agri.trace.security.UserContext;
 import com.agri.trace.sdk.ChainResult;
 import com.agri.trace.sdk.TraceContractService;
 import com.agri.trace.vo.AbnormalTraceVO;
+import com.agri.trace.vo.EvidenceVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -50,6 +52,10 @@ public class AbnormalService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private com.agri.trace.websocket.TraceWebSocketHandler wsHandler;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizAbnormalDisposal> page(long page, long size, String batchNo, String status) {
         LambdaQueryWrapper<BizAbnormalDisposal> wrapper = Wrappers.<BizAbnormalDisposal>lambdaQuery()
@@ -65,7 +71,7 @@ public class AbnormalService {
         if (disposal == null) {
             throw BizException.notFound("异常处置记录不存在");
         }
-        if ("FINISHED".equals(disposal.getStatus())) {
+        if (Constants.ABNORMAL_DONE.equals(disposal.getStatus())) {
             throw BizException.conflict("该异常已处置完成，请勿重复提交");
         }
         LoginUser user = UserContext.require();
@@ -74,24 +80,38 @@ public class AbnormalService {
         disposal.setHandlerId(user.getUserId());
         disposal.setHandlerName(user.getRealName());
         disposal.setHandleTime(LocalDateTime.now());
-        disposal.setStatus("FINISHED");
+        disposal.setStatus(Constants.ABNORMAL_DONE);
 
-        String disposalHash = DigestHelper.disposal(disposal);
+        // 实证绑定：图片 / 视频先挂到本条处置记录，再算"证据根哈希"并入上链摘要。
+        // 于是链上存证覆盖的不只是处置文字，还有每一张现场照片、每一段处置视频。
+        List<EvidenceVO> evidences = fileService.bindEvidence(
+                dto.getEvidenceIds(), Constants.EVENT_DISPOSAL, disposal.getId());
+        String evidenceHash = fileService.evidenceHash(evidences);
+
+        String disposalHash = DigestHelper.disposal(disposal, evidenceHash);
         disposal.setDisposalHash(disposalHash);
+
+        // 先落库做版本比对，再上链。
+        // 顺序很关键：并发的第二个人会在这里就拿到 409，
+        // 而不是在链上留下一条重复的"处置完成"存证（链上记录删不掉）。
+        Db.updated(abnormalMapper.updateById(disposal));
+
         BizBatch batch = batchMapper.selectById(disposal.getBatchId());
         ChainResult chain = contractService.disposeAbnormal(disposal.getBatchNo(),
                 dto.getDisposalResult(), disposalHash, user.getRealName());
         disposal.setChainStatus(chain.getStatus());
         disposal.setChainTxHash(chain.getTxHash());
         disposal.setBlockNumber(chain.getBlockNumber());
-        abnormalMapper.updateById(disposal);
+        Db.updated(abnormalMapper.updateById(disposal));
         chainService.saveRecord(disposal.getBatchNo(), Constants.EVENT_DISPOSAL, disposal.getId(),
-                "ABNORMAL_DISPOSAL", disposalHash, null, chain);
+                "ABNORMAL_DISPOSAL", disposalHash, evidenceHash, chain);
 
         if (batch != null && Constants.BATCH_ABNORMAL.equals(batch.getStatus())) {
             batch.setAbnormalFlag(1);
-            batchMapper.updateById(batch);
+            Db.updated(batchMapper.updateById(batch));
         }
+
+        wsHandler.broadcast("abnormal", disposal.getBatchNo(), "DISPOSE", "异常处置已登记");
     }
 
     /**
@@ -108,17 +128,20 @@ public class AbnormalService {
         }
         Long unfinished = abnormalMapper.selectCount(Wrappers.<BizAbnormalDisposal>lambdaQuery()
                 .eq(BizAbnormalDisposal::getBatchId, batchId)
-                .ne(BizAbnormalDisposal::getStatus, "FINISHED"));
+                .ne(BizAbnormalDisposal::getStatus, Constants.ABNORMAL_DONE));
         if (unfinished != null && unfinished > 0) {
             throw BizException.status("存在未完成的处置任务，无法结案");
         }
         LoginUser user = UserContext.require();
         String closeHash = DigestHelper.close(batch.getBatchNo());
-        ChainResult chain = contractService.closeBatch(batch.getBatchNo(), closeHash, user.getRealName());
+        // 同上：先落库再上链，避免并发结案在链上留下两条闭合存证
         batch.setStatus(Constants.BATCH_CLOSED);
-        batchMapper.updateById(batch);
+        Db.updated(batchMapper.updateById(batch));
+        ChainResult chain = contractService.closeBatch(batch.getBatchNo(), closeHash, user.getRealName());
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_CLOSE, batch.getId(),
                 "BATCH_CLOSE", closeHash, null, chain);
+
+        wsHandler.broadcast("batch", batch.getBatchNo(), "CLOSE", "异常批次已结案");
     }
 
     /**
@@ -136,9 +159,29 @@ public class AbnormalService {
 
         AbnormalTraceVO vo = new AbnormalTraceVO();
         vo.setBatch(batch);
-        vo.setDisposals(abnormalMapper.selectList(Wrappers.<BizAbnormalDisposal>lambdaQuery()
-                .eq(BizAbnormalDisposal::getBatchId, batch.getId())
-                .orderByAsc(BizAbnormalDisposal::getId)));
+        List<BizAbnormalDisposal> disposals = abnormalMapper.selectList(
+                Wrappers.<BizAbnormalDisposal>lambdaQuery()
+                        .eq(BizAbnormalDisposal::getBatchId, batch.getId())
+                        .orderByAsc(BizAbnormalDisposal::getId));
+        vo.setDisposals(disposals);
+
+        // 每条处置的实证材料：异常上报（ABNORMAL）与处置完成（DISPOSAL）两阶段合并
+        List<Long> disposalIds = new ArrayList<>();
+        for (BizAbnormalDisposal d : disposals) {
+            disposalIds.add(d.getId());
+        }
+        Map<String, List<EvidenceVO>> reported = fileService.evidenceMap(Constants.EVENT_ABNORMAL, disposalIds);
+        Map<String, List<EvidenceVO>> handled = fileService.evidenceMap(Constants.EVENT_DISPOSAL, disposalIds);
+        Map<Long, List<EvidenceVO>> evidenceByDisposal = new LinkedHashMap<>();
+        for (Long did : disposalIds) {
+            List<EvidenceVO> merged = new ArrayList<>();
+            merged.addAll(reported.getOrDefault(Constants.EVENT_ABNORMAL + "#" + did, new ArrayList<>()));
+            merged.addAll(handled.getOrDefault(Constants.EVENT_DISPOSAL + "#" + did, new ArrayList<>()));
+            if (!merged.isEmpty()) {
+                evidenceByDisposal.put(did, merged);
+            }
+        }
+        vo.setEvidences(evidenceByDisposal);
 
         // 上游：同农户/同地块的更早批次
         vo.setUpstream(batchMapper.selectList(Wrappers.<BizBatch>lambdaQuery()

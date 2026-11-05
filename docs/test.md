@@ -510,6 +510,73 @@ curl http://localhost:8080/api/chain/verify/AG20260512001 \
 | 步骤 | 在 1366×768 与 1920×1080 下浏览看板与表格页 |
 | 预期 | 侧边栏可折叠；表格出现横向滚动条而非挤压变形；图表自适应宽度 |
 
+#### TC-UNI-01 一套代码三端分发
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | `frontend/uni-app` 执行 `npm run build:h5` 与 `npm run build:mp-weixin` |
+| 预期 | 两个产物均编译成功；H5 ≤ 2MB；小程序 `app.json` 中 `pages` 不含任何 `pages-pc/*`，`tabBar` 为 4 项 |
+| 实测 | 通过（2026-11-05）：H5 1.5MB；小程序 28 页 / 0 个 `pages-pc` / tabBar 4 项 |
+
+#### TC-UNI-02 屏宽自动分发
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | H5 以 1440×900 打开 `http://localhost:5173`，再以 390×844 打开同一地址 |
+| 预期 | 宽屏落在 `/pages-pc/dashboard/index`；窄屏落在移动工作台 `/pages/tabbar/home` |
+| 实测 | 通过：1440×900 → PC 管理台，14 个页面均可访问 |
+
+#### TC-UNI-03 微信登录绑定闭环
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | ① `POST /auth/wx-login` 首次 → ② 拿 `bindTicket` 调 `POST /auth/wx-bind`（admin/123456）→ ③ 再次 `POST /auth/wx-login` → ④ `GET /auth/wx-status` → ⑤ `POST /auth/wx-unbind` → ⑥ 再次 `POST /auth/wx-login` |
+| 预期 | ① `needBind=true` 且有 `bindTicket`；② 返回与账号密码登录同结构的 `token/user/permissions`；③ 直接返回 token，不再要求绑定；④ `true`；⑤ 成功；⑥ 回到 `needBind=true` |
+| 实测 | 全部通过；错误密码绑定返回 `401 账号或密码错误`；重复绑定他人微信返回 409 |
+
+#### TC-UNI-04 三端实时同步（WebSocket）
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | PC 端停在批次列表不动，从另一个客户端（模拟小程序端）调用 `POST /batch/{id}/audit` 核验一个 PENDING 批次 |
+| 预期 | PC 列表在数秒内自动刷新，该行"审核"按钮消失，用户未做任何点击或刷新 |
+| 实测 | 通过：3 秒内完成，行文本由「… 种植中 未存证 详情 核验 审核」变为「… 种植中 未存证 详情 核验」 |
+| 说明 | 服务端 `/api/ws?token=` 广播 `{"type":"batch","action":"AUDIT"}`，客户端收到后标记缓存脏 + 刷新当前页 |
+
+#### TC-UNI-05 三端账号与数据一致性
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 同一账号 `farmer01` 分别在 H5、小程序（开发者工具）、App 登录，一端新增农事记录后，另外两端下拉刷新 |
+| 预期 | 三端 `userId/roleCode/permissions` 完全一致；新增记录在另外两端可见；无任何端使用本地库，全部走同一 REST 接口 |
+| 说明 | 后端 JWT 无状态（12h、无 Redis 单点限制），三端并发登录互不影响 |
+
+#### TC-UNI-06 令牌静默续期
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | ① 正常登录 → ② 把 `localStorage.agri_token` 改成非法值（模拟 access 过期），保留 `agri_refresh_token` → ③ 刷新页面并进入批次列表 → ④ 清掉 refresh 后重复一次 |
+| 预期 | ② 登录返回 `token` + `refreshToken`；③ 自动调 `/auth/refresh` 换新并在新 token 下重放原请求，列表正常出数、**不跳登录页**；④ refresh 也失效时才 `reLaunch` 到登录页 |
+| 实测 | 通过（`node scripts/e2e-refresh.js`，四项断言全 PASS，控制台仅剩故意制造的 401） |
+| 补充 | 两个 token 靠 `typ` 声明隔离：refresh 塞进 `Authorization` 头 → 401；access 调 `/auth/refresh` → 401（均已实测） |
+
+#### TC-UNI-07 并发修改冲突（乐观锁）
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 对同一 PENDING 批次同时发起 60 个 `POST /batch/{id}/audit`（`node <temp>/race.js 11 60`） |
+| 预期 | 只有 1 个 200；其余全部 409，且**不出现两条"核验通过"**；数据库 `version` 只 +1 |
+| 实测 | 通过：`{"200":1,"409":59}`；其中 54 次由"该批次已核验"前置校验拦下，**5 次通过前置校验后被 `AND version=?` 拦下**，说明乐观锁在真正兜底 |
+| 补充 | 生成的 SQL 含 `WHERE id=? AND version=? AND deleted=0`；`AbnormalService.dispose/close` 已改为"先落库再上链"，避免并发冲突在链上留下重复存证 |
+
+#### TC-UNI-08 微信 App 端登录（开放平台）
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | ① `POST /auth/wx-app-login {"code":"x"}` → ② 用票据绑定 admin → ③ 再次 App 登录 → ④ `GET /auth/wx-status?platform=app` 与 `?platform=mp` → ⑤ `POST /auth/wx-unbind?platform=app` → ⑥ 再次 App 登录 |
+| 预期 | ① `needBind=true` + 票据；② 返回 token 且写库落在 `wx_app_openid`；③ 直接出 token；④ app=`true`、mp=`false`（两端绑定互相独立）；⑤ 成功；⑥ 回到 `needBind=true` |
+| 实测 | 全部通过（未配置开放平台资质时 App 端独立 mock，日志显式提示 `mock-app-openid-local-demo`） |
+
 ---
 
 ### 3.9 文件上传与摘要

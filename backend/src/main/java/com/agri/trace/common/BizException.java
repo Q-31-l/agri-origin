@@ -43,6 +43,15 @@ public class BizException extends RuntimeException {
         return new BizException(ResultCode.CONFLICT, message);
     }
 
+    /**
+     * 乐观锁冲突：updateById 影响行数为 0，说明记录已被其他会话修改。
+     *
+     * <p>用 409 而不是 400，前端可以据此区分"并发冲突"并自动刷新列表。
+     */
+    public static BizException stale() {
+        return new BizException(ResultCode.CONFLICT, "该记录已被他人修改，请刷新后重新操作");
+    }
+
     public static BizException status(String message) {
         return new BizException(ResultCode.STATUS_INVALID, message);
     }

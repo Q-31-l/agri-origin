@@ -2,6 +2,7 @@ package com.agri.trace.service;
 
 import com.agri.trace.common.BizException;
 import com.agri.trace.common.Constants;
+import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.dto.AuditDTO;
@@ -108,7 +109,7 @@ public class HarvestService {
 
         batch.setHarvestDate(dto.getHarvestDate());
         batch.setStatus(Constants.BATCH_HARVESTED);
-        batchMapper.updateById(batch);
+        Db.updated(batchMapper.updateById(batch));
         return record.getId();
     }
 

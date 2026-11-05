@@ -2,6 +2,7 @@ package com.agri.trace.service;
 
 import com.agri.trace.common.BizException;
 import com.agri.trace.common.Constants;
+import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.dto.QualityDTO;
@@ -134,7 +135,7 @@ public class QualityService {
 
         if ("PASS".equals(dto.getInspectResult())) {
             batch.setStatus(Constants.BATCH_QUALIFIED);
-            batchMapper.updateById(batch);
+            Db.updated(batchMapper.updateById(batch));
         } else {
             markAbnormal(batch, report, user);
         }
@@ -147,7 +148,7 @@ public class QualityService {
     private void markAbnormal(BizBatch batch, BizQualityReport report, LoginUser inspector) {
         batch.setStatus(Constants.BATCH_ABNORMAL);
         batch.setAbnormalFlag(1);
-        batchMapper.updateById(batch);
+        Db.updated(batchMapper.updateById(batch));
 
         BizAbnormalDisposal disposal = new BizAbnormalDisposal();
         disposal.setBatchId(batch.getId());
@@ -163,6 +164,7 @@ public class QualityService {
         disposal.setHandleTime(LocalDateTime.now());
         disposal.setChainStatus(Constants.CHAIN_NONE);
         abnormalMapper.insert(disposal);
+        disposal.setVersion(0);
 
         String abnormalHash = DigestHelper.abnormal(disposal);
         disposal.setAbnormalHash(abnormalHash);
@@ -171,7 +173,7 @@ public class QualityService {
         disposal.setChainStatus(chain.getStatus());
         disposal.setChainTxHash(chain.getTxHash());
         disposal.setBlockNumber(chain.getBlockNumber());
-        abnormalMapper.updateById(disposal);
+        Db.updated(abnormalMapper.updateById(disposal));
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_ABNORMAL, disposal.getId(),
                 "QUALITY_FAIL", abnormalHash, report.getFileHash(), chain);
     }

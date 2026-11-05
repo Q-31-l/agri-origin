@@ -7,6 +7,7 @@ import com.agri.trace.entity.SysFile;
 import com.agri.trace.mapper.SysFileMapper;
 import com.agri.trace.security.UserContext;
 import com.agri.trace.sdk.HashUtil;
+import com.agri.trace.vo.EvidenceVO;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,11 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -84,6 +89,7 @@ public class FileService {
             result.put("filePath", properties.getPublicPrefix() + record.getId());
             result.put("fileHash", hash);
             result.put("fileSize", record.getFileSize());
+            result.put("mediaType", mediaType(record));
             return result;
         } catch (IOException e) {
             log.error("文件上传失败", e);
@@ -102,6 +108,120 @@ public class FileService {
     public SysFile findByHash(String hash) {
         return fileMapper.selectOne(Wrappers.<SysFile>lambdaQuery()
                 .eq(SysFile::getFileHash, hash).last("limit 1"));
+    }
+
+    // ---------------- 实证材料（图片 / 视频） ----------------
+
+    /**
+     * 处置等动作提交时，把此前以 bizId=空 上传的临时文件绑定到业务记录上。
+     * 只允许绑定"尚未归属"的文件，避免把别人已挂到其它记录的证据抢过来。
+     *
+     * @return 绑定成功的实证列表（顺序与入参一致）
+     */
+    public List<EvidenceVO> bindEvidence(List<Long> ids, String bizType, Long bizId) {
+        List<EvidenceVO> result = new ArrayList<>();
+        if (ids == null || ids.isEmpty()) {
+            return result;
+        }
+        for (Long id : ids) {
+            if (id == null) {
+                continue;
+            }
+            SysFile f = fileMapper.selectById(id);
+            if (f == null) {
+                throw BizException.badRequest("实证文件不存在或已被删除（id=" + id + "）");
+            }
+            if (f.getBizId() != null && !f.getBizId().equals(bizId)) {
+                throw BizException.badRequest("实证文件已归属其它记录，请重新上传");
+            }
+            f.setBizType(bizType);
+            f.setBizId(bizId);
+            fileMapper.updateById(f);
+            result.add(toEvidence(f));
+        }
+        return result;
+    }
+
+    /** 按业务类型 + 记录 id 批量取实证，返回 key 为 "bizType#id" 的分组 */
+    public Map<String, List<EvidenceVO>> evidenceMap(String bizType, Collection<Long> ids) {
+        Map<String, List<EvidenceVO>> map = new LinkedHashMap<>();
+        if (ids == null || ids.isEmpty()) {
+            return map;
+        }
+        List<SysFile> files = fileMapper.selectList(Wrappers.<SysFile>lambdaQuery()
+                .eq(SysFile::getBizType, bizType)
+                .in(SysFile::getBizId, ids)
+                .orderByAsc(SysFile::getId));
+        for (SysFile f : files) {
+            map.computeIfAbsent(bizType + "#" + f.getBizId(), k -> new ArrayList<>()).add(toEvidence(f));
+        }
+        return map;
+    }
+
+    public List<EvidenceVO> listEvidence(String bizType, Long bizId) {
+        List<SysFile> files = fileMapper.selectList(Wrappers.<SysFile>lambdaQuery()
+                .eq(SysFile::getBizType, bizType)
+                .eq(SysFile::getBizId, bizId)
+                .orderByAsc(SysFile::getId));
+        List<EvidenceVO> list = new ArrayList<>();
+        for (SysFile f : files) {
+            list.add(toEvidence(f));
+        }
+        return list;
+    }
+
+    /**
+     * 实证联合摘要：把全部证据哈希排序后再次摘要，得到一枚"证据根哈希"。
+     * 它随业务摘要一起上链——任何一张图、一段视频被替换，根哈希都会变。
+     */
+    public String evidenceHash(List<EvidenceVO> evidences) {
+        if (evidences == null || evidences.isEmpty()) {
+            return null;
+        }
+        List<String> hashes = new ArrayList<>();
+        for (EvidenceVO e : evidences) {
+            if (e.getHash() != null) {
+                hashes.add(e.getHash());
+            }
+        }
+        if (hashes.isEmpty()) {
+            return null;
+        }
+        Collections.sort(hashes);
+        return HashUtil.digestOf("EVIDENCE", String.join(",", hashes));
+    }
+
+    public EvidenceVO toEvidence(SysFile f) {
+        EvidenceVO vo = new EvidenceVO();
+        vo.setId(f.getId());
+        vo.setName(f.getOriginalName() == null ? f.getFileName() : f.getOriginalName());
+        vo.setUrl(properties.getPublicPrefix() + f.getId());
+        vo.setMediaType(mediaType(f));
+        vo.setContentType(f.getContentType());
+        vo.setSize(f.getFileSize());
+        vo.setHash(f.getFileHash());
+        vo.setCreateTime(f.getCreateTime() == null ? null
+                : f.getCreateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        return vo;
+    }
+
+    private String mediaType(SysFile f) {
+        String ct = f.getContentType() == null ? "" : f.getContentType().toLowerCase();
+        if (ct.startsWith("video/")) {
+            return EvidenceVO.VIDEO;
+        }
+        if (ct.startsWith("image/")) {
+            return EvidenceVO.IMAGE;
+        }
+        String ext = FileUtil.extName(f.getFileName()).toLowerCase();
+        if ("mp4".equals(ext) || "mov".equals(ext) || "m4v".equals(ext) || "webm".equals(ext)) {
+            return EvidenceVO.VIDEO;
+        }
+        if ("jpg".equals(ext) || "jpeg".equals(ext) || "png".equals(ext) || "webp".equals(ext)
+                || "gif".equals(ext)) {
+            return EvidenceVO.IMAGE;
+        }
+        return EvidenceVO.FILE;
     }
 
     public void download(Long id, HttpServletResponse response) {

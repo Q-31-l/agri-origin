@@ -21,8 +21,8 @@ spring:
       pool-name: AgriHikariPool
   servlet:
     multipart:
-      max-file-size: 20MB
-      max-request-size: 40MB
+      max-file-size: 100MB
+      max-request-size: 120MB
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
@@ -49,7 +49,10 @@ mybatis-plus:
 # ---------------- JWT ----------------
 jwt:
   secret: agri-origin-fisco-bcos-traceability-secret-key-2026
+  # 访问令牌有效期（小时）
   expire-hours: 12
+  # 刷新令牌有效期（天）：access token 过期后前端静默换发，用户无感
+  refresh-expire-days: 7
   header: Authorization
   prefix: "Bearer "
 
@@ -69,9 +72,30 @@ chain:
 # ---------------- 本地文件存储 ----------------
 storage:
   upload-dir: ./uploads
-  allowed-ext: jpg,jpeg,png,webp,pdf
-  max-size: 20971520
+  # 图片 / 报告 / 现场视频（异常处置与环节实证可上传视频）
+  allowed-ext: jpg,jpeg,png,webp,pdf,mp4,mov,m4v,webm
+  max-size: 104857600
   public-prefix: /api/file/download/
+
+# ---------------- 溯源二维码 ----------------
+app:
+  # 二维码内容 = 该前缀 + 溯源码，指向 H5 溯源页
+  trace-url-prefix: ${TRACE_URL_PREFIX:http://localhost:5173/pages/trace/index?code=}
+  # ---------------- 微信登录（小程序 + App 双端） ----------------
+  # 任一端未填 appid/secret（或 mock-enabled=true）时，该端进入 mock 模式：
+  # 不请求微信服务器，使用该端固定模拟 openid，可完整验证「首次绑定 → 直接登录」链路。
+  # 真机联调：小程序填小程序后台的 AppID/AppSecret；App 填开放平台移动应用的 AppID/AppSecret。
+  # 注意两端 appid 不同、换回的 openid 也不同，服务端分列存储（wx_openid / wx_app_openid）。
+  wx:
+    # 小程序（sns/jscode2session）
+    appid: ${WX_APPID:}
+    secret: ${WX_SECRET:}
+    # App / 移动应用（sns/oauth2/access_token）
+    app-appid: ${WX_APP_APPID:}
+    app-secret: ${WX_APP_SECRET:}
+    # 显式强制 mock，一般保持 false，靠 appid/secret 是否为空自动判断即可
+    mock-enabled: ${WX_MOCK:false}
+    timeout-ms: 5000
 
 logging:
   level:

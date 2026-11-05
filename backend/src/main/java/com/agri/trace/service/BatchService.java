@@ -2,6 +2,7 @@ package com.agri.trace.service;
 
 import com.agri.trace.common.BizException;
 import com.agri.trace.common.Constants;
+import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.common.ResultCode;
@@ -37,6 +38,7 @@ import com.agri.trace.security.UserContext;
 import com.agri.trace.sdk.ChainResult;
 import com.agri.trace.sdk.TraceContractService;
 import com.agri.trace.vo.BatchDetailVO;
+import com.agri.trace.vo.EvidenceVO;
 import com.agri.trace.vo.TimelineItem;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -91,6 +93,12 @@ public class BatchService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private com.agri.trace.websocket.TraceWebSocketHandler wsHandler;
+    @Resource
+    private TrustScoreService trustScoreService;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizBatch> page(long page, long size, String keyword, String status,
                                      Integer abnormalFlag, Long villageId) {
@@ -215,13 +223,16 @@ public class BatchService {
         batch.setRemark(dto.getRemark());
         batch.setCreateBy(user.getUserId());
         batchMapper.insert(batch);
+        // 插入时 version 由数据库默认值 0 兜底，实体里仍是 null；
+        // 回填后紧接着的上链状态回写才会带上版本条件，避免 MyBatis-Plus 打 warn 并跳过锁
+        batch.setVersion(0);
 
         String dataHash = DigestHelper.batch(batch);
         ChainResult chain = contractService.registerBatch(batch, dataHash, user.getRealName());
         batch.setChainStatus(chain.getStatus());
         batch.setChainTxHash(chain.getTxHash());
         batch.setBlockNumber(chain.getBlockNumber());
-        batchMapper.updateById(batch);
+        Db.updated(batchMapper.updateById(batch));
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_BATCH, batch.getId(),
                 "BATCH_REGISTER", dataHash, null, chain);
 
@@ -241,7 +252,7 @@ public class BatchService {
             throw BizException.status("批次已通过村级核验，不可修改；如有错误请提交更正说明");
         }
         batch.setRemark(dto.getRemark());
-        batchMapper.updateById(batch);
+        Db.updated(batchMapper.updateById(batch));
     }
 
     /**
@@ -266,7 +277,11 @@ public class BatchService {
         batch.setAuditBy(user.getRealName());
         batch.setAuditTime(LocalDateTime.now());
         batch.setAuditRemark(dto.getAuditRemark());
-        batchMapper.updateById(batch);
+        // 两位村管同时点"通过"时，后到的那次会在这里拿到 0 行 → 409，而不是把前一次的结果悄悄覆盖
+        Db.updated(batchMapper.updateById(batch));
+
+        wsHandler.broadcast("batch", batch.getBatchNo(), "AUDIT",
+                Constants.AUDIT_APPROVED.equals(dto.getAuditStatus()) ? "批次已核验通过" : "批次核验未通过");
     }
 
     /**
@@ -316,6 +331,7 @@ public class BatchService {
                 .eq(BizCorrection::getBatchId, id).orderByAsc(BizCorrection::getId)));
         vo.setChainRecords(chainService.listByBatch(batch.getBatchNo()));
         vo.setTimeline(buildTimeline(vo));
+        vo.setTrust(trustScoreService.evaluate(vo));
         return vo;
     }
 
@@ -328,6 +344,16 @@ public class BatchService {
         for (ChainRecord record : vo.getChainRecords()) {
             chainMap.put(record.getBizType() + "#" + record.getBizId(), record);
         }
+
+        // 实证索引：key = "业务类型#记录id"，一次批量查齐，避免逐条 N+1
+        Map<String, List<EvidenceVO>> evidence = new HashMap<>();
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_PLANTING, idsOfPlanting(vo)));
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_HARVEST, idsOfHarvest(vo)));
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_QUALITY, idsOfQuality(vo)));
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_LOGISTICS, idsOfLogistics(vo)));
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_SALES, idsOfSales(vo)));
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_ABNORMAL, idsOfDisposal(vo)));
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_DISPOSAL, idsOfDisposal(vo)));
 
         List<TimelineItem> items = new ArrayList<>();
         TimelineItem created = new TimelineItem();
@@ -351,6 +377,7 @@ public class BatchService {
             item.setDetail(r.getContent() + (r.getMaterialName() == null ? ""
                     : "（投入品：" + r.getMaterialName() + " " + (r.getDosage() == null ? "" : r.getDosage()) + "）"));
             attachChain(item, chainMap.get(Constants.EVENT_PLANTING + "#" + r.getId()));
+            item.setEvidences(evidence.get(Constants.EVENT_PLANTING + "#" + r.getId()));
             items.add(item);
         }
 
@@ -363,6 +390,7 @@ public class BatchService {
             item.setStatus(r.getAuditStatus());
             item.setDetail("采收 " + r.getQuantity() + r.getUnit() + "，等级 " + r.getQualityLevel());
             attachChain(item, chainMap.get(Constants.EVENT_HARVEST + "#" + r.getId()));
+            item.setEvidences(evidence.get(Constants.EVENT_HARVEST + "#" + r.getId()));
             items.add(item);
         }
 
@@ -375,6 +403,7 @@ public class BatchService {
             item.setStatus(r.getInspectResult());
             item.setDetail("报告编号 " + r.getReportNo() + "；" + (r.getConclusion() == null ? "" : r.getConclusion()));
             attachChain(item, chainMap.get(Constants.EVENT_QUALITY + "#" + r.getId()));
+            item.setEvidences(evidence.get(Constants.EVENT_QUALITY + "#" + r.getId()));
             items.add(item);
         }
 
@@ -388,6 +417,7 @@ public class BatchService {
             item.setDetail(r.getFromOrg() + " → " + r.getToOrg() + "，运单 " + r.getLogisticsNo()
                     + "，车辆 " + r.getVehicleNo());
             attachChain(item, chainMap.get(Constants.EVENT_LOGISTICS + "#" + r.getId()));
+            item.setEvidences(evidence.get(Constants.EVENT_LOGISTICS + "#" + r.getId()));
             items.add(item);
         }
 
@@ -400,6 +430,7 @@ public class BatchService {
             item.setStatus("SOLD");
             item.setDetail(r.getMarketName() + "，单价 ¥" + r.getPrice() + "，数量 " + r.getQuantity() + r.getUnit());
             attachChain(item, chainMap.get(Constants.EVENT_SALES + "#" + r.getId()));
+            item.setEvidences(evidence.get(Constants.EVENT_SALES + "#" + r.getId()));
             items.add(item);
         }
 
@@ -412,6 +443,7 @@ public class BatchService {
             item.setStatus(r.getStatus());
             item.setDetail(r.getDescription());
             attachChain(item, chainMap.get(Constants.EVENT_ABNORMAL + "#" + r.getId()));
+            item.setEvidences(evidence.get(Constants.EVENT_ABNORMAL + "#" + r.getId()));
             items.add(item);
 
             if (r.getDisposalResult() != null) {
@@ -423,6 +455,7 @@ public class BatchService {
                 disposal.setStatus(r.getStatus());
                 disposal.setDetail("措施：" + r.getDisposalMeasure() + "；结果：" + r.getDisposalResult());
                 attachChain(disposal, chainMap.get(Constants.EVENT_DISPOSAL + "#" + r.getId()));
+                disposal.setEvidences(evidence.get(Constants.EVENT_DISPOSAL + "#" + r.getId()));
                 items.add(disposal);
             }
         }
@@ -442,6 +475,54 @@ public class BatchService {
 
         items.sort(Comparator.comparing(TimelineItem::getTime, Comparator.nullsLast(Comparator.naturalOrder())));
         return items;
+    }
+
+    private List<Long> idsOfPlanting(BatchDetailVO vo) {
+        List<Long> ids = new ArrayList<>();
+        for (BizPlantingRecord r : vo.getPlantings()) {
+            ids.add(r.getId());
+        }
+        return ids;
+    }
+
+    private List<Long> idsOfHarvest(BatchDetailVO vo) {
+        List<Long> ids = new ArrayList<>();
+        for (BizHarvestRecord r : vo.getHarvests()) {
+            ids.add(r.getId());
+        }
+        return ids;
+    }
+
+    private List<Long> idsOfQuality(BatchDetailVO vo) {
+        List<Long> ids = new ArrayList<>();
+        for (BizQualityReport r : vo.getQualities()) {
+            ids.add(r.getId());
+        }
+        return ids;
+    }
+
+    private List<Long> idsOfLogistics(BatchDetailVO vo) {
+        List<Long> ids = new ArrayList<>();
+        for (BizLogisticsRecord r : vo.getLogistics()) {
+            ids.add(r.getId());
+        }
+        return ids;
+    }
+
+    private List<Long> idsOfSales(BatchDetailVO vo) {
+        List<Long> ids = new ArrayList<>();
+        for (BizSalesRecord r : vo.getSales()) {
+            ids.add(r.getId());
+        }
+        return ids;
+    }
+
+    private List<Long> idsOfDisposal(BatchDetailVO vo) {
+        List<Long> ids = new ArrayList<>();
+        for (BizAbnormalDisposal r : vo.getDisposals()) {
+            ids.add(r.getId());
+        }
+        return ids;
     }
 
     private void attachChain(TimelineItem item, ChainRecord record) {

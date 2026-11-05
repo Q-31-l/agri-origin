@@ -21,6 +21,8 @@ public class TraceService {
     private BatchService batchService;
     @Resource
     private ChainService chainService;
+    @Resource
+    private TrustScoreService trustScoreService;
 
     public TraceVO query(String code) {
         BizBatch batch = batchService.getByCode(code);
@@ -48,6 +50,8 @@ public class TraceService {
         vo.setChainEnabled(detail.isChainEnabled());
         vo.setChainMessage(detail.getChainMessage());
         vo.setTimeline(detail.getTimeline());
+        // assemble 时已算过，这里直接复用，避免重复计算
+        vo.setTrust(detail.getTrust() != null ? detail.getTrust() : trustScoreService.evaluate(detail));
 
         List<BizQualityReport> reports = detail.getQualities();
         if (!reports.isEmpty()) {

@@ -39,4 +39,11 @@ public class FileController {
     public void download(@PathVariable Long id, HttpServletResponse response) {
         fileService.download(id, response);
     }
+
+    @Operation(summary = "某条业务记录的实证材料列表（公开，供溯源页展示图片/视频）")
+    @GetMapping("/evidence")
+    public R<java.util.List<com.agri.trace.vo.EvidenceVO>> evidence(@RequestParam String bizType,
+                                                                    @RequestParam Long bizId) {
+        return R.ok(fileService.listEvidence(bizType, bizId));
+    }
 }

@@ -35,4 +35,6 @@ public class BatchDetailVO implements Serializable {
     private List<TimelineItem> timeline = new ArrayList<>();
     private boolean chainEnabled;
     private String chainMessage;
+    /** 可信度评分（AgriTrust-5D） */
+    private TrustScoreVO trust;
 }

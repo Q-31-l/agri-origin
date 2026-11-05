@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
@@ -60,6 +61,13 @@ public class BizBatch {
     private Long createBy;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /**
+     * 乐观锁版本号：核验 / 采收 / 质检 / 物流 / 销售 / 结案等状态流转都要带版本比对，
+     * 避免两人同时操作时后写覆盖前写。更新影响行数为 0 即代表已被他人修改。
+     */
+    @Version
+    private Integer version;
 
     @JsonIgnore
     @TableLogic

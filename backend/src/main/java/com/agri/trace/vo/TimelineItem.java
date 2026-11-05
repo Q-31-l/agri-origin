@@ -3,6 +3,7 @@ package com.agri.trace.vo;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * 溯源时间轴节点
@@ -25,4 +26,6 @@ public class TimelineItem implements Serializable {
     private String txHash;
     private Long blockNumber;
     private String chainStatus;
+    /** 该环节的实证材料（图片 / 视频 / 报告），消费者可直观查验 */
+    private List<EvidenceVO> evidences;
 }

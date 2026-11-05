@@ -61,7 +61,11 @@ public class ChainService {
     @Resource
     private BizCorrectionMapper correctionMapper;
     @Resource
+    private FileService fileService;
+    @Resource
     private TraceContractService contractService;
+    @Resource
+    private com.agri.trace.websocket.TraceWebSocketHandler wsHandler;
 
     /**
      * 保存存证流水（成功与失败都留痕）
@@ -83,6 +87,11 @@ public class ChainService {
         record.setErrorMsg(result.isSuccess() ? null : result.getMessage());
         record.setContractAddress(contractService.getContractAddress());
         chainRecordMapper.insert(record);
+
+        // 实时通知三端：上链结果变化后列表/详情自动刷新
+        wsHandler.broadcast("chain", batchNo, eventType, result.isSuccess()
+                ? "存证成功 · " + record.getStatus()
+                : "存证未成功 · " + record.getStatus());
     }
 
     public PageResult<ChainRecord> page(long page, long size, String batchNo, String status) {
@@ -234,7 +243,14 @@ public class ChainService {
             }
             case Constants.EVENT_DISPOSAL: {
                 BizAbnormalDisposal r = abnormalMapper.selectById(bizId);
-                return r == null ? null : DigestHelper.disposal(r);
+                if (r == null) {
+                    return null;
+                }
+                // 与 AbnormalService.dispose 同口径：证据根哈希必须参与复算，
+                // 否则带图/带视频的处置在"一键校验"时会被误判为不一致
+                String evidenceHash = fileService.evidenceHash(
+                        fileService.listEvidence(Constants.EVENT_DISPOSAL, bizId));
+                return DigestHelper.disposal(r, evidenceHash);
             }
             case Constants.EVENT_CORRECTION: {
                 BizCorrection r = correctionMapper.selectById(bizId);

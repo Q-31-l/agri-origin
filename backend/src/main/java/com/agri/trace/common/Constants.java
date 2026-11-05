@@ -33,6 +33,10 @@ public final class Constants {
     public static final String AUDIT_APPROVED = "APPROVED";
     public static final String AUDIT_REJECTED = "REJECTED";
 
+    // ---------------- 异常处置状态 ----------------
+    public static final String ABNORMAL_HANDLING = "HANDLING";
+    public static final String ABNORMAL_DONE = "DONE";
+
     // ---------------- 链上存证状态 ----------------
     public static final String CHAIN_NONE = "NONE";
     public static final String CHAIN_SUCCESS = "SUCCESS";

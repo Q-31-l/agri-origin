@@ -2,6 +2,7 @@ package com.agri.trace.service;
 
 import com.agri.trace.common.BizException;
 import com.agri.trace.common.Constants;
+import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.dto.SalesDTO;
@@ -122,7 +123,7 @@ public class SalesService {
 
         boolean soldOut = batch.getQuantity() != null && total.compareTo(batch.getQuantity()) >= 0;
         batch.setStatus(soldOut ? Constants.BATCH_SOLD : Constants.BATCH_ON_SALE);
-        batchMapper.updateById(batch);
+        Db.updated(batchMapper.updateById(batch));
         return record.getId();
     }
 

@@ -58,8 +58,18 @@ public final class DigestHelper {
     }
 
     public static String disposal(BizAbnormalDisposal r) {
+        return disposal(r, null);
+    }
+
+    /**
+     * 处置摘要：证据根哈希一并参与计算。
+     * 这样链上那枚哈希不仅覆盖"处置措施/结果"文本，也覆盖全部实证图片与视频，
+     * 任何一张图被替换都会让链上链下摘要对不上。
+     */
+    public static String disposal(BizAbnormalDisposal r, String evidenceHash) {
         return HashUtil.digestOf("DISPOSAL", r.getBatchNo(), r.getDisposalMeasure(),
-                r.getDisposalResult(), r.getHandlerId(), r.getHandleTime());
+                r.getDisposalResult(), r.getHandlerId(), r.getHandleTime(),
+                evidenceHash == null ? "" : evidenceHash);
     }
 
     public static String correction(BizCorrection c) {

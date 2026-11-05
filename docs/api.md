@@ -62,11 +62,18 @@
 | `401` | 未登录 / token 失效 | 未携带 token、token 过期 |
 | `403` | 无权限 | 越权操作、数据不在范围内 |
 | `404` | 资源不存在 | 批次/文件不存在 |
-| `409` | 冲突 | 重复提交、库存不足、状态冲突 |
+| `409` | 冲突 | 重复提交、状态冲突、**并发修改冲突**（见下） |
 | `4001` | 业务状态不允许 | 未质检就发运、异常批次操作 |
 | `500` | 服务端异常 | 未捕获异常 |
 | `5001` | 上链失败 | 节点不可用、合约 revert |
 | `5002` | 链上链下数据不一致 | 一致性校验不通过 |
+
+> **并发修改冲突（409）**：`biz_batch`、`biz_abnormal_disposal`、`base_farm` 三张表启用了 MyBatis-Plus 乐观锁
+> （`@Version` + `version` 列）。更新时 SQL 会带上 `WHERE id=? AND version=?`，
+> 影响行数为 0 即说明"你读到的数据已经被别人改了"，后端统一抛
+> `409 {"message":"该记录已被他人修改，请刷新后重新操作"}`。
+> 前端收到该提示后刷新页面即可，**不会出现两个人同时操作、后写覆盖前写**的情况。
+> 其他表只追加不覆盖，未引入版本号。
 
 ### 1.5 权限标记说明
 
@@ -103,7 +110,10 @@ POST /auth/login
   "message": "登录成功",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
     "expiresIn": 43200,
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshExpiresIn": 604800,
     "user": {
       "id": 1,
       "username": "admin",
@@ -130,7 +140,42 @@ POST /auth/login
 | 400 | 账号或密码错误 |
 | 403 | 账号已被禁用，请联系管理员 |
 
-### 2.2 获取当前用户
+### 2.2 刷新令牌
+
+```
+POST /auth/refresh
+```
+
+**权限**：公开（凭 refresh token 代替登录态）
+
+`access token` 默认 12 小时（`jwt.expire-hours`），`refresh token` 默认 7 天（`jwt.refresh-expire-days`）。
+access 过期后前端用它静默换发，用户无需重新登录；换发时**用户信息、角色、权限都重新读库**，
+所以管理员调整角色后，最长一个 access 周期内三端都会自动拿到新权限。
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `refreshToken` | string | 是 | 登录时返回的 refreshToken |
+
+```json
+{ "refreshToken": "eyJhbGciOiJIUzI1NiJ9..." }
+```
+
+**响应**：与 2.1 完全一致（新的 access + 新的 refresh，旧 refresh 不再使用）
+
+**错误**
+
+| HTTP | code | message |
+| --- | --- | --- |
+| 401 | 401 | 登录状态已失效，请重新登录（refresh 过期 / 伪造 / 类型不符） |
+| 403 | 403 | 账号已被禁用，请联系管理员 |
+
+> **两个 token 不能混用**：都在 payload 里带 `typ` 声明，access 是 `typ=access`，refresh 是 `typ=refresh`。
+> 把 refresh token 塞进 `Authorization` 头会被拦截器判 401，把 access token 拿去调 `/auth/refresh` 同样 401。
+> 这样避免了"长效凭证被当成短效凭证使用"这类越权隐患。
+
+### 2.3 获取当前用户
 
 ```
 GET /auth/profile
@@ -140,7 +185,7 @@ GET /auth/profile
 
 **响应**：`data` 为 `UserVO` + `permissions` 数组。
 
-### 2.3 退出登录
+### 2.4 退出登录
 
 ```
 POST /auth/logout
@@ -150,7 +195,7 @@ POST /auth/logout
 
 说明：JWT 无状态，服务端不做黑名单，前端清除本地 token 即可。
 
-### 2.4 修改密码
+### 2.5 修改密码
 
 ```
 PUT /auth/password
@@ -168,6 +213,144 @@ PUT /auth/password
 ```json
 { "oldPassword": "123456", "newPassword": "abc12345" }
 ```
+
+### 2.6 微信小程序登录
+
+```
+POST /auth/wx-login
+```
+
+**权限**：公开
+
+小程序端 `uni.login({ provider: 'weixin' })` 拿到的一次性 `code` 交给后端换取 `openid`：
+
+- `openid` 已绑定平台账号 → 直接返回与 2.1 完全一致的登录结构；
+- `openid` 未绑定 → 返回 `needBind: true` + 一次性 `bindTicket`（10 分钟有效，用后即废），前端跳转绑定页。
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `code` | string | 是 | `uni.login` 返回的 code |
+
+```json
+{ "code": "081Abc..." }
+```
+
+**响应（已绑定）**：同 2.1
+
+**响应（未绑定）**
+
+```json
+{
+  "code": 0,
+  "message": "该微信尚未绑定平台账号",
+  "data": { "needBind": true, "bindTicket": "69a52d7d06f8412eb4341ba15e450637" }
+}
+```
+
+> 未配置 `app.wx.appid` / `app.wx.secret` 时，后端进入 mock 模式（固定模拟 openid），用于本地无小程序资质时联调；日志会显式打印 mock 提示，不会伪装成真实微信登录。
+
+### 2.7 微信 App 登录（开放平台）
+
+```
+POST /auth/wx-app-login
+```
+
+**权限**：公开
+
+App 走的是**开放平台**，与小程序**不是同一个 appid、换回来的 openid 也不同**，服务端分别存两列，
+所以「小程序绑过微信」不等于「App 也绑过」，反之亦然（同一个人两端各绑一次，账号是同一个）。
+
+请求体两种形态都支持：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `code` | string | 二选一 | 微信 OpenSDK 授权返回的 code（推荐） |
+| `openid` | string | 二选一 | 旧版 SDK 直接返回的 openid |
+| `accessToken` | string | 二选一 | 与 `openid` 配对，后端会调 `sns/auth` 校验真实性，防止伪造 openid 登录任意账号 |
+
+```json
+{ "code": "071Xy..." }
+```
+
+```json
+{ "openid": "o6_bmjrPTlm6_2sgVt7hMZOPfL2M", "accessToken": "ACCESS_TOKEN" }
+```
+
+**响应**：同 2.6（已绑定 → 同 2.1；未绑定 → `needBind` + `bindTicket`）
+
+> 未配置 `app.wx.app-appid` / `app.wx.app-secret` 时该端独立进入 mock 模式（openid 为 `mock-app-openid-local-demo`），
+> 可以在没有移动应用资质的情况下完整走通 App 端绑定闭环。
+
+### 2.8 微信首次登录绑定账号
+
+```
+POST /auth/wx-bind
+```
+
+**权限**：公开（凭票据代替登录态）
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `bindTicket` | string | 是 | 2.6 / 2.7 返回的票据（票据里已带来源端，小程序与 App 共用本接口） |
+| `username` | string | 是 | 平台账号 |
+| `password` | string | 是 | 平台密码 |
+
+**响应**：同 2.1（绑定成功即登录）
+
+**错误**
+
+| code | message |
+| --- | --- |
+| 400 | 绑定票据已失效，请重新微信登录 |
+| 401 | 账号或密码错误 |
+| 403 | 账号已被禁用，请联系管理员 |
+| 409 | 该账号已绑定其他微信 / 该微信已绑定账号 xxx |
+
+### 2.9 解绑微信 / 查询绑定状态
+
+```
+POST /auth/wx-unbind?platform=mp|app    权限：登录即可
+GET  /auth/wx-status?platform=mp|app    权限：登录即可，返回 true / false
+```
+
+`platform` 省略时默认 `mp`（小程序）。两端的绑定互相独立：
+
+| 端 | 存储字段 | 换取 openid 的接口 |
+| --- | --- | --- |
+| 小程序 `mp` | `sys_user.wx_openid` | `sns/jscode2session` |
+| App `app` | `sys_user.wx_app_openid` | `sns/oauth2/access_token` |
+
+解绑后该端微信再次登录会重新走"未绑定 → 绑定"流程，账号密码登录不受影响。
+
+---
+
+## 二·补、实时通知（WebSocket）
+
+```
+ws://<host>/api/ws?token=<JWT>
+```
+
+**鉴权**：握手阶段解析 query 中的 `token`，无效则拒绝握手（H5 与小程序均无法在 WebSocket 握手中携带 header，因此只能走 query）。
+
+**消息格式**
+
+| 方向 | 内容 |
+| --- | --- |
+| 上行 | 文本 `ping`（心跳），服务端回文本 `pong` |
+| 下行 | `{"type":"batch|abnormal|chain","batchNo":"AG2026...","action":"AUDIT","message":"批次已核验通过","timestamp":1793848939344}` |
+| 连接建立时 | `{"type":"open","action":"connected","message":"实时通知已连接","timestamp":...}` |
+
+**广播触发点**
+
+| type | action | 触发位置 |
+| --- | --- | --- |
+| `chain` | 事件类型（`BATCH`/`PLANTING`/…） | 任意业务数据上链存证（成功与失败都推） |
+| `batch` | `AUDIT` / `CLOSE` | 批次核验通过或驳回 / 异常批次结案 |
+| `abnormal` | `DISPOSE` | 异常处置登记 |
+
+前端收到后把相关列表缓存标记为脏，并立即刷新当前打开列表页 —— 即"一端操作、三端同步"。
 
 ---
 
@@ -281,9 +464,16 @@ GET /batch/{id}
   "fileHash": "b7c2...64位",
   "txHash": "0x9d4e...",
   "blockNumber": 19,
-  "chainStatus": "SUCCESS"
+  "chainStatus": "SUCCESS",
+  "evidences": [
+    { "id": 12, "name": "现场照片.jpg", "url": "/api/file/download/12", "mediaType": "IMAGE", "hash": "c1d2..." },
+    { "id": 13, "name": "施肥视频.mp4", "url": "/api/file/download/13", "mediaType": "VIDEO", "hash": "d2e3..." }
+  ]
 }
 ```
+
+> `evidences` 为该时间轴节点的实证材料（图片 / 视频 / 报告），仅当该环节上传过凭证时返回；
+> 消费者溯源页据此直接查看现场照片、播放现场视频，且哈希可追溯至链上摘要。
 
 ### 3.4 创建批次
 
@@ -792,16 +982,19 @@ POST /abnormal/{disposalId}/dispose
 | `disposalMeasure` | string | 是 | 处置措施 |
 | `disposalResult` | string | 是 | 处置结果 |
 | `abnormalType` | string | 否 | 异常类型 |
+| `evidenceIds` | long[] | 否 | 实证材料文件 ID（`/file/upload` 返回），图片 / 视频哈希并入上链摘要 |
 
 ```json
 {
   "disposalMeasure": "整批就地无害化销毁",
   "disposalResult": "已销毁 600kg，全程录像留证",
-  "abnormalType": "PESTICIDE"
+  "abnormalType": "PESTICIDE",
+  "evidenceIds": [20, 21, 22]
 }
 ```
 
-**副作用**：处置状态 → `DISPOSED`，上链 `bizType=DISPOSAL`。
+**副作用**：处置状态 → `DISPOSED`，绑定实证文件到本记录，上链 `bizType=DISPOSAL`。
+链上摘要 = `DISPOSAL(批次号, 措施, 结果, 处置人, 时间, 证据根哈希)`。
 
 ### 8.3 上下游追溯与定责
 
@@ -820,6 +1013,7 @@ GET /abnormal/{disposalId}/trace
 | `upstream` | array | 上游批次（同农户/同地块历史批次） |
 | `downstream` | array | 下游流向（物流、销售、买家） |
 | `responsibilities` | array | 责任主体定位结果 |
+| `evidences` | map | 每条处置记录的实证材料（key=处置记录 id，含异常上报 + 处置两个阶段的图片/视频） |
 
 **`responsibilities[]` 示例**
 
@@ -1009,9 +1203,25 @@ GET /trace/{code}
       "txHash": "0x9d4e...",
       "chainStatus": "SUCCESS"
     }
-  ]
+  ],
+  "trust": {
+    "score": 88,
+    "grade": "A",
+    "gradeText": "高度可信",
+    "summary": "关键环节齐全、链上存证完整，可作为可信溯源凭证",
+    "dimensions": [
+      { "key": "flow", "name": "流程完整度", "score": 30, "max": 30, "note": "5/5 个应完成环节" },
+      { "key": "chain", "name": "链上存证度", "score": 18, "max": 30, "note": "演示模式未接入链服务" },
+      { "key": "quality", "name": "质量合规性", "score": 20, "max": 20, "note": "最近检测合格 · JC2026-0512-001" },
+      { "key": "abnormal", "name": "异常洁净度", "score": 15, "max": 15, "note": "无异常记录" },
+      { "key": "info", "name": "信息完备度", "score": 5, "max": 5, "note": "关键字段齐全" }
+    ],
+    "deductions": ["演示模式：链服务未启用，未做真实上链校验（-12）"]
+  }
 }
 ```
+
+**`trust`（AgriTrust-5D 溯源可信度）**：把"能不能溯源"升级为"有多可信"的量化指标，五维加权满分 100，等级 `A≥85 / B≥70 / C≥50 / D<50`。`dimensions` 给出每一维的实得分与说明，`deductions` 逐条列出扣分原因，前端可直接展示。计分规则见 `docs/trust-score.md`。
 
 **错误**：`404 批次不存在或溯源码有误`
 
@@ -1042,9 +1252,9 @@ Content-Type: multipart/form-data
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `file` | file | 是 | 文件本体，≤ 20MB，扩展名限 `jpg/jpeg/png/webp/pdf` |
-| `bizType` | string | 否 | 业务类型，如 `PLANTING` / `QUALITY` |
-| `bizId` | long | 否 | 关联业务 ID |
+| `file` | file | 是 | 文件本体，≤ 100MB，扩展名限 `jpg/jpeg/png/webp/pdf/mp4/mov/m4v/webm` |
+| `bizType` | string | 否 | 业务类型，如 `PLANTING` / `QUALITY` / `DISPOSAL` |
+| `bizId` | long | 否 | 关联业务 ID（处置等场景先空传，提交时再绑定） |
 
 **响应**
 
@@ -1054,15 +1264,21 @@ Content-Type: multipart/form-data
   "message": "上传成功",
   "data": {
     "id": 20,
-    "fileName": "检测报告.pdf",
+    "fileName": "现场处置.mp4",
     "filePath": "/api/file/download/20",
     "fileHash": "e4b1c9...64位",
-    "fileSize": 524288
+    "fileSize": 524288,
+    "mediaType": "VIDEO"
   }
 }
 ```
 
-> `fileHash` 为该文件的 SHA-256，直接作为上链的 `fileHash` 字段使用。
+> `fileHash` 为该文件的 SHA-256；`mediaType` 为 `IMAGE` / `VIDEO` / `FILE` 三值之一，
+> 供前端区分"缩略图展示"还是"内联视频播放"。
+>
+> **实证存证机制**：图片 / 视频不是外挂附件——它们的 SHA-256 会按序聚合成一枚"证据根哈希"，
+> 随业务摘要一并上链。消费者在溯源页看到的每一张图、每一段视频都能与链上摘要核验，
+> 任何替换都会被"一键校验"发现。
 
 ### 11.2 文件下载
 
@@ -1072,7 +1288,28 @@ GET /file/download/{id}
 
 **权限**：公开
 
-返回文件二进制流，`Content-Disposition` 带原始文件名（已 URL 编码）。
+返回文件二进制流，`Content-Disposition` 带原始文件名（已 URL 编码）。图片与视频直接以 `inline` 方式回放。
+
+### 11.3 某条业务记录的实证材料（公开）
+
+```
+GET /file/evidence?bizType=DISPOSAL&bizId=3
+```
+
+**权限**：公开（供消费者溯源页展示）
+
+**响应 `data[]`**（`EvidenceVO`）
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | long | 文件 ID |
+| `name` | string | 原始文件名 |
+| `url` | string | 可访问地址 `/api/file/download/{id}` |
+| `mediaType` | string | `IMAGE` / `VIDEO` / `FILE` |
+| `contentType` | string | 原始 MIME 类型 |
+| `size` | long | 字节数 |
+| `hash` | string | 文件内容 SHA-256 |
+| `createTime` | string | 上传时间 |
 
 ---
 

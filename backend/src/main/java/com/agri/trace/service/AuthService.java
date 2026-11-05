@@ -45,7 +45,24 @@ public class AuthService {
         if (user.getStatus() == null || user.getStatus() != 1) {
             throw new BizException(ResultCode.FORBIDDEN, "账号已被禁用，请联系管理员");
         }
+        return issueToken(user);
+    }
 
+    /**
+     * 为已通过身份校验的用户签发 JWT，并刷新最后登录时间。
+     * 账号密码登录与微信登录共用同一套签发逻辑，保证三端 token 结构与权限完全一致。
+     */
+    @Transactional
+    public LoginVO issueToken(SysUser user) {
+        return issueToken(user, true);
+    }
+
+    /**
+     * @param touchLoginTime 是否更新最后登录时间。刷新令牌换发时传 false，
+     *                       否则每次静默续期都会把"最后登录"刷成当前时间，运营看板就失真了
+     */
+    @Transactional
+    public LoginVO issueToken(SysUser user, boolean touchLoginTime) {
         SysRole role = permissionCache.role(user.getRoleCode());
         LoginUser loginUser = LoginUser.builder()
                 .userId(user.getId())
@@ -60,19 +77,47 @@ public class AuthService {
                 .build();
 
         String token = jwtUtil.generate(loginUser);
+        String refreshToken = jwtUtil.generateRefresh(loginUser);
 
-        SysUser update = new SysUser();
-        update.setId(user.getId());
-        update.setLastLoginTime(LocalDateTime.now());
-        userMapper.updateById(update);
+        if (touchLoginTime) {
+            SysUser update = new SysUser();
+            update.setId(user.getId());
+            update.setLastLoginTime(LocalDateTime.now());
+            userMapper.updateById(update);
+        }
 
         return LoginVO.builder()
                 .token(token)
                 .tokenType("Bearer")
                 .expiresIn(jwtUtil.getExpireSeconds())
+                .refreshToken(refreshToken)
+                .refreshExpiresIn(jwtUtil.getRefreshExpireSeconds())
                 .user(userService.toVO(user))
                 .permissions(new ArrayList<>(permissionCache.permissionsOf(user.getRoleCode())))
                 .build();
+    }
+
+    /**
+     * 用 refresh token 换发新的 token 对（rotation：旧 refresh token 随即作废）。
+     *
+     * <p>用户信息、角色、权限都在这里重新读库，因此管理员调整角色后，
+     * 最长一个 access token 周期内所有端都会自动拿到新权限，无需用户重新登录。
+     */
+    public LoginVO refresh(String refreshToken) {
+        LoginUser parsed;
+        try {
+            parsed = jwtUtil.parseRefresh(refreshToken);
+        } catch (Exception e) {
+            throw new BizException(ResultCode.UNAUTHORIZED, "登录状态已失效，请重新登录");
+        }
+        SysUser user = userService.getById(parsed.getUserId());
+        if (user == null) {
+            throw new BizException(ResultCode.UNAUTHORIZED, "账号不存在，请重新登录");
+        }
+        if (user.getStatus() == null || user.getStatus() != 1) {
+            throw new BizException(ResultCode.FORBIDDEN, "账号已被禁用，请联系管理员");
+        }
+        return issueToken(user, false);
     }
 
     public UserVO profile() {

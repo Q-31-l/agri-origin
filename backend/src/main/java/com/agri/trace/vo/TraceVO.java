@@ -43,4 +43,7 @@ public class TraceVO implements Serializable {
     private String qualityOrg;
 
     private List<TimelineItem> timeline = new ArrayList<>();
+
+    /** 可信度评分（AgriTrust-5D） */
+    private TrustScoreVO trust;
 }

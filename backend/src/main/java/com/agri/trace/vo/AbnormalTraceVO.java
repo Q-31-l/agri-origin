@@ -2,6 +2,7 @@ package com.agri.trace.vo;
 
 import com.agri.trace.entity.BizAbnormalDisposal;
 import com.agri.trace.entity.BizBatch;
+import com.agri.trace.vo.EvidenceVO;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -25,4 +26,6 @@ public class AbnormalTraceVO implements Serializable {
     private List<Map<String, Object>> downstream = new ArrayList<>();
     /** 责任主体定位 */
     private List<Map<String, Object>> responsibilities = new ArrayList<>();
+    /** 每条处置记录的实证材料（key = 处置记录 id），含异常上报与处置两个阶段的图片/视频 */
+    private Map<Long, List<EvidenceVO>> evidences = new java.util.LinkedHashMap<>();
 }

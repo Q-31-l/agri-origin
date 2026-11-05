@@ -27,6 +27,12 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns(
                         "/auth/login",
+                        // 续期接口必须免鉴权：调用它的时候 access token 往往已经过期了
+                        "/auth/refresh",
+                        "/auth/wx-login",
+                        "/auth/wx-app-login",
+                        "/auth/wx-bind",
+                        "/ws",
                         "/trace/**",
                         "/file/download/**",
                         "/doc.html",

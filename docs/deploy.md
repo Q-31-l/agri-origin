@@ -314,7 +314,8 @@ curl -X POST http://localhost:8080/api/auth/login \
 | `chain.enabled` | false | `false` 为演示模式 |
 | `chain.strict` | true | `true` 时上链失败抛出异常回滚业务；`false` 时落库并标记 `FAILED` |
 | `storage.upload-dir` | `./uploads` | 文件存储目录，生产建议改绝对路径 |
-| `storage.max-size` | 20971520 | 单文件上限 20MB |
+| `storage.allowed-ext` | `jpg,jpeg,png,webp,pdf,mp4,mov,m4v,webm` | 允许的扩展名（含图片与现场视频） |
+| `storage.max-size` | 104857600 | 单文件上限 100MB（视频实证需要较大体积） |
 | `mybatis-plus.configuration.log-impl` | StdOutImpl | 生产建议改为 `NoLoggingImpl` 提升性能 |
 
 ---
@@ -370,6 +371,99 @@ npm run build      # 产物在 dist/，base 已配置为 './'，可放任意子�
 
 > H5 使用 hash 路由，静态服务器无需额外配置 `try_files`。
 > 若要让二维码指向真实域名，修改 `frontend/pc-admin/src/views/batch/detail.vue` 中的 `h5Base` 常量。
+
+---
+
+## 六·补、第五步（推荐）：启动三端统一工程 uni-app
+
+`frontend/uni-app` 是一个工程出三个端，替代上面的 `pc-admin` + `mobile-h5`。两者共用 5173 端口，**不要同时启动**。
+
+### 1. 安装与开发
+
+```bash
+cd frontend/uni-app
+npm install
+```
+
+| 端 | 命令 | 访问方式 |
+| --- | --- | --- |
+| H5 / PC | `npm run dev:h5` | `http://localhost:5173`（宽度 ≥900px 自动进 PC 管理台，窄屏进移动工作台） |
+| 微信小程序 | `npm run dev:mp-weixin` | 微信开发者工具导入 `dist/dev/mp-weixin` |
+| App | `npm run dev:app` | HBuilderX 运行到手机或模拟器 |
+
+### 2. 生产构建
+
+```bash
+npm run build:h5          # dist/build/h5          1.5MB，history 路由，Nginx 需配 try_files
+npm run build:mp-weixin   # dist/build/mp-weixin   28 页，PC 页面不进包，微信开发者工具上传
+npm run build:app         # dist/build/app         HBuilderX 云打包生成 apk / ipa
+```
+
+`pages.json` 由 `src/pages.full.json` + `node scripts/gen-pages.js` 生成（脚本按平台裁剪页面，注释形式的 `// #ifdef` 会被原样保留）。**不要直接手改 `pages.json`**，改完 `pages.full.json` 后执行：
+
+```bash
+node scripts/gen-pages.js            # 重新生成
+node scripts/gen-pages.js --restore  # 还原为全量（本地开发用）
+```
+
+### 3. 微信登录配置
+
+小程序与 App 是**两套 appid**（前者在小程序后台，后者在微信开放平台移动应用），配置项分开：
+
+```yaml
+app:
+  wx:
+    # 小程序（sns/jscode2session）
+    appid: ${WX_APPID:}             # 小程序后台 → 开发管理 → 开发设置
+    secret: ${WX_SECRET:}
+    # App（sns/oauth2/access_token）
+    app-appid: ${WX_APP_APPID:}     # 微信开放平台 → 移动应用 → AppID
+    app-secret: ${WX_APP_SECRET:}
+    # 留空 appid/secret 时该端自动 mock，可完整走通绑定流程；显式强制 mock 才置 true
+    mock-enabled: ${WX_MOCK:false}
+```
+
+两端的 openid **不是同一个值**，服务端分别存 `wx_openid`（小程序）与 `wx_app_openid`（App），
+所以「小程序绑过微信」不等于「App 也绑过」——同一个人两端各绑一次，账号仍是同一个。
+
+真机联调时还需：
+
+- 小程序：`frontend/uni-app/src/manifest.json` 填 `mp-weixin.appid`，微信后台把 `https://<api域名>` 加入 request / uploadFile / socket 合法域名；
+- App：`manifest.json` → `app-plus.distribute.sdkConfigs.oauth.weixin` 填开放平台 `appid` 与 `UniversalLinks`（iOS 必须），云打包勾选 **OAuth 登录** 模块。
+
+已有数据库升级（幂等，可重复执行）：
+
+```bash
+mysql -uroot -p agri_trace < sql/patch-wx-login.sql        # 微信绑定字段 + 唯一索引
+mysql -uroot -p agri_trace < sql/patch-optimistic-lock.sql # 乐观锁 version 列
+```
+
+全新建库无需执行这两个补丁，`sql/init.sql` 已包含。
+
+### 3·补. 令牌有效期
+
+```yaml
+jwt:
+  expire-hours: 12          # access token
+  refresh-expire-days: 7    # refresh token，过期后才需要重新登录
+```
+
+前端在 access 过期时会自动调 `/auth/refresh` 换发，用户无感知；只有 refresh 也过期（默认 7 天未使用）才回登录页。
+无需 Redis、无需会话表——refresh token 本身就是自校验的 JWT。
+
+### 4. WebSocket 反向代理
+
+实时通知走 `wss://<域名>/api/ws?token=xxx`，Nginx 必须显式配置升级头，否则握手 400：
+
+```nginx
+location /api/ws {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 300s;   # 大于客户端 25s 心跳间隔即可
+}
+```
 
 ---
 
@@ -449,7 +543,7 @@ server {
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
-        client_max_body_size 40m;
+        client_max_body_size 120m;
     }
 
     # 上传文件（若使用静态映射）
