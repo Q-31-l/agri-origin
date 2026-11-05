@@ -59,7 +59,7 @@ jwt:
 # ---------------- FISCO-BCOS ----------------
 # enabled=false 为演示模式：业务可跑通，但所有存证标记为 SKIPPED，绝不伪造"存证成功"
 chain:
-  enabled: false
+  enabled: true
   config-file: classpath:fisco/config.toml
   group-id: 1
   contract-address: ""

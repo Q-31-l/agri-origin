@@ -3,6 +3,7 @@ package com.agri.trace.sdk;
 import cn.hutool.crypto.digest.DigestUtil;
 
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.stream.Collectors;
@@ -47,15 +48,28 @@ public final class HashUtil {
     }
 
     /**
-     * 规范化拼接：null -> ""，用 | 分隔，保证链下可复算
+     * 规范化拼接：null -> ""，用 | 分隔，保证链下可复算。
+     * BigDecimal 统一 stripTrailingZeros().toPlainString()：
+     * 上链时实体里的 100（scale=0）与落库后读回的 100.00（DECIMAL scale=2）
+     * 会被规范化成同一个 "100"，避免摘要因数值精度表示不同而对不上。
      */
     public static String join(Object... parts) {
         if (parts == null) {
             return "";
         }
         return Stream.of(parts)
-                .map(p -> p == null ? "" : String.valueOf(p))
+                .map(HashUtil::normalize)
                 .collect(Collectors.joining("|"));
+    }
+
+    private static String normalize(Object p) {
+        if (p == null) {
+            return "";
+        }
+        if (p instanceof BigDecimal) {
+            return ((BigDecimal) p).stripTrailingZeros().toPlainString();
+        }
+        return String.valueOf(p);
     }
 
     public static String digestOf(Object... parts) {

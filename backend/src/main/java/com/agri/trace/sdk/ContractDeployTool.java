@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -90,7 +91,9 @@ public class ContractDeployTool {
                     TransactionProcessorFactory.createAssembleTransactionProcessor(client, keyPair);
 
             System.out.println(">>> 部署账户：" + keyPair.getAddress());
-            TransactionResponse response = processor.deployAndGetResponse(abi, bin);
+            // 必须用三参重载（abi + bin + params）：两参重载会把 bin 当作已签名交易直接 push，
+            // 导致节点把 bytecode 首字节误当 RLP 项而报 OversizeRLP。空 params 走 ABI 编码构造交易。
+            TransactionResponse response = processor.deployAndGetResponse(abi, bin, new ArrayList<>());
             if (response == null || response.getReturnCode() != 0) {
                 System.err.println("[FAIL] 部署失败：" + (response == null ? "无响应" : response.getReturnMessage()));
                 System.exit(3);
