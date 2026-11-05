@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>链上实证 · 图片/视频可验证演示 | 农安链溯源</title>
+<style>
+  :root{
+    --brand:#1f7a4d; --brand-dark:#17603c; --brand-light:#e8f5ee;
+    --success:#16a34a; --success-light:#e8f7ee;
+    --danger:#d93026; --danger-light:#fdeceb;
+    --t1:#1f2937; --t2:#4b5563; --t3:#8a94a6; --t4:#b6bec9;
+    --bg:#f4f6f8; --card:#ffffff; --border:#e9edf2;
+    --mono:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased}
+  .mono{font-family:var(--mono)}
+
+  /* ---------- header ---------- */
+  .top{position:sticky;top:0;z-index:30;background:linear-gradient(135deg,#0b3f26 0%,#1f7a4d 100%);color:#fff;padding:16px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 16px rgba(11,63,38,.25)}
+  .logo{width:44px;height:44px;flex-shrink:0}
+  .top h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+  .top p{font-size:12px;color:rgba(255,255,255,.78);margin-top:2px}
+  .top .badge{margin-left:auto;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:5px 12px;font-size:11px;white-space:nowrap}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:8px;padding:14px 20px 0;max-width:1080px;margin:0 auto}
+  .tab{flex:1;text-align:center;padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--border);cursor:pointer;font-size:14px;font-weight:600;color:var(--t2);transition:.15s}
+  .tab.on{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 6px 18px rgba(31,122,77,.28)}
+  .tab small{display:block;font-weight:400;font-size:11px;opacity:.72;margin-top:2px}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:20px}
+  .panel{display:none}
+  .panel.on{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .mechanism{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start;box-shadow:0 4px 20px rgba(17,38,28,.05)}
+  .mechanism .ico{flex-shrink:0;width:40px;height:40px;border-radius:10px;background:var(--brand-light);color:var(--brand);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .mechanism h3{font-size:14px;font-weight:700}
+  .mechanism p{font-size:12.5px;color:var(--t2);line-height:1.65;margin-top:4px}
+  .mechanism .flow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+  .flow .chip{font-family:var(--mono);font-size:11px;background:var(--brand-light);color:var(--brand-dark);padding:3px 8px;border-radius:6px}
+  .flow .arrow{color:var(--t3);font-size:12px}
+
+  /* ---------- 手机壳 ---------- */
+  .phone-stage{display:flex;justify-content:center}
+  .phone{width:390px;max-width:100%;background:var(--card);border-radius:30px;box-shadow:0 16px 48px rgba(17,38,28,.16);overflow:hidden;border:8px solid #0d0d0f}
+  .phone .statusbar{height:34px;background:var(--brand-dark);display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:#fff;font-size:11px}
+  .phone .appbar{background:linear-gradient(135deg,#1f7a4d,#2f9e63);color:#fff;padding:16px 18px 20px}
+  .phone .appbar .trace-no{font-family:var(--mono);font-size:12px;opacity:.9}
+  .phone .appbar h2{font-size:17px;font-weight:700;margin-top:4px}
+  .phone .appbar .trust{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:rgba(255,255,255,.16);border-radius:999px;padding:5px 12px;font-size:12px}
+  .phone .body{padding:16px 16px 28px;background:var(--bg)}
+
+  /* ---------- 时间轴 ---------- */
+  .tl{position:relative}
+  .node{display:flex;gap:12px;padding-bottom:0}
+  .node .axis{width:34px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+  .node .dot{width:14px;height:14px;border-radius:50%;margin-top:16px;border:3px solid #fff;box-shadow:0 0 0 2px rgba(31,122,77,.18)}
+  .node .dot.g{background:var(--success)} .node .dot.r{background:var(--danger)} .node .dot.gray{background:#94a3b8}
+  .node .line{width:2px;flex:1;background:#e2e8f0;margin:4px 0}
+  .node:last-child .line{display:none}
+  .card{flex:1;background:var(--card);border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 3px 12px rgba(17,38,28,.05);border:1px solid var(--border)}
+  .card .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .card .tt{font-size:14px;font-weight:700}
+  .card .tm{font-size:11px;color:var(--t4);flex-shrink:0}
+  .card .op{font-size:12px;color:var(--t3);margin-top:5px}
+  .card .dt{font-size:12.5px;color:var(--t2);line-height:1.6;margin-top:8px;background:#f7f9fb;border-radius:9px;padding:9px 11px}
+  .card .row{display:flex;gap:6px;margin-top:9px;font-size:12px;align-items:center}
+  .card .k{color:var(--t4);flex-shrink:0}
+  .card .v{color:var(--t2)}
+  .card .hashval{font-family:var(--mono);font-size:10.5px;color:var(--t3);background:#f1f4f7;border-radius:5px;padding:2px 6px;cursor:pointer}
+  .card .hashval:hover{color:var(--brand);background:var(--brand-light)}
+  .st{display:inline-block;font-size:10.5px;border-radius:999px;padding:2px 8px}
+  .st.good{color:var(--success);background:var(--success-light)}
+  .st.bad{color:var(--danger);background:var(--danger-light)}
+  .st.chain{color:var(--brand);background:var(--brand-light)}
+
+  /* ---------- 证据墙 ---------- */
+  .wall{margin-top:12px;background:#fafbfc;border:1px solid #e8eef3;border-radius:11px;padding:11px}
+  .wall .cap{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+  .wall .cap .t{font-size:11.5px;color:var(--t3);font-weight:600}
+  .wall .cap .hashchip{font-size:10px;color:var(--brand);background:var(--brand-light);padding:2px 8px;border-radius:999px}
+  .evgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .ev{position:relative;border-radius:9px;overflow:hidden;background:#0b1220;aspect-ratio:1/1;cursor:pointer}
+  .ev svg{width:100%;height:100%;display:block}
+  .ev .tag{position:absolute;left:4px;bottom:4px;font-size:9px;color:#fff;background:rgba(0,0,0,.45);padding:1px 6px;border-radius:4px}
+  .ev .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .ev .play::before{content:"";width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.55);display:block;box-shadow:0 0 0 6px rgba(255,255,255,.15)}
+  .ev .play::after{content:"";position:absolute;border-left:11px solid #fff;border-top:7px solid transparent;border-bottom:7px solid transparent;transform:translateX(2px)}
+  .ev.video{grid-column:span 3;aspect-ratio:16/9}
+  .ev video{width:100%;height:100%;object-fit:cover;display:block}
+  .ev .vmeta{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:6px 9px;background:linear-gradient(transparent,rgba(0,0,0,.65));color:#d1d5db;font-size:9.5px}
+
+  /* ---------- PC 视图 ---------- */
+  .pc-shell{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(17,38,28,.1)}
+  .pc-top{background:linear-gradient(135deg,#0b3f26,#1f7a4d);color:#fff;padding:16px 22px;display:flex;align-items:center;gap:12px}
+  .pc-top h2{font-size:16px;font-weight:700}
+  .pc-top p{font-size:12px;opacity:.8;margin-top:2px}
+  .pc-body{padding:22px}
+  .pc-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .pc-table th{text-align:left;color:var(--t3);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);background:#fafbfc;position:sticky;top:0}
+  .pc-table td{padding:11px 10px;border-bottom:1px solid var(--border);color:var(--t2)}
+  .pc-table tr:hover td{background:#fafbfc}
+  .pc-table .link{color:var(--brand);font-weight:600;cursor:pointer}
+  .pc-table .muted{color:var(--t4)}
+  .ev-mini{display:inline-flex;gap:5px}
+  .ev-mini .th{width:22px;height:22px;border-radius:5px;overflow:hidden;background:#0b1220;display:inline-flex;align-items:center;justify-content:center;color:#9ae6b4;font-size:11px}
+  .ev-mini .th svg{width:100%;height:100%}
+
+  /* ---------- 处置弹窗 ---------- */
+  .modal-mask{background:rgba(15,23,42,.55);border-radius:16px;display:flex;align-items:center;justify-content:center;padding:30px 20px;min-height:520px}
+  .modal{width:560px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,.3);overflow:hidden}
+  .modal .mhead{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+  .modal .mhead h3{font-size:15px;font-weight:700}
+  .modal .mhead .x{color:var(--t3);cursor:pointer;font-size:18px}
+  .modal .mbody{padding:18px 20px;max-height:520px;overflow-y:auto}
+  .mbar{display:flex;gap:10px;align-items:center;background:var(--danger-light);border-radius:8px;padding:8px 12px;margin-bottom:16px}
+  .mbar .no{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--t1)}
+  .mbar .type{font-size:11.5px;color:var(--danger)}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12.5px;color:var(--t2);font-weight:600;margin-bottom:7px}
+  .field label .req{color:var(--danger)}
+  .field textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;min-height:70px;line-height:1.6;color:var(--t1)}
+  .field textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(31,122,77,.12)}
+  /* 上传组件 */
+  .up-grid{display:flex;flex-wrap:wrap;gap:12px}
+  .up{width:108px;height:108px;border-radius:11px;position:relative;overflow:hidden;background:#0b1220}
+  .up svg{width:100%;height:100%}
+  .up .kind{position:absolute;left:5px;bottom:5px;font-size:10px;color:#fff;background:rgba(0,0,0,.45);padding:1px 7px;border-radius:4px}
+  .up .del{position:absolute;right:0;top:0;width:26px;height:26px;background:rgba(0,0,0,.55);color:#fff;text-align:center;line-height:24px;font-size:15px;border-bottom-left-radius:10px;cursor:pointer}
+  .up .mask{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
+  .up .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .up .play::before{content:"";width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.55);box-shadow:0 0 0 5px rgba(255,255,255,.14)}
+  .up .play::after{content:"";position:absolute;border-left:10px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent;transform:translateX(1px)}
+  .up.add{border:1px dashed #cfd8e3;background:#fafbfc;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--t3);gap:5px}
+  .up.add.video{border-color:#b9d7c6;background:#f4faf6}
+  .up.add .plus{font-size:26px;line-height:1}
+  .up.add.video .plus{color:var(--brand)}
+  .up.add .tip{font-size:11px}
+  .up-note{font-size:11px;color:var(--t4);margin-top:11px;line-height:1.55}
+  .mfoot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border)}
+  .btn{padding:9px 20px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;border:none}
+  .btn.ghost{background:#eef1f4;color:var(--t2)}
+  .btn.primary{background:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-dark)}
+  .btn.primary:disabled{opacity:.6;cursor:default}
+
+  /* ---------- lightbox ---------- */
+  .lb{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100;display:none;align-items:center;justify-content:center;flex-direction:column;padding:30px}
+  .lb.on{display:flex}
+  .lb svg{max-width:90vw;max-height:72vh;border-radius:10px}
+  .lb .cap2{color:#e5e7eb;font-size:12px;margin-top:12px;font-family:var(--mono)}
+  .lb .close{position:absolute;top:22px;right:26px;color:#fff;font-size:30px;cursor:pointer}
+  .toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:#111827;color:#fff;padding:9px 18px;border-radius:9px;font-size:12.5px;z-index:200;opacity:0;pointer-events:none;transition:.2s}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+
+  @media (max-width:640px){
+    .top .badge{display:none}
+    .modal-mask{padding:16px 10px}
+    .pc-body{padding:14px}
+    .pc-table{font-size:11px}
+  }
+</style>
+</head>
+<body>
+
+<!-- SVG 素材定义 -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe3ff"/><stop offset="1" stop-color="#e8f6ff"/></linearGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7bcb8f"/><stop offset="1" stop-color="#3d8f5f"/></linearGradient>
+    <linearGradient id="darkscene" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f2937"/><stop offset="1" stop-color="#0b1220"/></linearGradient>
+
+    <symbol id="pic-field" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="url(#sky)"/>
+      <circle cx="160" cy="36" r="16" fill="#ffe08a"/>
+      <path d="M0 130 Q50 104 100 130 T200 130 V200 H0 Z" fill="url(#field)"/>
+      <g fill="#2f7a4a">
+        <ellipse cx="40" cy="150" rx="14" ry="22"/><ellipse cx="100" cy="142" rx="14" ry="24"/><ellipse cx="160" cy="150" rx="14" ry="22"/>
+      </g>
+      <g stroke="#d8f5e2" stroke-width="3" stroke-linecap="round">
+        <path d="M40 150 V120 M100 142 V110 M160 150 V120"/>
+      </g>
+      <rect width="200" height="200" fill="none" stroke="#00000018"/>
+      <text x="12" y="188" font-size="13" fill="#ffffff" font-family="sans-serif" opacity=".9">田间施肥</text>
+    </symbol>
+
+    <symbol id="pic-harvest" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#f5efe2"/>
+      <ellipse cx="100" cy="120" rx="62" ry="46" fill="#c98b4b"/>
+      <ellipse cx="100" cy="108" rx="62" ry="46" fill="#dfa862"/>
+      <ellipse cx="100" cy="116" rx="52" ry="34" fill="#b97a3c"/>
+      <g fill="#7cb342"><ellipse cx="70" cy="88" rx="13" ry="9"/><ellipse cx="105" cy="82" rx="13" ry="9"/><ellipse cx="132" cy="92" rx="12" ry="8"/><ellipse cx="92" cy="100" rx="12" ry="8"/></g>
+      <g fill="#558b2f"><circle cx="70" cy="88" r="2"/><circle cx="105" cy="82" r="2"/><circle cx="132" cy="92" r="2"/></g>
+      <rect width="200" height="200" fill="none" stroke="#00000014"/>
+      <text x="12" y="188" font-size="13" fill="#5b4a2f" font-family="sans-serif" opacity=".9">采收称重</text>
+    </symbol>
+
+    <symbol id="pic-report" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#e9eef3"/>
+      <rect x="40" y="22" width="120" height="156" rx="4" fill="#ffffff" stroke="#c9d4e0"/>
+      <rect x="56" y="40" width="66" height="8" rx="2" fill="#1f7a4d"/>
+      <rect x="56" y="58" width="88" height="4" rx="2" fill="#cbd5e1"/>
+      <rect x="56" y="68" width="76" height="4" rx="2" fill="#cbd5e1"/>
+      <rect x="56" y="90" width="88" height="3" rx="1.5" fill="#e2e8f0"/>
+      <rect x="56" y="98" width="82" height="3" rx="1.5" fill="#e2e8f0"/>
+      <rect x="56" y="106" width="86" height="3" rx="1.5" fill="#e2e8f0"/>
+      <rect x="56" y="114" width="70" height="3" rx="1.5" fill="#e2e8f0"/>
+      <circle cx="124" cy="130" r="20" fill="none" stroke="#d93026" stroke-width="4" opacity=".85"/>
+      <text x="124" y="136" font-size="13" fill="#d93026" text-anchor="middle" font-family="sans-serif" font-weight="700">合格</text>
+      <text x="12" y="188" font-size="13" fill="#475569" font-family="sans-serif" opacity=".9">质检报告</text>
+    </symbol>
+
+    <symbol id="pic-dispose" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="url(#darkscene)"/>
+      <path d="M0 24 L200 0 V24 L0 48 Z" fill="#d93026"/>
+      <path d="M0 48 L200 24 V42 L0 66 Z" fill="#ffffff" opacity=".92"/>
+      <g fill="#d93026"><circle cx="100" cy="118" r="30"/></g>
+      <path d="M100 118 m-16 0 l32 0 M100 118 m0 -16 l0 32" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+      <rect width="200" height="200" fill="none" stroke="#00000030"/>
+      <text x="12" y="188" font-size="13" fill="#fca5a5" font-family="sans-serif" opacity=".9">无害化销毁</text>
+    </symbol>
+
+    <symbol id="pic-poster" viewBox="0 0 200 112">
+      <rect width="200" height="112" fill="url(#darkscene)"/>
+      <circle cx="100" cy="56" r="30" fill="none" stroke="#9ae6b4" stroke-width="3" opacity=".5"/>
+      <path d="M100 40 l18 16 -18 16 -18 -16 Z" fill="#9ae6b4" opacity=".9"/>
+      <text x="100" y="106" font-size="11" fill="#cbd5e1" text-anchor="middle" font-family="sans-serif">现场处置视频</text>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <svg class="logo" viewBox="0 0 512 512"><g clip-path="url(#rr)"><rect width="512" height="512" fill="#1f7a4d"/><path d="M-60 512 L-60 432 Q256 366 572 432 L572 512 Z" fill="#0b4a2b"/><rect x="247" y="296" width="18" height="118" rx="9" fill="#c2f4d8"/><path d="M258 314 Q236 196 122 206 Q150 330 258 314 Z" fill="#8fe4b2"/><path d="M254 314 Q276 196 390 206 Q362 330 254 314 Z" fill="#d6fbe6"/><circle cx="402" cy="126" r="30" fill="none" stroke="#e6fff0" stroke-opacity=".62" stroke-width="6"/><circle cx="402" cy="126" r="10" fill="#e6fff0"/></g></svg>
+  <div>
+    <h1>农安链溯源 · 链上实证</h1>
+    <p>图片 / 视频可验证 —— 证据哈希并入上链摘要，看得见、核得着</p>
+  </div>
+  <span class="badge">交互演示 · 演示数据</span>
+</header>
+
+<div class="tabs">
+  <div class="tab on" data-view="mobile">消费者扫码溯源<small>时间轴 + 证据墙</small></div>
+  <div class="tab" data-view="pc">PC 管理端<small>异常处置 · 上传实证</small></div>
+</div>
+
+<div class="wrap">
+  <!-- 存证机制说明 -->
+  <div class="mechanism">
+    <div class="ico">🔗</div>
+    <div>
+      <h3>为什么"看得见"也能"核得着"</h3>
+      <p>每张图、每段视频上传后都算出 SHA-256，多份证据聚合成一枚<b>证据根哈希</b>，随业务摘要一并写入区块链。消费者看到的画面与链上摘要一一对应，任何替换都逃不过"一键校验"。</p>
+      <div class="flow">
+        <span class="chip">图片/视频</span><span class="arrow">→</span>
+        <span class="chip">SHA-256</span><span class="arrow">→</span>
+        <span class="chip">证据根哈希</span><span class="arrow">→</span>
+        <span class="chip">业务摘要</span><span class="arrow">→</span>
+        <span class="chip">上链存证</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 移动端溯源 ============ -->
+  <div class="panel on" id="view-mobile">
+    <div class="phone-stage">
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>溯源批次</span><span>🔋 100%</span></div>
+        <div class="appbar">
+          <div class="trace-no mono">TC2026-0515-002</div>
+          <h2>秋月梨 · 林建国</h2>
+          <div class="trust">✓ 可信度 72 · B 级</div>
+        </div>
+        <div class="body">
+          <div class="tl">
+            <!-- 1 创建批次 -->
+            <div class="node"><div class="axis"><div class="dot g"></div><div class="line"></div></div>
+              <div class="card"><div class="head"><span class="tt">批次建档</span><span class="tm">05-15 08:10</span></div>
+                <div class="op">操作人 · 林建国</div>
+                <div class="row"><span class="k">存证</span><span class="st chain">已上链</span></div>
+              </div></div>
+            <!-- 2 农事（带图） -->
+            <div class="node"><div class="axis"><div class="dot g"></div><div class="line"></div></div>
+              <div class="card"><div class="head"><span class="tt">农事记录 · 整地施肥</span><span class="tm">05-16 09:00</span></div>
+                <div class="op">操作人 · 林建国</div>
+                <div class="dt">深翻 25cm，施用有机肥 800kg/亩，现场拍照留证</div>
+                <div class="wall">
+                  <div class="cap"><span class="t">实证材料 · 2 份</span><span class="hashchip">哈希已并入链上摘要</span></div>
+                  <div class="evgrid">
+                    <div class="ev" data-cap="农事现场 · 整地施肥"><svg><use href="#pic-field"/></svg><span class="tag">图片</span></div>
+                    <div class="ev" data-cap="农事现场 · 肥料投入"><svg><use href="#pic-field"/></svg><span class="tag">图片</span></div>
+                  </div>
+                </div>
+                <div class="row"><span class="k">摘要</span><span class="hashval" onclick="copyHash('a3f1c9e2d8b47f0a6c5e3d1b9f8a2c4e6d0b5a7f')">a3f1c9e2d8b4…</span></div>
+              </div></div>
+            <!-- 3 采收 -->
+            <div class="node"><div class="axis"><div class="dot g"></div><div class="line"></div></div>
+              <div class="card"><div class="head"><span class="tt">采收记录</span><span class="tm">05-18 16:30</span></div>
+                <div class="op">操作人 · 林建国</div>
+                <div class="wall">
+                  <div class="cap"><span class="t">实证材料 · 1 份</span><span class="hashchip">哈希已并入链上摘要</span></div>
+                  <div class="evgrid"><div class="ev" data-cap="采收称重现场"><svg><use href="#pic-harvest"/></svg><span class="tag">图片</span></div></div>
+                </div>
+              </div></div>
+            <!-- 4 质检 -->
+            <div class="node"><div class="axis"><div class="dot g"></div><div class="line"></div></div>
+              <div class="card"><div class="head"><span class="tt">质检报告</span><span class="tm">05-19 10:20</span></div>
+                <div class="op">检测机构 · 周敏</div>
+                <div class="row"><span class="k">结论</span><span class="st good">合格</span></div>
+                <div class="wall">
+                  <div class="cap"><span class="t">实证材料 · 1 份</span><span class="hashchip">哈希已并入链上摘要</span></div>
+                  <div class="evgrid"><div class="ev" data-cap="质检报告 JC2026-0519-001"><svg><use href="#pic-report"/></svg><span class="tag">报告</span></div></div>
+                </div>
+              </div></div>
+            <!-- 5 异常上报 -->
+            <div class="node"><div class="axis"><div class="dot r"></div><div class="line"></div></div>
+              <div class="card"><div class="head"><span class="tt">异常上报 · 农残超标</span><span class="tm">05-20 08:40</span></div>
+                <div class="op">检测机构 · 周敏</div>
+                <div class="dt">毒死蜱残留 0.08mg/kg，超出 GB 2763-2021 限量 0.02mg/kg，触发合约熔断</div>
+                <div class="row"><span class="k">状态</span><span class="st bad">异常</span></div>
+              </div></div>
+            <!-- 6 处置（带图+视频，重点） -->
+            <div class="node"><div class="axis"><div class="dot g"></div></div>
+              <div class="card"><div class="head"><span class="tt">异常处置 · 无害化销毁</span><span class="tm">05-20 14:30</span></div>
+                <div class="op">监管员 · 陈立</div>
+                <div class="dt">整批 600kg 就地无害化销毁，全程录像留证，经复检未流入市场</div>
+                <div class="wall">
+                  <div class="cap"><span class="t">实证材料 · 3 份</span><span class="hashchip">哈希已并入链上摘要</span></div>
+                  <div class="evgrid">
+                    <div class="ev" data-cap="销毁现场 · 封存"><svg><use href="#pic-dispose"/></svg><span class="tag">图片</span></div>
+                    <div class="ev" data-cap="销毁现场 · 称重记录"><svg><use href="#pic-dispose"/></svg><span class="tag">图片</span></div>
+                    <div class="ev video" data-cap="销毁过程全程录像.mp4">
+                      <video controls preload="metadata" poster="">
+                        <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+                      </video>
+                      <div class="vmeta"><span>视频 · 销毁过程全程录像.mp4</span><span class="mono" onclick="copyHash('c8e1d2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9')">SHA c8e1d2f3a4…</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row"><span class="k">存证</span><span class="st chain">已上链</span></div>
+                <div class="row"><span class="k">tx</span><span class="hashval" onclick="copyHash('0x9d4e7a1c2b3f5e8d6a9c0b1d2e3f4a5b6c7d8e9f')">0x9d4e7a1c…</span></div>
+              </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PC 管理端 ============ -->
+  <div class="panel" id="view-pc">
+    <div class="pc-shell">
+      <div class="pc-top">
+        <svg class="logo" viewBox="0 0 512 512" style="width:34px;height:34px"><g><rect width="512" height="512" fill="#1f7a4d"/><path d="M-60 512 L-60 432 Q256 366 572 432 L572 512 Z" fill="#0b4a2b"/><path d="M258 314 Q236 196 122 206 Q150 330 258 314 Z" fill="#8fe4b2"/><path d="M254 314 Q276 196 390 206 Q362 330 254 314 Z" fill="#d6fbe6"/></g></svg>
+        <div><h2>异常管控</h2><p>异常自动熔断物流与销售写入，处置结果与证据哈希同步上链</p></div>
+      </div>
+      <div class="pc-body">
+        <table class="pc-table">
+          <thead><tr><th>批次编码</th><th>异常类型</th><th>处置结果</th><th>实证材料</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">AG20260515002</td><td>农残超标</td>
+              <td>已销毁 600kg，全程录像留证</td>
+              <td><span class="ev-mini"><span class="th"><svg><use href="#pic-dispose"/></svg></span><span class="th"><svg><use href="#pic-dispose"/></svg></span><span class="th">▶</span></span> 3 份</td>
+              <td><span class="st good">已处置</span></td><td class="muted">—</td>
+            </tr>
+            <tr>
+              <td class="mono">AG20260520007</td><td>重金属超标</td>
+              <td>—</td>
+              <td><span class="muted">—</span></td>
+              <td><span class="st bad">待处置</span></td>
+              <td><span class="link" onclick="openModal()">处置</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="pc-shell" style="margin-top:20px">
+      <div class="pc-top" style="background:linear-gradient(135deg,#1f2937,#0b1220)"><div><h2>处置登记弹窗（点击上方"处置"打开）</h2><p>图片 / 视频实证上传 → 提交上链</p></div></div>
+      <div class="modal-mask">
+        <div class="modal">
+          <div class="mhead"><h3>异常处置登记</h3><span class="x" onclick="closeModal()">✕</span></div>
+          <div class="mbody">
+            <div class="mbar"><span class="no mono">AG20260520007</span><span class="type">重金属超标</span></div>
+            <div class="field"><label>处置措施<span class="req"> *</span></label><textarea id="measure">整批就地无害化销毁，并委托复检</textarea></div>
+            <div class="field"><label>处置结果<span class="req"> *</span></label><textarea id="result">已销毁 320kg，复检合格，未流入市场</textarea></div>
+            <div class="field"><label>实证材料（图片 / 视频）</label>
+              <div class="up-grid" id="upgrid">
+                <div class="up add" data-kind="image"><span class="plus">＋</span><span class="tip">图片实证</span></div>
+                <div class="up add video" data-kind="video"><span class="plus">▶</span><span class="tip">视频实证</span></div>
+              </div>
+              <div class="up-note">图片与视频的 SHA-256 会并入本次上链摘要，事后无法替换而不被发现</div>
+            </div>
+          </div>
+          <div class="mfoot">
+            <button class="btn ghost" onclick="closeModal()">取消</button>
+            <button class="btn primary" id="submit" onclick="submit()">提交处置并上链</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- lightbox -->
+<div class="lb" id="lb" onclick="closeLb()">
+  <span class="close">✕</span>
+  <svg id="lb-svg"></svg>
+  <div class="cap2" id="lb-cap"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---------- tab ----------
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+      document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+      t.classList.add('on');
+      document.getElementById('view-'+t.dataset.view).classList.add('on');
+    });
+  });
+
+  // ---------- lightbox（图片） ----------
+  const lb=document.getElementById('lb'), lbSvg=document.getElementById('lb-svg'), lbCap=document.getElementById('lb-cap');
+  function closeLb(){lb.classList.remove('on');}
+  document.addEventListener('click',e=>{
+    const ev=e.target.closest('.ev:not(.video)');
+    if(ev){
+      const use=ev.querySelector('use');
+      const href=use.getAttribute('href');
+      lbSvg.innerHTML='<use href="'+href+'"/>';
+      lbCap.textContent=ev.dataset.cap||'';
+      lb.classList.add('on');
+    }
+  });
+
+  // ---------- 哈希复制 ----------
+  function copyHash(v){
+    const done=()=>toast('已复制：'+v.slice(0,10)+'…');
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(v).then(done).catch(done);
+    }else{done();}
+  }
+
+  // ---------- toast ----------
+  let toastTimer;
+  function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1600);}
+
+  // ---------- PC 弹窗 ----------
+  function openModal(){toast('已打开处置弹窗（下方）');document.querySelectorAll('.pc-shell')[1].scrollIntoView({behavior:'smooth'});}
+  function closeModal(){toast('已取消');}
+
+  // ---------- 模拟上传 ----------
+  const kinds={image:['pic-field','pic-harvest','pic-dispose','pic-report'],video:null};
+  const imgTitles={ 'pic-field':'田间现场','pic-harvest':'称重记录','pic-dispose':'销毁现场','pic-report':'检测报告'};
+  document.getElementById('upgrid').addEventListener('click',e=>{
+    const add=e.target.closest('.up.add'); if(!add)return;
+    const kind=add.dataset.kind;
+    const cell=document.createElement('div'); cell.className='up';
+    if(kind==='image'){
+      const sym=kinds.image[Math.floor(Math.random()*kinds.image.length)];
+      cell.innerHTML='<svg><use href="#'+sym+'"/></svg><span class="kind">图片</span><span class="del">×</span><span class="mask">0%</span>';
+    }else{
+      cell.innerHTML='<svg><use href="#pic-poster"/></svg><span class="kind">视频</span><span class="del">×</span><span class="play"></span><span class="mask">0%</span>';
+    }
+    add.parentNode.insertBefore(cell,add);
+    const mask=cell.querySelector('.mask');
+    let p=0;
+    const timer=setInterval(()=>{
+      p+=Math.random()*18+8; if(p>=100){p=100;clearInterval(timer);mask.style.display='none';
+        const del=cell.querySelector('.del'); if(del)del.onclick=()=>cell.remove();
+      }else{mask.textContent=Math.floor(p)+'%';}
+    },160);
+  });
+
+  // ---------- 提交上链（模拟） ----------
+  function submit(){
+    const btn=document.getElementById('submit');
+    if(btn.disabled)return;
+    btn.disabled=true;btn.textContent='上链中…';
+    setTimeout(()=>{btn.disabled=false;btn.textContent='提交处置并上链';toast('✓ 已登记，证据哈希已并入链上存证');},1600);
+  }
+</script>
+</body>
+</html>

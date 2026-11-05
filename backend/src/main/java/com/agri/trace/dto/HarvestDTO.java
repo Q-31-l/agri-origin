@@ -1,6 +1,7 @@
 package com.agri.trace.dto;
 
 import lombok.Data;
+import java.util.List;
 
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotNull;
@@ -25,4 +26,7 @@ public class HarvestDTO {
     private String weather;
     private String images;
     private String remark;
+
+    /** 现场实证：图片/视频文件 id 列表，提交后证据哈希随业务摘要一并上链 */
+    private List<Long> evidenceIds;
 }

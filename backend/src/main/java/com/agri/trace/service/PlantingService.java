@@ -37,6 +37,8 @@ public class PlantingService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizPlantingRecord> page(long page, long size, Long batchId, String batchNo) {
         LambdaQueryWrapper<BizPlantingRecord> wrapper = Wrappers.<BizPlantingRecord>lambdaQuery()
@@ -106,16 +108,22 @@ public class PlantingService {
         record.setChainStatus(Constants.CHAIN_NONE);
         plantingMapper.insert(record);
 
-        String dataHash = DigestHelper.planting(record);
+
+        // 实证绑定：图片/视频文件哈希聚合为证据根哈希，随业务摘要一并上链
+        java.util.List<com.agri.trace.vo.EvidenceVO> evidences = fileService.bindEvidence(
+                dto.getEvidenceIds(), Constants.EVENT_PLANTING, record.getId());
+        String evidenceHash = fileService.evidenceHash(evidences);
+
+        String dataHash = DigestHelper.planting(record, evidenceHash);
         record.setDataHash(dataHash);
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_PLANTING,
-                String.valueOf(record.getId()), dataHash, null, user.getRealName());
+                String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());
         record.setChainTxHash(chain.getTxHash());
         record.setBlockNumber(chain.getBlockNumber());
         plantingMapper.updateById(record);
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_PLANTING, record.getId(),
-                "PLANTING_RECORD", dataHash, null, chain);
+                "PLANTING_RECORD", dataHash, evidenceHash, chain);
 
         return record.getId();
     }

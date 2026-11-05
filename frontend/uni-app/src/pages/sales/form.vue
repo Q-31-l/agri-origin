@@ -53,6 +53,11 @@
       <text class="sum-value">￥{{ amount }}</text>
     </view>
 
+    <view class="group" style="padding:24rpx">
+      <text class="label">现场实证（图片 / 视频）</text>
+      <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" style="margin-top:16rpx" />
+    </view>
+
     <view class="actions">
       <view class="btn" :class="{ disabled: submitting }" @click="onSubmit">
         {{ submitting ? '提交中…' : '提交销售登记' }}
@@ -62,9 +67,10 @@
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import BatchPicker from '@/components/business/batch-picker.vue'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { createSales } from '@/api'
 import { useForm } from '@/composables/useForm'
 import { useCacheStore } from '@/store/cache'
@@ -72,6 +78,8 @@ import { back } from '@/utils/router'
 
 const cache = useCacheStore()
 const units = ['kg', '吨', '斤', '箱', '件']
+const uploader = ref(null)
+const evidenceFiles = ref([])
 
 const form = reactive({
   batchId: '',
@@ -98,7 +106,7 @@ const amount = computed(() => {
 })
 
 const { submitting, submit } = useForm(
-  (data) => createSales({ ...data, price: Number(data.price), quantity: Number(data.quantity) }),
+  (data) => createSales({ ...data, price: Number(data.price), quantity: Number(data.quantity), evidenceIds: uploader.value ? uploader.value.ids() : [] }),
   {
     successText: '销售登记成功',
     validate: (d) => {

@@ -230,7 +230,7 @@
               </block>
 
               <!-- 异常处置 -->
-              <block v-else>
+              <block v-else-if="tab === 'disposal'">
                 <view v-if="!disposals.length" class="pc-none">暂无异常处置记录</view>
                 <view v-else class="pc-tbody">
                   <view class="pc-thead inner">
@@ -248,6 +248,29 @@
                     <text class="pc-td">{{ r.disposalResult || '-' }}</text>
                     <text class="pc-td">{{ r.handlerName || '-' }}</text>
                     <text class="pc-td">{{ r.status || '-' }}</text>
+                  </view>
+                </view>
+              </block>
+
+              <!-- 更正说明 -->
+              <block v-else>
+                <view v-if="!corrections.length" class="pc-none">暂无更正说明</view>
+                <view v-else class="pc-tbody">
+                  <view class="pc-thead inner">
+                    <text class="pc-th">更正环节</text>
+                    <text class="pc-th">更正原因</text>
+                    <text class="pc-th f2">更正说明</text>
+                    <text class="pc-th">操作人</text>
+                    <text class="pc-th">时间</text>
+                    <text class="pc-th">上链</text>
+                  </view>
+                  <view v-for="c in corrections" :key="c.id" class="pc-tr">
+                    <text class="pc-td">{{ bizTypeLabel(c.bizType) }}#{{ c.bizId }}</text>
+                    <text class="pc-td">{{ c.reason || '-' }}</text>
+                    <view class="pc-td f2">{{ c.content || '-' }}</view>
+                    <text class="pc-td">{{ c.operatorName || '-' }}</text>
+                    <text class="pc-td">{{ formatDateTime(c.createTime) }}</text>
+                    <view class="pc-td"><pc-status :value="c.chainStatus" type="chain" /></view>
                   </view>
                 </view>
               </block>
@@ -381,6 +404,7 @@ const qualities = computed(() => detail.value.qualities || [])
 const logistics = computed(() => detail.value.logistics || [])
 const sales = computed(() => detail.value.sales || [])
 const disposals = computed(() => detail.value.disposals || [])
+const corrections = computed(() => detail.value.corrections || [])
 const chainRecords = computed(() => detail.value.chainRecords || [])
 const chainEnabled = computed(() => !!detail.value.chainEnabled)
 const chainMessage = computed(() => detail.value.chainMessage || '')
@@ -397,7 +421,8 @@ const tabs = computed(() => [
   { key: 'quality', label: '质检报告', list: qualities.value },
   { key: 'logistics', label: '物流', list: logistics.value },
   { key: 'sales', label: '销售', list: sales.value },
-  { key: 'disposal', label: '异常处置', list: disposals.value }
+  { key: 'disposal', label: '异常处置', list: disposals.value },
+  { key: 'correction', label: '更正说明', list: corrections.value }
 ])
 
 /* ---------------- 权限 ---------------- */
@@ -433,6 +458,20 @@ onLoad((opt) => {
 /* ---------------- 交互 ---------------- */
 function eventName(t) {
   return EVENT_TYPE[t] || t || '-'
+}
+
+const BIZ_TYPE_LABEL = {
+  PLANTING: '农事',
+  HARVEST: '采收',
+  QUALITY: '质检',
+  LOGISTICS: '物流',
+  SALES: '销售',
+  ABNORMAL: '异常',
+  DISPOSAL: '处置'
+}
+
+function bizTypeLabel(t) {
+  return BIZ_TYPE_LABEL[t] || t || '-'
 }
 
 const CHAIN_TEXT = {

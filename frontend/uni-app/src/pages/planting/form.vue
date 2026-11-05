@@ -45,11 +45,11 @@
     <view class="group">
       <view class="col-item">
         <view class="between">
-          <text class="label">现场照片</text>
-          <text class="hint">最多 3 张</text>
+          <text class="label">现场实证</text>
+          <text class="hint">图片 / 视频</text>
         </view>
         <view class="uploader-wrap">
-          <photo-uploader ref="uploader" v-model="images" :max="3" biz-type="PLANTING" tip="拍照" />
+          <evidence-uploader ref="uploader" v-model="images" :max="6" />
         </view>
       </view>
     </view>
@@ -74,7 +74,7 @@
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import BatchPicker from '@/components/business/batch-picker.vue'
-import PhotoUploader from '@/components/common/photo-uploader.vue'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { createPlanting } from '@/api'
 import { useForm } from '@/composables/useForm'
 import { useCacheStore } from '@/store/cache'
@@ -110,7 +110,7 @@ const { submitting, submit } = useForm(
   (data) =>
     createPlanting({
       ...data,
-      images: images.value.map((x) => x.filePath).join(',')
+      evidenceIds: uploader.value ? uploader.value.ids() : []
     }),
   {
     successText: '记录已提交',

@@ -27,29 +27,53 @@ public final class DigestHelper {
     }
 
     public static String planting(BizPlantingRecord r) {
+        return planting(r, null);
+    }
+
+    public static String planting(BizPlantingRecord r, String evidenceHash) {
         return HashUtil.digestOf("PLANTING", r.getBatchNo(), r.getRecordType(), r.getOperationDate(),
-                r.getContent(), r.getMaterialName(), r.getDosage(), r.getOperatorId(), r.getImages());
+                r.getContent(), r.getMaterialName(), r.getDosage(), r.getOperatorId(), r.getImages(),
+                evidenceHash == null ? "" : evidenceHash);
     }
 
     public static String harvest(BizHarvestRecord r) {
+        return harvest(r, null);
+    }
+
+    public static String harvest(BizHarvestRecord r, String evidenceHash) {
         return HashUtil.digestOf("HARVEST", r.getBatchNo(), r.getHarvestDate(), r.getQuantity(),
-                r.getUnit(), r.getQualityLevel(), r.getOperatorId(), r.getImages());
+                r.getUnit(), r.getQualityLevel(), r.getOperatorId(), r.getImages(),
+                evidenceHash == null ? "" : evidenceHash);
     }
 
     public static String quality(BizQualityReport r) {
+        return quality(r, null);
+    }
+
+    public static String quality(BizQualityReport r, String evidenceHash) {
         return HashUtil.digestOf("QUALITY", r.getBatchNo(), r.getReportNo(), r.getInspectResult(),
-                r.getInspectDate(), r.getInspectorId(), r.getFileHash(), r.getConclusion());
+                r.getInspectDate(), r.getInspectorId(), r.getFileHash(), r.getConclusion(),
+                evidenceHash == null ? "" : evidenceHash);
     }
 
     public static String logistics(BizLogisticsRecord r) {
+        return logistics(r, null);
+    }
+
+    public static String logistics(BizLogisticsRecord r, String evidenceHash) {
         return HashUtil.digestOf("LOGISTICS", r.getBatchNo(), r.getLogisticsNo(), r.getFromOrg(),
                 r.getToOrg(), r.getCarrierId(), r.getVehicleNo(), r.getDepartTime(),
-                r.getArriveTime(), r.getFileHash());
+                r.getArriveTime(), r.getFileHash(), evidenceHash == null ? "" : evidenceHash);
     }
 
     public static String sales(BizSalesRecord r) {
+        return sales(r, null);
+    }
+
+    public static String sales(BizSalesRecord r, String evidenceHash) {
         return HashUtil.digestOf("SALES", r.getBatchNo(), r.getSellerId(), r.getSalesDate(),
-                r.getPrice(), r.getQuantity(), r.getBuyerName());
+                r.getPrice(), r.getQuantity(), r.getBuyerName(),
+                evidenceHash == null ? "" : evidenceHash);
     }
 
     public static String abnormal(BizAbnormalDisposal r) {
@@ -73,8 +97,13 @@ public final class DigestHelper {
     }
 
     public static String correction(BizCorrection c) {
+        return correction(c, null);
+    }
+
+    public static String correction(BizCorrection c, String evidenceHash) {
         return HashUtil.digestOf("CORRECTION", c.getBatchNo(), c.getBizType(), c.getBizId(),
-                c.getReason(), c.getContent(), c.getOperatorId());
+                c.getReason(), c.getContent(), c.getOperatorId(),
+                evidenceHash == null ? "" : evidenceHash);
     }
 
     /**

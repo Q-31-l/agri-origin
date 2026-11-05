@@ -66,6 +66,9 @@ INSERT INTO `sys_permission` (`perm_code`, `perm_name`, `perm_type`, `module`, `
 ('product:create',   '产品品类新增',   'BUTTON','product', '/product',               'POST'),
 ('product:update',   '产品品类编辑',   'BUTTON','product', '/product/{id}',          'PUT'),
 ('log:list',         '操作日志查询',   'API',  'system',   '/log/page',              'GET'),
+('quality:audit',    '质检报告审核',   'BUTTON','quality',  '/quality/{id}/audit',    'POST'),
+('logistics:audit',  '物流记录审核',   'BUTTON','logistics','/logistics/{id}/audit',  'POST'),
+('sales:audit',      '销售记录审核',   'BUTTON','sales',    '/sales/{id}/audit',      'POST'),
 ('file:upload',      '文件上传',       'API',  'file',     '/file/upload',           'POST');
 
 -- ---------------- 角色-权限 ----------------
@@ -81,7 +84,8 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('REGULATOR','trace:query'),('REGULATOR','abnormal:list'),('REGULATOR','abnormal:dispose'),
 ('REGULATOR','abnormal:trace'),('REGULATOR','chain:verify'),('REGULATOR','chain:list'),
 ('REGULATOR','log:list'),('REGULATOR','user:list'),('REGULATOR','product:list'),
-('REGULATOR','farm:list'),('REGULATOR','village:list'),('REGULATOR','file:upload');
+('REGULATOR','farm:list'),('REGULATOR','village:list'),('REGULATOR','file:upload'),
+('REGULATOR','quality:audit'),('REGULATOR','logistics:audit'),('REGULATOR','sales:audit');
 
 -- 生产主体
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
@@ -100,7 +104,8 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('VILLAGE_ADMIN','farm:create'),('VILLAGE_ADMIN','farm:update'),('VILLAGE_ADMIN','user:list'),
 ('VILLAGE_ADMIN','user:create'),('VILLAGE_ADMIN','user:update'),('VILLAGE_ADMIN','user:reset'),
 ('VILLAGE_ADMIN','trace:query'),('VILLAGE_ADMIN','chain:verify'),('VILLAGE_ADMIN','product:list'),
-('VILLAGE_ADMIN','village:list'),('VILLAGE_ADMIN','file:upload');
+('VILLAGE_ADMIN','village:list'),('VILLAGE_ADMIN','file:upload'),
+('VILLAGE_ADMIN','quality:audit'),('VILLAGE_ADMIN','logistics:audit'),('VILLAGE_ADMIN','sales:audit');
 
 -- 农户
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES

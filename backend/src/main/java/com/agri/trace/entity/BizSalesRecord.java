@@ -39,6 +39,9 @@ public class BizSalesRecord {
     private Long blockNumber;
     private LocalDateTime createTime;
 
+    private String auditStatus;
+    private String auditRemark;
+
     @JsonIgnore
     @TableLogic
     private Integer deleted;

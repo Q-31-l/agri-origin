@@ -33,9 +33,9 @@
 
     <view class="group">
       <view class="col-item">
-        <text class="label">现场照片</text>
+        <text class="label">现场实证</text>
         <view class="uploader-wrap">
-          <photo-uploader ref="uploader" v-model="images" :max="3" biz-type="HARVEST" tip="拍照" />
+          <evidence-uploader ref="uploader" v-model="images" :max="6" />
         </view>
       </view>
     </view>
@@ -59,7 +59,7 @@
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import BatchPicker from '@/components/business/batch-picker.vue'
-import PhotoUploader from '@/components/common/photo-uploader.vue'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { createHarvest } from '@/api'
 import { useForm } from '@/composables/useForm'
 import { useCacheStore } from '@/store/cache'
@@ -89,7 +89,7 @@ function today() {
 }
 
 const { submitting, submit } = useForm(
-  (data) => createHarvest({ ...data, quantity: Number(data.quantity), images: images.value.map((x) => x.filePath).join(',') }),
+  (data) => createHarvest({ ...data, quantity: Number(data.quantity), evidenceIds: uploader.value ? uploader.value.ids() : [] }),
   {
     successText: '采收登记成功',
     validate: (d) => {

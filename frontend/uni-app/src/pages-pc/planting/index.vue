@@ -105,6 +105,10 @@
                 placeholder="描述本次农事操作的具体内容"
                 maxlength="300"></textarea>
             </view>
+            <view class="pc-field full">
+              <text class="pc-label">现场实证（图片 / 视频）</text>
+              <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" />
+            </view>
           </view>
         </view>
       </pc-modal>
@@ -121,6 +125,7 @@ import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
 import { plantingPage, createPlanting, batchOptions } from '@/api'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
@@ -194,6 +199,8 @@ function onPage(p) {
 /* ---------------- 新增 ---------------- */
 const createVisible = ref(false)
 const submitting = ref(false)
+const uploader = ref(null)
+const evidenceFiles = ref([])
 
 const form = reactive({
   batchId: '',
@@ -242,7 +249,8 @@ async function submit() {
       content: form.content,
       materialName: form.materialName,
       dosage: form.dosage,
-      gps: form.gps
+      gps: form.gps,
+      evidenceIds: uploader.value ? uploader.value.ids() : []
     })
     uni.showToast({ title: '记录已提交', icon: 'success' })
     createVisible.value = false

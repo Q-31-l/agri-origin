@@ -3,6 +3,7 @@ package com.agri.trace.controller;
 import com.agri.trace.common.Constants;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.common.R;
+import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.QualityDTO;
 import com.agri.trace.entity.BizQualityReport;
 import com.agri.trace.security.RequirePerm;
@@ -54,5 +55,13 @@ public class QualityController {
     @PostMapping
     public R<Long> create(@Valid @RequestBody QualityDTO dto) {
         return R.ok("质检报告提交成功", qualityService.create(dto));
+    }
+
+    @Operation(summary = "质检报告审核")
+    @RequirePerm("quality:audit")
+    @PostMapping("/{id}/audit")
+    public R<Void> audit(@PathVariable Long id, @Valid @RequestBody AuditDTO dto) {
+        qualityService.audit(id, dto);
+        return R.ok();
     }
 }

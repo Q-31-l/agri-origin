@@ -5,6 +5,7 @@ import com.agri.trace.common.Constants;
 import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
+import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.QualityDTO;
 import com.agri.trace.entity.BizAbnormalDisposal;
 import com.agri.trace.entity.BizBatch;
@@ -45,6 +46,8 @@ public class QualityService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizQualityReport> page(long page, long size, Long batchId, String batchNo, String result) {
         LambdaQueryWrapper<BizQualityReport> wrapper = Wrappers.<BizQualityReport>lambdaQuery()
@@ -119,19 +122,26 @@ public class QualityService {
         report.setFilePath(dto.getFilePath());
         report.setFileHash(dto.getFileHash());
         report.setFileSize(dto.getFileSize());
+        report.setAuditStatus(Constants.AUDIT_PENDING);
         report.setChainStatus(Constants.CHAIN_NONE);
         qualityMapper.insert(report);
 
-        String dataHash = DigestHelper.quality(report);
+
+        // 实证绑定：图片/视频文件哈希聚合为证据根哈希，随业务摘要一并上链
+        java.util.List<com.agri.trace.vo.EvidenceVO> evidences = fileService.bindEvidence(
+                dto.getEvidenceIds(), Constants.EVENT_QUALITY, report.getId());
+        String evidenceHash = fileService.evidenceHash(evidences);
+
+        String dataHash = DigestHelper.quality(report, evidenceHash);
         report.setDataHash(dataHash);
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_QUALITY,
-                String.valueOf(report.getId()), dataHash, report.getFileHash(), user.getRealName());
+                String.valueOf(report.getId()), dataHash, evidenceHash, user.getRealName());
         report.setChainStatus(chain.getStatus());
         report.setChainTxHash(chain.getTxHash());
         report.setBlockNumber(chain.getBlockNumber());
         qualityMapper.updateById(report);
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_QUALITY, report.getId(),
-                "QUALITY_REPORT", dataHash, report.getFileHash(), chain);
+                "QUALITY_REPORT", dataHash, evidenceHash, chain);
 
         if ("PASS".equals(dto.getInspectResult())) {
             batch.setStatus(Constants.BATCH_QUALIFIED);
@@ -191,5 +201,20 @@ public class QualityService {
             return "MICROBE";
         }
         return "OTHER";
+    }
+
+
+    @Transactional
+    public void audit(Long id, AuditDTO dto) {
+        BizQualityReport report = qualityMapper.selectById(id);
+        if (report == null) {
+            throw BizException.notFound("质检报告不存在");
+        }
+        if (!Constants.AUDIT_PENDING.equals(report.getAuditStatus())) {
+            throw BizException.conflict("该报告已审核，请勿重复操作");
+        }
+        report.setAuditStatus(dto.getAuditStatus());
+        report.setAuditRemark(dto.getAuditRemark());
+        qualityMapper.updateById(report);
     }
 }

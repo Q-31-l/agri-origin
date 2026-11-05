@@ -60,6 +60,7 @@
             <view class="pc-td w-chain"><pc-status :value="r.chainStatus" type="chain" /></view>
             <view class="pc-td w-act">
               <text class="pc-link" @click="openDetail(r)">检测项</text>
+              <text v-if="canAuditRow(r)" class="pc-link" @click="openAudit(r)">审核</text>
             </view>
           </view>
         </view>
@@ -125,6 +126,10 @@
               <text class="pc-label">综合结论说明</text>
               <textarea class="pc-textarea" v-model="form.conclusion" placeholder="如：各项指标均符合标准要求" maxlength="200"></textarea>
             </view>
+            <view class="pc-field full">
+              <text class="pc-label">现场实证（图片 / 视频）</text>
+              <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" />
+            </view>
           </view>
         </view>
       </pc-modal>
@@ -151,6 +156,24 @@
           </view>
         </view>
       </pc-modal>
+
+      <!-- 审核 -->
+      <pc-modal v-model="auditVisible" title="检测报告审核" width="460px" @ok="submitAudit">
+        <view class="pc-form">
+          <view class="pc-field full">
+            <text class="pc-label">审核结论</text>
+            <pc-select v-model="auditForm.auditStatus" :options="auditOptions" width="100%" />
+          </view>
+          <view class="pc-field full">
+            <text class="pc-label">审核意见</text>
+            <textarea
+              class="pc-textarea"
+              v-model="auditForm.auditRemark"
+              placeholder="填写审核意见，驳回时必填"
+              maxlength="200"></textarea>
+          </view>
+        </view>
+      </pc-modal>
     </view>
   </pc-shell>
 </template>
@@ -163,7 +186,8 @@ import PcSelect from '@/components/pc/pc-select.vue'
 import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
-import { qualityPage, createQuality, batchOptions } from '@/api'
+import { qualityPage, createQuality, auditQuality, batchOptions } from '@/api'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
@@ -181,6 +205,14 @@ const batches = ref([])
 const query = reactive({ page: 1, size: 10, batchNo: '', result: '' })
 
 const canCreate = computed(() => store.hasPerm('quality:create'))
+
+function canAuditRow(r) {
+  return (
+    store.hasPerm('quality:audit') &&
+    r.auditStatus === 'PENDING' &&
+    ['VILLAGE_ADMIN', 'REGULATOR', 'ADMIN'].includes(store.roleCode)
+  )
+}
 
 const batchOpts = computed(() =>
   batches.value.map((b) => ({
@@ -256,6 +288,8 @@ function onDate(e) {
 /* ---------------- 录入 ---------------- */
 const createVisible = ref(false)
 const submitting = ref(false)
+const uploader = ref(null)
+const evidenceFiles = ref([])
 const uploading = ref(false)
 
 const form = reactive({
@@ -350,7 +384,8 @@ async function submit() {
       fileName: form.fileName,
       filePath: form.filePath,
       fileHash: form.fileHash,
-      fileSize: form.fileSize
+      fileSize: form.fileSize,
+      evidenceIds: uploader.value ? uploader.value.ids() : []
     })
     uni.showToast({ title: '报告已录入', icon: 'success' })
     createVisible.value = false
@@ -382,6 +417,40 @@ function openDetail(r) {
     detailItems.value = []
   }
   detailVisible.value = true
+}
+
+/* ---------------- 审核 ---------------- */
+const auditVisible = ref(false)
+const auditOptions = [
+  { value: 'APPROVED', label: '审核通过' },
+  { value: 'REJECTED', label: '驳回' }
+]
+const auditForm = reactive({ id: null, auditStatus: 'APPROVED', auditRemark: '' })
+
+function openAudit(r) {
+  auditForm.id = r.id
+  auditForm.auditStatus = 'APPROVED'
+  auditForm.auditRemark = ''
+  auditVisible.value = true
+}
+
+async function submitAudit() {
+  if (!auditForm.id) return
+  if (auditForm.auditStatus === 'REJECTED' && !auditForm.auditRemark.trim()) {
+    return toast('驳回时必须填写审核意见')
+  }
+  try {
+    await auditQuality(auditForm.id, {
+      auditStatus: auditForm.auditStatus,
+      auditRemark: auditForm.auditRemark
+    })
+    uni.showToast({ title: '审核完成', icon: 'success' })
+    auditVisible.value = false
+    cache.invalidate('quality')
+    load()
+  } catch (e) {
+    /* 已提示 */
+  }
 }
 
 onShow(load)

@@ -3,6 +3,7 @@ package com.agri.trace.controller;
 import com.agri.trace.common.Constants;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.common.R;
+import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.SalesDTO;
 import com.agri.trace.entity.BizSalesRecord;
 import com.agri.trace.security.RequirePerm;
@@ -11,6 +12,7 @@ import com.agri.trace.service.SalesService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,5 +46,13 @@ public class SalesController {
     @PostMapping
     public R<Long> create(@Valid @RequestBody SalesDTO dto) {
         return R.ok("销售登记成功", salesService.create(dto));
+    }
+
+    @Operation(summary = "销售记录审核")
+    @RequirePerm("sales:audit")
+    @PostMapping("/{id}/audit")
+    public R<Void> audit(@PathVariable Long id, @Valid @RequestBody AuditDTO dto) {
+        salesService.audit(id, dto);
+        return R.ok();
     }
 }

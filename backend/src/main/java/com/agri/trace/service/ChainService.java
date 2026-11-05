@@ -219,23 +219,48 @@ public class ChainService {
             }
             case Constants.EVENT_PLANTING: {
                 BizPlantingRecord r = plantingMapper.selectById(bizId);
-                return r == null ? null : DigestHelper.planting(r);
+                if (r == null) {
+                    return null;
+                }
+                String evidenceHash = fileService.evidenceHash(
+                        fileService.listEvidence(Constants.EVENT_PLANTING, bizId));
+                return DigestHelper.planting(r, evidenceHash);
             }
             case Constants.EVENT_HARVEST: {
                 BizHarvestRecord r = harvestMapper.selectById(bizId);
-                return r == null ? null : DigestHelper.harvest(r);
+                if (r == null) {
+                    return null;
+                }
+                String evidenceHash = fileService.evidenceHash(
+                        fileService.listEvidence(Constants.EVENT_HARVEST, bizId));
+                return DigestHelper.harvest(r, evidenceHash);
             }
             case Constants.EVENT_QUALITY: {
                 BizQualityReport r = qualityMapper.selectById(bizId);
-                return r == null ? null : DigestHelper.quality(r);
+                if (r == null) {
+                    return null;
+                }
+                String evidenceHash = fileService.evidenceHash(
+                        fileService.listEvidence(Constants.EVENT_QUALITY, bizId));
+                return DigestHelper.quality(r, evidenceHash);
             }
             case Constants.EVENT_LOGISTICS: {
                 BizLogisticsRecord r = logisticsMapper.selectById(bizId);
-                return r == null ? null : DigestHelper.logistics(r);
+                if (r == null) {
+                    return null;
+                }
+                String evidenceHash = fileService.evidenceHash(
+                        fileService.listEvidence(Constants.EVENT_LOGISTICS, bizId));
+                return DigestHelper.logistics(r, evidenceHash);
             }
             case Constants.EVENT_SALES: {
                 BizSalesRecord r = salesMapper.selectById(bizId);
-                return r == null ? null : DigestHelper.sales(r);
+                if (r == null) {
+                    return null;
+                }
+                String evidenceHash = fileService.evidenceHash(
+                        fileService.listEvidence(Constants.EVENT_SALES, bizId));
+                return DigestHelper.sales(r, evidenceHash);
             }
             case Constants.EVENT_ABNORMAL: {
                 BizAbnormalDisposal r = abnormalMapper.selectById(bizId);
@@ -254,7 +279,12 @@ public class ChainService {
             }
             case Constants.EVENT_CORRECTION: {
                 BizCorrection r = correctionMapper.selectById(bizId);
-                return r == null ? null : DigestHelper.correction(r);
+                if (r == null) {
+                    return null;
+                }
+                String evidenceHash = fileService.evidenceHash(
+                        fileService.listEvidence(Constants.EVENT_CORRECTION, bizId));
+                return DigestHelper.correction(r, evidenceHash);
             }
             case Constants.EVENT_CLOSE:
                 return DigestHelper.close(record.getBatchNo());

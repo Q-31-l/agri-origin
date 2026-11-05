@@ -66,6 +66,11 @@
       </view>
     </view>
 
+    <view class="group" style="padding:24rpx">
+      <text class="label">现场实证（图片 / 视频）</text>
+      <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" style="margin-top:16rpx" />
+    </view>
+
     <view class="tip">提交后该批次状态将变更为「运输中」，并写入链上存证。</view>
 
     <view class="actions">
@@ -80,6 +85,7 @@
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import BatchPicker from '@/components/business/batch-picker.vue'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { createLogistics } from '@/api'
 import { useForm } from '@/composables/useForm'
 import { useCacheStore } from '@/store/cache'
@@ -90,6 +96,8 @@ const departDate = ref(today())
 const departTime = ref(nowTime())
 const arriveDate = ref('')
 const arriveTime = ref('')
+const uploader = ref(null)
+const evidenceFiles = ref([])
 
 const form = reactive({
   batchId: '',
@@ -125,7 +133,8 @@ const { submitting, submit } = useForm(
     createLogistics({
       ...data,
       departTime: `${departDate.value} ${departTime.value}:00`,
-      arriveTime: arriveDate.value ? `${arriveDate.value} ${arriveTime.value || '00:00'}:00` : null
+      arriveTime: arriveDate.value ? `${arriveDate.value} ${arriveTime.value || '00:00'}:00` : null,
+      evidenceIds: uploader.value ? uploader.value.ids() : []
     }),
   {
     successText: '发运登记成功',

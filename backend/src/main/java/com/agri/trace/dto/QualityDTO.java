@@ -1,6 +1,7 @@
 package com.agri.trace.dto;
 
 import lombok.Data;
+import java.util.List;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
@@ -29,4 +30,7 @@ public class QualityDTO {
     private String filePath;
     private String fileHash;
     private Long fileSize;
+
+    /** 现场实证：图片/视频文件 id 列表，提交后证据哈希随业务摘要一并上链 */
+    private List<Long> evidenceIds;
 }

@@ -4,6 +4,7 @@ import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import java.util.List;
 
 @Data
 public class CorrectionDTO {
@@ -22,4 +23,7 @@ public class CorrectionDTO {
 
     @NotBlank(message = "请填写更正说明")
     private String content;
+
+    /** 更正时补充的实证：图片/视频文件 id 列表，证据哈希随更正摘要一并上链 */
+    private List<Long> evidenceIds;
 }

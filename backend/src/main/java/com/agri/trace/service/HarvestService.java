@@ -39,6 +39,8 @@ public class HarvestService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizHarvestRecord> page(long page, long size, Long batchId, String batchNo) {
         LambdaQueryWrapper<BizHarvestRecord> wrapper = Wrappers.<BizHarvestRecord>lambdaQuery()
@@ -96,16 +98,22 @@ public class HarvestService {
         record.setChainStatus(Constants.CHAIN_NONE);
         harvestMapper.insert(record);
 
-        String dataHash = DigestHelper.harvest(record);
+
+        // 实证绑定：图片/视频文件哈希聚合为证据根哈希，随业务摘要一并上链
+        java.util.List<com.agri.trace.vo.EvidenceVO> evidences = fileService.bindEvidence(
+                dto.getEvidenceIds(), Constants.EVENT_HARVEST, record.getId());
+        String evidenceHash = fileService.evidenceHash(evidences);
+
+        String dataHash = DigestHelper.harvest(record, evidenceHash);
         record.setDataHash(dataHash);
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_HARVEST,
-                String.valueOf(record.getId()), dataHash, null, user.getRealName());
+                String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());
         record.setChainTxHash(chain.getTxHash());
         record.setBlockNumber(chain.getBlockNumber());
         harvestMapper.updateById(record);
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_HARVEST, record.getId(),
-                "HARVEST_RECORD", dataHash, null, chain);
+                "HARVEST_RECORD", dataHash, evidenceHash, chain);
 
         batch.setHarvestDate(dto.getHarvestDate());
         batch.setStatus(Constants.BATCH_HARVESTED);

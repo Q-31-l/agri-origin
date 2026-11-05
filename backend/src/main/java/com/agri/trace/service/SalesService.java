@@ -5,6 +5,7 @@ import com.agri.trace.common.Constants;
 import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
+import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.SalesDTO;
 import com.agri.trace.entity.BizBatch;
 import com.agri.trace.entity.BizSalesRecord;
@@ -40,6 +41,8 @@ public class SalesService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizSalesRecord> page(long page, long size, Long batchId, String batchNo) {
         LambdaQueryWrapper<BizSalesRecord> wrapper = Wrappers.<BizSalesRecord>lambdaQuery()
@@ -107,19 +110,26 @@ public class SalesService {
         record.setUnit(dto.getUnit() == null ? batch.getUnit() : dto.getUnit());
         record.setBuyerName(dto.getBuyerName());
         record.setBuyerPhone(dto.getBuyerPhone());
+        record.setAuditStatus(Constants.AUDIT_PENDING);
         record.setChainStatus(Constants.CHAIN_NONE);
         salesMapper.insert(record);
 
-        String dataHash = DigestHelper.sales(record);
+
+        // 实证绑定：图片/视频文件哈希聚合为证据根哈希，随业务摘要一并上链
+        java.util.List<com.agri.trace.vo.EvidenceVO> evidences = fileService.bindEvidence(
+                dto.getEvidenceIds(), Constants.EVENT_SALES, record.getId());
+        String evidenceHash = fileService.evidenceHash(evidences);
+
+        String dataHash = DigestHelper.sales(record, evidenceHash);
         record.setDataHash(dataHash);
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_SALES,
-                String.valueOf(record.getId()), dataHash, null, user.getRealName());
+                String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());
         record.setChainTxHash(chain.getTxHash());
         record.setBlockNumber(chain.getBlockNumber());
         salesMapper.updateById(record);
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_SALES, record.getId(),
-                "SALES_RECORD", dataHash, null, chain);
+                "SALES_RECORD", dataHash, evidenceHash, chain);
 
         boolean soldOut = batch.getQuantity() != null && total.compareTo(batch.getQuantity()) >= 0;
         batch.setStatus(soldOut ? Constants.BATCH_SOLD : Constants.BATCH_ON_SALE);
@@ -132,5 +142,20 @@ public class SalesService {
                         .eq(BizSalesRecord::getBatchId, batchId))
                 .stream().map(BizSalesRecord::getQuantity)
                 .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+
+    @Transactional
+    public void audit(Long id, AuditDTO dto) {
+        BizSalesRecord record = salesMapper.selectById(id);
+        if (record == null) {
+            throw BizException.notFound("销售记录不存在");
+        }
+        if (!Constants.AUDIT_PENDING.equals(record.getAuditStatus())) {
+            throw BizException.conflict("该记录已审核，请勿重复操作");
+        }
+        record.setAuditStatus(dto.getAuditStatus());
+        record.setAuditRemark(dto.getAuditRemark());
+        salesMapper.updateById(record);
     }
 }

@@ -92,6 +92,18 @@
       </view>
     </view>
 
+    <view class="group">
+      <view class="col-item">
+        <view class="between">
+          <text class="label">现场实证</text>
+          <text class="hint">图片 / 视频</text>
+        </view>
+        <view class="uploader-wrap">
+          <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" />
+        </view>
+      </view>
+    </view>
+
     <view class="actions">
       <view class="btn" :class="{ disabled: submitting }" @click="onSubmit">
         {{ submitting ? '提交中…' : '提交质检结果' }}
@@ -105,6 +117,7 @@ import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import BatchPicker from '@/components/business/batch-picker.vue'
 import EmptyState from '@/components/common/empty-state.vue'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { createQuality } from '@/api'
 import { chooseFile, uploadFile } from '@/utils/upload'
 import { fileSize as fmtSize } from '@/utils/file'
@@ -117,6 +130,8 @@ import { back } from '@/utils/router'
 const cache = useCacheStore()
 const uploading = ref(false)
 const file = ref(null)
+const uploader = ref(null)
+const evidenceFiles = ref([])
 
 const form = reactive({
   batchId: '',
@@ -180,7 +195,8 @@ const { submitting, submit } = useForm(
       fileName: file.value ? file.value.fileName : '',
       filePath: file.value ? file.value.filePath : '',
       fileHash: file.value ? file.value.fileHash : '',
-      fileSize: file.value ? file.value.fileSize : null
+      fileSize: file.value ? file.value.fileSize : null,
+      evidenceIds: uploader.value ? uploader.value.ids() : []
     }),
   {
     successText: '质检结果已提交',

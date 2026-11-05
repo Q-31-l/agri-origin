@@ -41,6 +41,7 @@
           <text class="pc-th">金额</text>
           <text class="pc-th">买家</text>
           <text class="pc-th w-chain">上链</text>
+          <text class="pc-th w-act">操作</text>
         </view>
 
         <view v-if="loading" class="pc-none">加载中…</view>
@@ -56,6 +57,10 @@
             <text class="pc-td">{{ amount(r) }}</text>
             <text class="pc-td">{{ r.buyerName || '-' }}</text>
             <view class="pc-td w-chain"><pc-status :value="r.chainStatus" type="chain" /></view>
+            <view class="pc-td w-act">
+              <text v-if="canAuditRow(r)" class="pc-link" @click="openAudit(r)">审核</text>
+              <text v-else class="muted">-</text>
+            </view>
           </view>
         </view>
 
@@ -109,6 +114,28 @@
             </view>
           </view>
           <text class="pc-hint">销售登记后批次状态推进为「销售中」；异常批次会被后端强制拦截。</text>
+            <view class="pc-field full">
+              <text class="pc-label">现场实证（图片 / 视频）</text>
+              <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" />
+            </view>
+        </view>
+      </pc-modal>
+
+      <!-- 审核 -->
+      <pc-modal v-model="auditVisible" title="销售记录审核" width="460px" @ok="submitAudit">
+        <view class="pc-form">
+          <view class="pc-field full">
+            <text class="pc-label">审核结论</text>
+            <pc-select v-model="auditForm.auditStatus" :options="auditOptions" width="100%" />
+          </view>
+          <view class="pc-field full">
+            <text class="pc-label">审核意见</text>
+            <textarea
+              class="pc-textarea"
+              v-model="auditForm.auditRemark"
+              placeholder="填写审核意见，驳回时必填"
+              maxlength="200"></textarea>
+          </view>
         </view>
       </pc-modal>
     </view>
@@ -123,7 +150,8 @@ import PcSelect from '@/components/pc/pc-select.vue'
 import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
-import { salesPage, createSales, batchOptions } from '@/api'
+import { salesPage, createSales, auditSales, batchOptions } from '@/api'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
@@ -140,6 +168,14 @@ const batches = ref([])
 const query = reactive({ page: 1, size: 10, batchId: '', batchNo: '' })
 
 const canCreate = computed(() => store.hasPerm('sales:create'))
+
+function canAuditRow(r) {
+  return (
+    store.hasPerm('sales:audit') &&
+    r.auditStatus === 'PENDING' &&
+    ['VILLAGE_ADMIN', 'REGULATOR', 'ADMIN'].includes(store.roleCode)
+  )
+}
 
 const batchOpts = computed(() =>
   batches.value.map((b) => ({
@@ -220,6 +256,8 @@ function onDate(e) {
 
 const createVisible = ref(false)
 const submitting = ref(false)
+const uploader = ref(null)
+const evidenceFiles = ref([])
 
 const form = reactive({
   batchId: '',
@@ -262,7 +300,8 @@ async function submit() {
       quantity: Number(form.quantity),
       unit: form.unit,
       buyerName: form.buyerName,
-      buyerPhone: form.buyerPhone
+      buyerPhone: form.buyerPhone,
+      evidenceIds: uploader.value ? uploader.value.ids() : []
     })
     uni.showToast({ title: '销售已登记', icon: 'success' })
     createVisible.value = false
@@ -273,6 +312,40 @@ async function submit() {
     /* 已提示 */
   } finally {
     submitting.value = false
+  }
+}
+
+/* ---------------- 审核 ---------------- */
+const auditVisible = ref(false)
+const auditOptions = [
+  { value: 'APPROVED', label: '审核通过' },
+  { value: 'REJECTED', label: '驳回' }
+]
+const auditForm = reactive({ id: null, auditStatus: 'APPROVED', auditRemark: '' })
+
+function openAudit(r) {
+  auditForm.id = r.id
+  auditForm.auditStatus = 'APPROVED'
+  auditForm.auditRemark = ''
+  auditVisible.value = true
+}
+
+async function submitAudit() {
+  if (!auditForm.id) return
+  if (auditForm.auditStatus === 'REJECTED' && !auditForm.auditRemark.trim()) {
+    return toast('驳回时必须填写审核意见')
+  }
+  try {
+    await auditSales(auditForm.id, {
+      auditStatus: auditForm.auditStatus,
+      auditRemark: auditForm.auditRemark
+    })
+    uni.showToast({ title: '审核完成', icon: 'success' })
+    auditVisible.value = false
+    cache.invalidate('sales')
+    load()
+  } catch (e) {
+    /* 已提示 */
   }
 }
 
@@ -287,6 +360,18 @@ onShow(load)
 .w-date { flex: 1.1; }
 .w-batch { flex: 1.5; }
 .w-chain { flex: 1; }
+.w-act { flex: 0.7; }
+.pc-tr .w-act,
+.pc-td.w-act {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.muted {
+  color: #c3ccd6;
+  font-size: 12px;
+}
 .mono {
   font-family: Consolas, monospace;
   font-size: 11.5px;

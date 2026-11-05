@@ -779,6 +779,7 @@ POST /quality
 | `filePath` | string | 否 | 报告下载地址（先调 `/file/upload`） |
 | `fileHash` | string | 否 | 报告 SHA-256 |
 | `fileSize` | long | 否 | 报告字节数 |
+| `evidenceIds` | long[] | 否 | 现场实证图片/视频文件 ID（`/file/upload` 返回），哈希并入上链摘要 |
 
 **业务校验**
 
@@ -793,6 +794,23 @@ POST /quality
 | --- | --- | --- |
 | `PASS` | → `QUALIFIED` | 上链 `bizType=QUALITY` |
 | `FAIL` | → `ABNORMAL`，`abnormalFlag=1` | 合约 `markAbnormal` + 上链 `bizType=ABNORMAL` + 自动创建处置任务 |
+
+### 6.4 审核质检报告
+
+```
+POST /quality/{id}/audit
+```
+
+**权限**：`quality:audit` · **角色**：`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `auditStatus` | string | 是 | `APPROVED` / `REJECTED` |
+| `auditRemark` | string | 否 | 审核意见，驳回时必填 |
+
+**副作用**：仅回写 `audit_status` / `audit_remark`，不改动报告内容与链上摘要。
 
 ---
 
@@ -856,6 +874,7 @@ POST /logistics
 | `handoverFile` | string | 否 | 交接单地址 |
 | `fileHash` | string | 否 | 交接单 SHA-256 |
 | `remark` | string | 否 | 备注 |
+| `evidenceIds` | long[] | 否 | 现场实证图片/视频文件 ID（`/file/upload` 返回），哈希并入上链摘要 |
 
 **业务校验**
 
@@ -866,7 +885,24 @@ POST /logistics
 
 **副作用**：批次 → `IN_TRANSIT`，上链 `bizType=LOGISTICS`。
 
-### 7.3 销售记录分页
+### 7.3 审核物流记录
+
+```
+POST /logistics/{id}/audit
+```
+
+**权限**：`logistics:audit` · **角色**：`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `auditStatus` | string | 是 | `APPROVED` / `REJECTED` |
+| `auditRemark` | string | 否 | 审核意见，驳回时必填 |
+
+**副作用**：仅回写 `audit_status` / `audit_remark`，不改动物流记录与链上摘要。
+
+### 7.4 销售记录分页
 
 ```
 GET /sales/page?page=1&size=10&batchId=1
@@ -894,7 +930,7 @@ GET /sales/page?page=1&size=10&batchId=1
 }
 ```
 
-### 7.4 销售登记
+### 7.5 销售登记
 
 ```
 POST /sales
@@ -914,6 +950,7 @@ POST /sales
 | `unit` | string | 否 | 默认 `kg` |
 | `buyerName` | string | 否 | 买家名称 |
 | `buyerPhone` | string | 否 | 买家电话 |
+| `evidenceIds` | long[] | 否 | 现场实证图片/视频文件 ID（`/file/upload` 返回），哈希并入上链摘要 |
 
 **业务校验**
 
@@ -925,6 +962,23 @@ POST /sales
 | 批次已售罄（`SOLD`） | 409 批次已售罄 |
 
 **副作用**：累计销售数量 ≥ 批次数量 → `SOLD`，否则 `ON_SALE`；上链 `bizType=SALES`。
+
+### 7.6 审核销售记录
+
+```
+POST /sales/{id}/audit
+```
+
+**权限**：`sales:audit` · **角色**：`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `auditStatus` | string | 是 | `APPROVED` / `REJECTED` |
+| `auditRemark` | string | 否 | 审核意见，驳回时必填 |
+
+**副作用**：仅回写 `audit_status` / `audit_remark`，不改动销售记录与链上摘要。
 
 ---
 
@@ -1447,6 +1501,7 @@ POST /correction
 | `bizId` | long | 是 | 被更正的记录 ID |
 | `reason` | string | 是 | 更正原因 |
 | `content` | string | 是 | 更正说明内容 |
+| `evidenceIds` | long[] | 否 | 更正实证材料文件 ID（`/file/upload` 返回），图片/视频哈希并入更正摘要上链 |
 
 ```json
 {
@@ -1454,7 +1509,8 @@ POST /correction
   "bizType": "PLANTING",
   "bizId": 12,
   "reason": "录入笔误",
-  "content": "实际用量为 12kg/亩，原记录 21kg/亩有误，以本次说明为准"
+  "content": "实际用量为 12kg/亩，原记录 21kg/亩有误，以本次说明为准",
+  "evidenceIds": [30, 31]
 }
 ```
 
@@ -1495,10 +1551,13 @@ GET /correction/page?page=1&size=10&batchId=1
 | 质检 | GET | `/quality/page` | `quality:list` | — |
 | | GET | `/quality/batch/{id}` | `quality:list` | — |
 | | POST | `/quality` | `quality:create` | INSPECTOR, ADMIN |
+| | POST | `/quality/{id}/audit` | `quality:audit` | VILLAGE_ADMIN, REGULATOR, ADMIN |
 | 物流 | GET | `/logistics/page` | `logistics:list` | — |
 | | POST | `/logistics` | `logistics:create` | LOGISTICS, ADMIN |
+| | POST | `/logistics/{id}/audit` | `logistics:audit` | VILLAGE_ADMIN, REGULATOR, ADMIN |
 | 销售 | GET | `/sales/page` | `sales:list` | — |
 | | POST | `/sales` | `sales:create` | SELLER, ADMIN |
+| | POST | `/sales/{id}/audit` | `sales:audit` | VILLAGE_ADMIN, REGULATOR, ADMIN |
 | 异常 | GET | `/abnormal/page` | `abnormal:list` | — |
 | | POST | `/abnormal/{id}/dispose` | `abnormal:dispose` | REGULATOR, ADMIN |
 | | GET | `/abnormal/{id}/trace` | `abnormal:trace` | — |

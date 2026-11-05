@@ -21,6 +21,11 @@
           <text class="hv">{{ shortHash(it.txHash) }}</text>
           <text v-if="it.blockNumber" class="hb">区块 #{{ it.blockNumber }}</text>
         </view>
+        <evidence-wall
+          v-if="it.evidences && it.evidences.length"
+          :items="it.evidences"
+          :chained="!!it.txHash"
+          compact />
       </view>
     </view>
   </view>
@@ -28,6 +33,7 @@
 
 <script setup>
 import PcStatus from '@/components/pc/pc-status.vue'
+import EvidenceWall from '@/components/business/evidence-wall.vue'
 import { shortHash } from '@/utils/format'
 
 defineProps({

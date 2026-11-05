@@ -354,6 +354,7 @@ public class BatchService {
         evidence.putAll(fileService.evidenceMap(Constants.EVENT_SALES, idsOfSales(vo)));
         evidence.putAll(fileService.evidenceMap(Constants.EVENT_ABNORMAL, idsOfDisposal(vo)));
         evidence.putAll(fileService.evidenceMap(Constants.EVENT_DISPOSAL, idsOfDisposal(vo)));
+        evidence.putAll(fileService.evidenceMap(Constants.EVENT_CORRECTION, idsOfCorrection(vo)));
 
         List<TimelineItem> items = new ArrayList<>();
         TimelineItem created = new TimelineItem();
@@ -470,6 +471,7 @@ public class BatchService {
             item.setDetail("更正 " + c.getBizType() + "#" + c.getBizId() + "，原因：" + c.getReason()
                     + "；说明：" + c.getContent());
             attachChain(item, chainMap.get(Constants.EVENT_CORRECTION + "#" + c.getId()));
+            item.setEvidences(evidence.get(Constants.EVENT_CORRECTION + "#" + c.getId()));
             items.add(item);
         }
 
@@ -521,6 +523,14 @@ public class BatchService {
         List<Long> ids = new ArrayList<>();
         for (BizAbnormalDisposal r : vo.getDisposals()) {
             ids.add(r.getId());
+        }
+        return ids;
+    }
+
+    private List<Long> idsOfCorrection(BatchDetailVO vo) {
+        List<Long> ids = new ArrayList<>();
+        for (BizCorrection c : vo.getCorrections()) {
+            ids.add(c.getId());
         }
         return ids;
     }

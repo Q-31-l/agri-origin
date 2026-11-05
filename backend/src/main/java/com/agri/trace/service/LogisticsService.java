@@ -5,6 +5,7 @@ import com.agri.trace.common.Constants;
 import com.agri.trace.common.Db;
 import com.agri.trace.common.DigestHelper;
 import com.agri.trace.common.PageResult;
+import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.LogisticsDTO;
 import com.agri.trace.entity.BizBatch;
 import com.agri.trace.entity.BizLogisticsRecord;
@@ -38,6 +39,8 @@ public class LogisticsService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizLogisticsRecord> page(long page, long size, Long batchId, String batchNo) {
         LambdaQueryWrapper<BizLogisticsRecord> wrapper = Wrappers.<BizLogisticsRecord>lambdaQuery()
@@ -89,24 +92,46 @@ public class LogisticsService {
         record.setHandoverFile(dto.getHandoverFile());
         record.setFileHash(dto.getFileHash());
         record.setRemark(dto.getRemark());
+        record.setAuditStatus(Constants.AUDIT_PENDING);
         record.setChainStatus(Constants.CHAIN_NONE);
         logisticsMapper.insert(record);
 
-        String dataHash = DigestHelper.logistics(record);
+
+        // 实证绑定：图片/视频文件哈希聚合为证据根哈希，随业务摘要一并上链
+        java.util.List<com.agri.trace.vo.EvidenceVO> evidences = fileService.bindEvidence(
+                dto.getEvidenceIds(), Constants.EVENT_LOGISTICS, record.getId());
+        String evidenceHash = fileService.evidenceHash(evidences);
+
+        String dataHash = DigestHelper.logistics(record, evidenceHash);
         record.setDataHash(dataHash);
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_LOGISTICS,
-                String.valueOf(record.getId()), dataHash, record.getFileHash(), user.getRealName());
+                String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());
         record.setChainTxHash(chain.getTxHash());
         record.setBlockNumber(chain.getBlockNumber());
         logisticsMapper.updateById(record);
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_LOGISTICS, record.getId(),
-                "LOGISTICS_HANDOVER", dataHash, record.getFileHash(), chain);
+                "LOGISTICS_HANDOVER", dataHash, evidenceHash, chain);
 
         if (Constants.BATCH_QUALIFIED.equals(batch.getStatus())) {
             batch.setStatus(Constants.BATCH_IN_TRANSIT);
             Db.updated(batchMapper.updateById(batch));
         }
         return record.getId();
+    }
+
+
+    @Transactional
+    public void audit(Long id, AuditDTO dto) {
+        BizLogisticsRecord record = logisticsMapper.selectById(id);
+        if (record == null) {
+            throw BizException.notFound("物流记录不存在");
+        }
+        if (!Constants.AUDIT_PENDING.equals(record.getAuditStatus())) {
+            throw BizException.conflict("该记录已审核，请勿重复操作");
+        }
+        record.setAuditStatus(dto.getAuditStatus());
+        record.setAuditRemark(dto.getAuditRemark());
+        logisticsMapper.updateById(record);
     }
 }

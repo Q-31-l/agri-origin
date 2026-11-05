@@ -33,6 +33,8 @@ public class CorrectionService {
     private ChainService chainService;
     @Resource
     private TraceContractService contractService;
+    @Resource
+    private FileService fileService;
 
     public PageResult<BizCorrection> page(long page, long size, Long batchId) {
         return PageResult.of(correctionMapper.selectPage(new Page<>(page, size),
@@ -61,7 +63,12 @@ public class CorrectionService {
         correction.setChainStatus(Constants.CHAIN_NONE);
         correctionMapper.insert(correction);
 
-        String dataHash = DigestHelper.correction(correction);
+        // 更正留痕：更正说明也可附实证（图片/视频），证据根哈希随更正摘要一并上链
+        java.util.List<com.agri.trace.vo.EvidenceVO> evidences = fileService.bindEvidence(
+                dto.getEvidenceIds(), Constants.EVENT_CORRECTION, correction.getId());
+        String evidenceHash = fileService.evidenceHash(evidences);
+
+        String dataHash = DigestHelper.correction(correction, evidenceHash);
         correction.setDataHash(dataHash);
         ChainResult chain = contractService.addCorrection(batch.getBatchNo(), dto.getBizType(),
                 String.valueOf(dto.getBizId()), dataHash, user.getRealName());
@@ -70,7 +77,7 @@ public class CorrectionService {
         correction.setBlockNumber(chain.getBlockNumber());
         correctionMapper.updateById(correction);
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_CORRECTION, correction.getId(),
-                "DATA_CORRECTION", dataHash, null, chain);
+                "DATA_CORRECTION", dataHash, evidenceHash, chain);
         return correction.getId();
     }
 }

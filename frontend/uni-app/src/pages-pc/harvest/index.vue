@@ -103,6 +103,10 @@
             </view>
           </view>
           <text class="pc-hint">提交后批次状态将推进为「已采收」，并写入联盟链存证。</text>
+            <view class="pc-field full">
+              <text class="pc-label">现场实证（图片 / 视频）</text>
+              <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" />
+            </view>
         </view>
       </pc-modal>
     </view>
@@ -118,6 +122,7 @@ import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
 import { harvestPage, createHarvest, batchOptions } from '@/api'
+import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
@@ -195,6 +200,8 @@ function onPage(p) {
 
 const createVisible = ref(false)
 const submitting = ref(false)
+const uploader = ref(null)
+const evidenceFiles = ref([])
 
 const form = reactive({
   batchId: '',
@@ -243,7 +250,8 @@ async function submit() {
       unit: form.unit,
       qualityLevel: form.qualityLevel,
       weather: form.weather,
-      remark: form.remark
+      remark: form.remark,
+      evidenceIds: uploader.value ? uploader.value.ids() : []
     })
     uni.showToast({ title: '采收已登记', icon: 'success' })
     createVisible.value = false
