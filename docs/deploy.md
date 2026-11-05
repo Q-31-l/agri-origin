@@ -639,7 +639,89 @@ chain:
 
 ---
 
-## 十、附录：一键本地启动脚本
+## 十、生产环境：进程托管、故障自愈与上线自检
+
+本章对应 `ops/` 目录，全部配置均为线上实际在用的那一份，可直接复制。
+
+### 10.1 链节点交给 systemd（不再用 start.sh）
+
+`build_chain.sh` 生成的 `start.sh` 用 `ps aux | grep fisco-bcos` 判断节点是否在跑，
+四个节点共用一个二进制路径，于是：只要有一个节点活着，其余三个就会被判为"已运行"并跳过启动。
+节点数掉到 2 个以下后 PBFT 凑不够 2/3，区块停止增长，表现为"接口不报错但上链一直不成功"。
+
+改为一个节点一个 systemd 实例，由 systemd 自己的 cgroup 追踪 PID：
+
+```bash
+cp ops/fisco-node@.service /etc/systemd/system/
+cp ops/fisco-chain.target /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable fisco-node@node0 fisco-node@node1 fisco-node@node2 fisco-node@node3
+systemctl start  fisco-node@node0 fisco-node@node1 fisco-node@node2 fisco-node@node3
+systemctl enable fisco-chain.target
+
+ps -ef | grep -c '[f]isco-bcos -c config.ini'   # 期望 4
+```
+
+### 10.2 启动顺序：链先就绪，后端再起
+
+`ops/agri-backend.service` 里 `After=` 与 `Wants=` 都指向 `fisco-chain.target`。
+即便如此，仍可能出现"后端先起、链还没监听 20200"的竞态——所以客户端不再"初始化一次失败就永久不可用"：
+
+- 首次构建失败后进入 10 秒冷却，之后每个业务请求都会尝试重建 SDK 连接；
+- `isReady()` 附带 3 秒缓存的健康探测，节点中途宕机会把 `ready` 立即置为 `false`，
+  恢复后自动回到 `true`，**全程不需要重启后端进程**。
+
+验证方式：
+
+```bash
+systemctl stop fisco-node@node0 fisco-node@node1 fisco-node@node2 fisco-node@node3
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/chain/status   # ready=false + 失败原因
+systemctl start fisco-node@node0 fisco-node@node1 fisco-node@node2 fisco-node@node3
+sleep 20
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/chain/status   # ready=true，不重启后端
+```
+
+### 10.3 nginx：WebSocket 必须单独配 Upgrade
+
+```nginx
+location = /api/ws {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+}
+```
+
+少了这两个头，nginx 把握手当普通 HTTP 转给后端，日志里会持续刷
+`Handshake failed due to invalid Upgrade header: null`，三端"一端操作、多端同步"直接失效。
+
+自检：
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+  -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+  "http://8.130.105.150/api/ws?token=$TOKEN"     # 期望 101
+```
+
+无 token 或 token 非法时应返回 **401**（而不是 200）。
+
+### 10.4 上线自检脚本
+
+```bash
+python3 scripts/e2e-acceptance.py
+```
+
+覆盖 49 项断言：8 个角色登录、建档→核验→农事→采收→质检→物流→销售逐环节真实上链、
+监管复核、免登录溯源、链上链下一致性、更正留痕、不合格熔断→销售拦截→处置→结案、
+越权与权限负例（403/409）、数据范围隔离（看板与列表口径一致）、区块高度递增。
+
+脚本直连 `http://127.0.0.1:8080/api`，需在服务器本机执行（避免公网抖动影响判定）。
+
+---
+
+## 十一、附录：一键本地启动脚本
 
 `scripts/dev-start.sh`（可选自建）：
 
@@ -669,11 +751,11 @@ wait
 
 ---
 
-## 十一、参考资料
+## 十二、参考资料
 
 实训任务书「素材准备」要求准备的 FISCO BCOS 官方开发文档，统一收录于此，便于搭建与排错时查证。
 
-### 11.1 FISCO BCOS
+### 12.1 FISCO BCOS
 
 | 资料 | 地址 |
 | --- | --- |
@@ -688,7 +770,7 @@ wait
 
 > **版本提示**：本工程按 **链 2.9.x + Java SDK 2.9.1** 适配。SDK 3.x 的 API 与 2.9.x 差异较大（`TransactionProcessor` 系列类已重构），不要混用，否则会出现 `NoSuchMethodError`。
 
-### 11.2 业务标准
+### 12.2 业务标准
 
 | 标准号 | 名称 | 在本项目中的用途 |
 | --- | --- | --- |
@@ -697,7 +779,7 @@ wait
 
 > 上述限量为教学演示取值，实际判定应以标准原文和检测机构出具的限量要求为准。
 
-### 11.3 框架文档
+### 12.3 框架文档
 
 | 框架 | 文档 |
 | --- | --- |

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.util.List;
 
 /**
  * 采收登记
@@ -49,6 +50,15 @@ public class HarvestService {
                 .orderByDesc(BizHarvestRecord::getId);
         if (Constants.ROLE_FARMER.equals(UserContext.roleCode())) {
             wrapper.eq(BizHarvestRecord::getOperatorId, UserContext.userId());
+        } else {
+            // 村管看本村、生产主体看本人建档批次的采收记录
+            List<Long> visible = batchService.visibleBatchIds(UserContext.require());
+            if (visible != null) {
+                if (visible.isEmpty()) {
+                    return PageResult.of(java.util.Collections.emptyList(), 0, page, size);
+                }
+                wrapper.in(BizHarvestRecord::getBatchId, visible);
+            }
         }
         return PageResult.of(harvestMapper.selectPage(new Page<>(page, size), wrapper));
     }
@@ -106,6 +116,8 @@ public class HarvestService {
 
         String dataHash = DigestHelper.harvest(record, evidenceHash);
         record.setDataHash(dataHash);
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, user.getRealName());
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_HARVEST,
                 String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());

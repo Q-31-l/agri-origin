@@ -56,12 +56,22 @@ public class AbnormalService {
     private com.agri.trace.websocket.TraceWebSocketHandler wsHandler;
     @Resource
     private FileService fileService;
+    @Resource
+    private BatchService batchService;
 
     public PageResult<BizAbnormalDisposal> page(long page, long size, String batchNo, String status) {
         LambdaQueryWrapper<BizAbnormalDisposal> wrapper = Wrappers.<BizAbnormalDisposal>lambdaQuery()
                 .like(batchNo != null && !batchNo.isEmpty(), BizAbnormalDisposal::getBatchNo, batchNo)
                 .eq(status != null && !status.isEmpty(), BizAbnormalDisposal::getStatus, status)
                 .orderByDesc(BizAbnormalDisposal::getId);
+        // 数据范围：生产主体仅能看到本人建档批次的异常记录，监管方与管理员全量
+        List<Long> visible = batchService.visibleBatchIds(UserContext.require());
+        if (visible != null) {
+            if (visible.isEmpty()) {
+                return PageResult.of(java.util.Collections.emptyList(), 0, page, size);
+            }
+            wrapper.in(BizAbnormalDisposal::getBatchId, visible);
+        }
         return PageResult.of(abnormalMapper.selectPage(new Page<>(page, size), wrapper));
     }
 
@@ -97,6 +107,22 @@ public class AbnormalService {
         Db.updated(abnormalMapper.updateById(disposal));
 
         BizBatch batch = batchMapper.selectById(disposal.getBatchId());
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, user.getRealName());
+        // 历史异常批次补注册后，链上状态仍是 registerBatch 写入的 NORMAL，
+        // 而合约 disposeAbnormal 要求状态为 ABNORMAL，这里先补记异常状态再处置。
+        if (batch != null && Constants.BATCH_ABNORMAL.equals(batch.getStatus())) {
+            Map<String, Object> chainBatch = contractService.getBatch(batch.getBatchNo());
+            String chainStatus = chainBatch == null ? null : String.valueOf(chainBatch.get("status"));
+            if (chainStatus != null && !"ABNORMAL".equals(chainStatus)) {
+                String markHash = DigestHelper.abnormal(disposal);
+                ChainResult mark = contractService.markAbnormal(batch.getBatchNo(),
+                        disposal.getDescription(), markHash, user.getRealName());
+                if (!mark.isSuccess()) {
+                    throw BizException.chain("异常状态同步链上失败：" + mark.getMessage());
+                }
+            }
+        }
         ChainResult chain = contractService.disposeAbnormal(disposal.getBatchNo(),
                 dto.getDisposalResult(), disposalHash, user.getRealName());
         disposal.setChainStatus(chain.getStatus());
@@ -134,6 +160,8 @@ public class AbnormalService {
         }
         LoginUser user = UserContext.require();
         String closeHash = DigestHelper.close(batch.getBatchNo());
+        // 合约 closeBatch 同样受 batchExists 约束，未上链批次需先补注册
+        batchService.ensureChainRegistered(batch, user.getRealName());
         // 同上：先落库再上链，避免并发结案在链上留下两条闭合存证
         batch.setStatus(Constants.BATCH_CLOSED);
         Db.updated(batchMapper.updateById(batch));
@@ -156,6 +184,9 @@ public class AbnormalService {
         if (batch == null) {
             throw BizException.notFound("批次不存在");
         }
+        // 上下游追溯会带出该批次以外的数据（同农户/同地块历史批次、物流销售流向），
+        // 生产主体等受限角色必须先过批次数据范围校验，避免按 id 遍历越权。
+        batchService.getAuthorized(batch.getId());
 
         AbnormalTraceVO vo = new AbnormalTraceVO();
         vo.setBatch(batch);

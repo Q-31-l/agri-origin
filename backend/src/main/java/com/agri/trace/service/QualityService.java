@@ -55,14 +55,13 @@ public class QualityService {
                 .like(batchNo != null && !batchNo.isEmpty(), BizQualityReport::getBatchNo, batchNo)
                 .eq(result != null && !result.isEmpty(), BizQualityReport::getInspectResult, result)
                 .orderByDesc(BizQualityReport::getId);
-        if (Constants.ROLE_FARMER.equals(UserContext.roleCode())) {
-            List<Long> ids = batchMapper.selectList(Wrappers.<BizBatch>lambdaQuery()
-                            .eq(BizBatch::getFarmerId, UserContext.userId()))
-                    .stream().map(BizBatch::getId).collect(Collectors.toList());
-            if (ids.isEmpty()) {
+        // 数据范围：农户看本人、村管看本村、生产主体看本人建档批次，监管/管理员不受限
+        List<Long> visible = batchService.visibleBatchIds(UserContext.require());
+        if (visible != null) {
+            if (visible.isEmpty()) {
                 return PageResult.of(java.util.Collections.emptyList(), 0, page, size);
             }
-            wrapper.in(BizQualityReport::getBatchId, ids);
+            wrapper.in(BizQualityReport::getBatchId, visible);
         }
         return PageResult.of(qualityMapper.selectPage(new Page<>(page, size), wrapper));
     }
@@ -134,6 +133,8 @@ public class QualityService {
 
         String dataHash = DigestHelper.quality(report, evidenceHash);
         report.setDataHash(dataHash);
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, user.getRealName());
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_QUALITY,
                 String.valueOf(report.getId()), dataHash, evidenceHash, user.getRealName());
         report.setChainStatus(chain.getStatus());
@@ -178,6 +179,8 @@ public class QualityService {
 
         String abnormalHash = DigestHelper.abnormal(disposal);
         disposal.setAbnormalHash(abnormalHash);
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, inspector.getRealName());
         ChainResult chain = contractService.markAbnormal(batch.getBatchNo(), disposal.getDescription(),
                 abnormalHash, inspector.getRealName());
         disposal.setChainStatus(chain.getStatus());

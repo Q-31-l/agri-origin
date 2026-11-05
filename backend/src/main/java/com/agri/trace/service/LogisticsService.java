@@ -49,6 +49,15 @@ public class LogisticsService {
                 .orderByDesc(BizLogisticsRecord::getId);
         if (Constants.ROLE_LOGISTICS.equals(UserContext.roleCode())) {
             wrapper.eq(BizLogisticsRecord::getCarrierId, UserContext.userId());
+        } else {
+            // 非物流角色按批次数据范围收窄：生产主体只能看到自己建档批次的运输记录
+            java.util.List<Long> visible = batchService.visibleBatchIds(UserContext.require());
+            if (visible != null) {
+                if (visible.isEmpty()) {
+                    return PageResult.of(java.util.Collections.emptyList(), 0, page, size);
+                }
+                wrapper.in(BizLogisticsRecord::getBatchId, visible);
+            }
         }
         return PageResult.of(logisticsMapper.selectPage(new Page<>(page, size), wrapper));
     }
@@ -104,6 +113,8 @@ public class LogisticsService {
 
         String dataHash = DigestHelper.logistics(record, evidenceHash);
         record.setDataHash(dataHash);
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, user.getRealName());
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_LOGISTICS,
                 String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());

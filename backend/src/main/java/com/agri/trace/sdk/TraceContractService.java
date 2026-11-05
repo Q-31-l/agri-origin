@@ -115,6 +115,26 @@ public class TraceContractService {
         }
     }
 
+    /**
+     * 查询批次是否已在链上注册。
+     * 合约除 registerBatch 外的所有写方法都带 batchExists 校验，
+     * 批次未注册时 addRecord / markAbnormal 等会直接 revert。
+     *
+     * @return true=链上已存在，false=不存在，null=链不可用或查询失败
+     */
+    public Boolean batchExistsOnChain(String batchNo) {
+        if (!isReady() || batchNo == null || batchNo.isEmpty()) {
+            return null;
+        }
+        try {
+            List<Object> ret = bcosClient.call("batchExistsOf", Collections.singletonList(batchNo));
+            return !ret.isEmpty() && Boolean.parseBoolean(String.valueOf(ret.get(0)));
+        } catch (Exception e) {
+            log.warn("查询链上批次是否存在失败 batchNo={}: {}", batchNo, e.getMessage());
+            return null;
+        }
+    }
+
     public Boolean verifyRecord(String batchNo, Integer index, String dataHash) {
         if (!isReady() || index == null) {
             return null;

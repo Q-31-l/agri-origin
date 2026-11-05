@@ -1,5 +1,6 @@
 package com.agri.trace.sdk;
 
+import cn.hutool.core.io.IoUtil;
 import com.agri.trace.config.ChainProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.fisco.bcos.sdk.BcosSDK;
@@ -16,8 +17,8 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -50,6 +51,16 @@ public class BcosClient {
     private volatile boolean ready = false;
     private volatile String initError = "链客户端未初始化";
 
+    /** 两次重连尝试之间的最小间隔，避免节点宕机期间每个请求都去重建 SDK */
+    private static final long RETRY_COOLDOWN_MS = 10_000L;
+    /** 健康探测缓存时间：3 秒内的重复调用不再打网络 */
+    private static final long HEALTH_TTL_MS = 3_000L;
+
+    private volatile long lastAttemptAt = 0L;
+    private volatile long lastHealthAt = 0L;
+    private volatile boolean healthy = false;
+    private int attempts = 0;
+
     @PostConstruct
     public void init() {
         if (!properties.isEnabled()) {
@@ -57,6 +68,27 @@ public class BcosClient {
             log.warn("{}，业务数据将标记为 SKIPPED", initError);
             return;
         }
+        tryInit();
+    }
+
+    /**
+     * 建立 / 重建 SDK 连接。
+     *
+     * <p>节点启动顺序不确定：后端可能先于链节点起来，或链节点在运行期重启。
+     * 因此不能"初始化一次失败就永久不可用"，改为按需重连（带冷却）——
+     * 链恢复后第一个业务请求会自动把连接建起来，无需重启后端进程。
+     */
+    private synchronized void tryInit() {
+        if (ready) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastAttemptAt < RETRY_COOLDOWN_MS) {
+            return;
+        }
+        lastAttemptAt = now;
+        attempts++;
+        BcosSDK previous = bcosSDK;
         try {
             String configPath = prepareConfigFile();
             bcosSDK = BcosSDK.build(configPath);
@@ -76,12 +108,34 @@ public class BcosClient {
             }
             ready = true;
             initError = null;
+            healthy = true;
+            lastHealthAt = System.currentTimeMillis();
             log.info("FISCO-BCOS 客户端初始化成功：group={}, contract={}, block={}",
-                    properties.getGroupId(), contractAddress, client.getBlockNumber());
+                    properties.getGroupId(), contractAddress, client.getBlockNumber().getBlockNumber());
+            if (previous != null) {
+                try {
+                    previous.stopAll();
+                } catch (Exception ignored) {
+                }
+            }
         } catch (Exception e) {
             ready = false;
             initError = "链客户端初始化失败：" + e.getMessage();
-            log.error(initError, e);
+            // 首次尝试用 error（便于排查启动期故障），后续重连降为 warn，避免刷屏
+            if (attempts == 1) {
+                log.error(initError, e);
+            } else {
+                log.warn("链客户端重连失败，{} 秒后再试：{}", RETRY_COOLDOWN_MS / 1000, e.getMessage());
+            }
+            try {
+                if (bcosSDK != null) {
+                    bcosSDK.stopAll();
+                }
+            } catch (Exception ignored) {
+            }
+            bcosSDK = null;
+            client = null;
+            transactionProcessor = null;
         }
     }
 
@@ -95,11 +149,58 @@ public class BcosClient {
         }
     }
 
+    /**
+     * 是否可用。
+     *
+     * <p>不能只看 ready 这个"曾经连上过"的布尔值：节点宕机时 SDK 的连接对象还在，
+     * ready 仍为 true，接口会显示"链正常"而实际交易全部超时。因此这里做一次
+     * 带缓存的健康探测（默认 3 秒一次），探测失败即标记不可用，下个请求触发重连。
+     */
     public boolean isReady() {
+        if (!properties.isEnabled()) {
+            return false;
+        }
+        if (!ensureInitialized()) {
+            return false;
+        }
+        return probeHealth();
+    }
+
+    /** 仅保证客户端已构建（不探测链路），供健康探测自身与区块高度查询复用，避免递归 */
+    private boolean ensureInitialized() {
+        if (!ready) {
+            tryInit();
+        }
         return ready;
     }
 
+    private boolean probeHealth() {
+        long now = System.currentTimeMillis();
+        if (now - lastHealthAt < HEALTH_TTL_MS) {
+            return healthy;
+        }
+        synchronized (this) {
+            if (System.currentTimeMillis() - lastHealthAt < HEALTH_TTL_MS) {
+                return healthy;
+            }
+            try {
+                client.getBlockNumber();
+                healthy = true;
+            } catch (Exception e) {
+                healthy = false;
+                ready = false;
+                initError = "链节点连接异常：" + e.getMessage();
+                log.warn("链健康探测失败，标记为不可用，等待自动重连：{}", e.getMessage());
+            }
+            lastHealthAt = System.currentTimeMillis();
+            return healthy;
+        }
+    }
+
     public String getInitError() {
+        if (properties.isEnabled() && !ready) {
+            tryInit();
+        }
         return initError;
     }
 
@@ -108,6 +209,9 @@ public class BcosClient {
     }
 
     public Long getBlockNumber() {
+        if (!properties.isEnabled() || !ensureInitialized()) {
+            return null;
+        }
         try {
             return client.getBlockNumber().getBlockNumber().longValue();
         } catch (Exception e) {
@@ -166,7 +270,7 @@ public class BcosClient {
      * 校验交易回执是否成功（一致性校验用）
      */
     public boolean checkReceipt(String txHash) {
-        if (!ready || txHash == null) {
+        if (txHash == null || !isReady() || client == null) {
             return false;
         }
         try {
@@ -181,7 +285,7 @@ public class BcosClient {
     }
 
     private void ensureReady() {
-        if (!ready) {
+        if (!isReady()) {
             throw new ChainException(initError == null ? "链服务不可用" : initError);
         }
     }
@@ -202,7 +306,11 @@ public class BcosClient {
         String path = properties.getAbiPath();
         if (path != null && path.startsWith("classpath:")) {
             ClassPathResource resource = new ClassPathResource(path.substring("classpath:".length()));
-            return new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            // 打成 jar 后 classpath 资源没有真实文件路径，getFile() 会抛 FileNotFoundException，
+            // 必须走 getInputStream()
+            try (InputStream in = resource.getInputStream()) {
+                return IoUtil.read(in, StandardCharsets.UTF_8);
+            }
         }
         return new String(Files.readAllBytes(Paths.get(path)), StandardCharsets.UTF_8);
     }
@@ -247,7 +355,9 @@ public class BcosClient {
             throw new IOException("缺少链证书文件：" + resourcePath
                     + "（请从节点 sdk 目录拷贝 ca.crt / sdk.crt / sdk.key 到 resources/fisco/conf/）");
         }
-        File file = resource.getFile();
-        Files.copy(file.toPath(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        // 同理：jar 内资源只能通过流复制
+        try (InputStream in = resource.getInputStream()) {
+            Files.copy(in, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 }

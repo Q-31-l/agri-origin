@@ -1,0 +1,25 @@
+[Unit]
+# 单节点模板：systemd 直接托管 fisco-bcos 进程，而不是靠 build_chain 生成的
+# start.sh（那份脚本用 `ps aux | grep fisco-bcos` 判断进程是否存在，四个节点
+# 共用同一个二进制路径，只要有一个节点活着，其余三个就会被误判为"已运行"，
+# 缺节点时 PBFT 不足 2/3 共识、区块停止增长）。
+#
+# 启用：systemctl enable --now fisco-node@node0 fisco-node@node1 \
+#                         fisco-node@node2 fisco-node@node3
+Description=FISCO-BCOS node %i (agri-origin)
+After=network.target
+PartOf=fisco-chain.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/fisco/nodes/127.0.0.1/%i
+ExecStart=/opt/fisco/nodes/127.0.0.1/fisco-bcos -c config.ini
+Restart=always
+RestartSec=3
+LimitNOFILE=655350
+StandardOutput=append:/opt/fisco/nodes/127.0.0.1/%i/nohup.out
+StandardError=append:/opt/fisco/nodes/127.0.0.1/%i/nohup.out
+
+[Install]
+WantedBy=multi-user.target

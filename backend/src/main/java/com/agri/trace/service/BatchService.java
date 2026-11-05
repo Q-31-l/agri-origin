@@ -157,7 +157,11 @@ public class BatchService {
     }
 
     /**
-     * 校验当前用户是否有权查看该批次
+     * 校验当前用户是否有权查看该批次。
+     *
+     * <p>与列表查询的 {@link #applyScope} 保持同一套口径：农户看本人、村管看本村、
+     * 生产主体看本人建档，监管方与管理员不受限。列表收窄而详情不收窄会形成越权读取，
+     * 这里必须逐条堵住。
      */
     public BizBatch getAuthorized(Long id) {
         BizBatch batch = getById(id);
@@ -167,10 +171,40 @@ public class BatchService {
             throw BizException.forbidden("无权查看其他农户的批次");
         }
         if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())
-                && !user.getVillageId().equals(batch.getVillageId())) {
+                && (user.getVillageId() == null || !user.getVillageId().equals(batch.getVillageId()))) {
             throw BizException.forbidden("无权查看其他村的批次");
         }
+        if (Constants.ROLE_PRODUCER.equals(user.getRoleCode())
+                && !user.getUserId().equals(batch.getCreateBy())) {
+            throw BizException.forbidden("无权查看其他主体建档的批次");
+        }
         return batch;
+    }
+
+    /**
+     * 当前用户在业务表上可见的批次 id 集合，用于质检/物流/销售等"子表"查询收窄。
+     *
+     * @return null 表示不受限（监管方、管理员），此时调用方不加 in 条件
+     */
+    public List<Long> visibleBatchIds(LoginUser user) {
+        LambdaQueryWrapper<BizBatch> wrapper = Wrappers.<BizBatch>lambdaQuery().select(BizBatch::getId);
+        if (Constants.ROLE_FARMER.equals(user.getRoleCode())) {
+            wrapper.eq(BizBatch::getFarmerId, user.getUserId());
+        } else if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())) {
+            if (user.getVillageId() == null) {
+                return new ArrayList<>();
+            }
+            wrapper.eq(BizBatch::getVillageId, user.getVillageId());
+        } else if (Constants.ROLE_PRODUCER.equals(user.getRoleCode())) {
+            wrapper.eq(BizBatch::getCreateBy, user.getUserId());
+        } else {
+            return null;
+        }
+        List<Long> ids = new ArrayList<>();
+        for (BizBatch b : batchMapper.selectList(wrapper)) {
+            ids.add(b.getId());
+        }
+        return ids;
     }
 
     @Transactional
@@ -237,6 +271,79 @@ public class BatchService {
                 "BATCH_REGISTER", dataHash, null, chain);
 
         return batch.getId();
+    }
+
+    /**
+     * 确保批次已在链上注册（懒注册）。
+     * <p>
+     * 合约除 registerBatch 外的所有写方法都带 batchExists 校验，而演示种子数据、
+     * 历史批次可能从未上链，不补注册会让农事、采收、质检、物流、销售、异常处置、
+     * 更正、关闭等所有环节的写操作全部 revert（前端表现为"交易执行失败"）。
+     * 这里在首次写入前按需补注册，成功后回写链状态并记录存证流水。
+     */
+    @Transactional
+    public void ensureChainRegistered(BizBatch batch, String operatorName) {
+        if (batch == null || !contractService.isEnabled()) {
+            return;
+        }
+        if (Constants.CHAIN_SUCCESS.equals(batch.getChainStatus())) {
+            return;
+        }
+        // 链上可能已存在而本地状态未回写，先探测一次，避免 registerBatch 撞 "batch already exists"
+        Boolean onChain = contractService.batchExistsOnChain(batch.getBatchNo());
+        if (Boolean.TRUE.equals(onChain)) {
+            batch.setChainStatus(Constants.CHAIN_SUCCESS);
+            Db.updated(batchMapper.updateById(batch));
+            return;
+        }
+        String dataHash = DigestHelper.batch(batch);
+        ChainResult chain = contractService.registerBatch(batch, dataHash, operatorName);
+        if (!chain.isSuccess()) {
+            throw BizException.chain("批次 " + batch.getBatchNo() + " 链上注册失败：" + chain.getMessage());
+        }
+        batch.setChainStatus(chain.getStatus());
+        batch.setChainTxHash(chain.getTxHash());
+        batch.setBlockNumber(chain.getBlockNumber());
+        Db.updated(batchMapper.updateById(batch));
+        chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_BATCH, batch.getId(),
+                "BATCH_REGISTER", dataHash, null, chain);
+    }
+
+    /**
+     * 运维修复：把所有尚未上链的历史/演示批次补注册到链上。
+     * <p>
+     * 逐条独立处理（本方法不加事务），单条失败不影响其余批次；
+     * 链上已存在的批次只回写本地状态，不重复注册。
+     */
+    public Map<String, Object> repairUnchainedBatches(String operatorName) {
+        List<BizBatch> list = batchMapper.selectList(Wrappers.<BizBatch>lambdaQuery()
+                .and(w -> w.ne(BizBatch::getChainStatus, Constants.CHAIN_SUCCESS)
+                        .or().isNull(BizBatch::getChainStatus))
+                .orderByAsc(BizBatch::getId));
+        int repaired = 0;
+        int already = 0;
+        List<String> failed = new ArrayList<>();
+        for (BizBatch b : list) {
+            try {
+                if (Boolean.TRUE.equals(contractService.batchExistsOnChain(b.getBatchNo()))) {
+                    b.setChainStatus(Constants.CHAIN_SUCCESS);
+                    Db.updated(batchMapper.updateById(b));
+                    already++;
+                    continue;
+                }
+                ensureChainRegistered(b, operatorName);
+                repaired++;
+            } catch (Exception e) {
+                failed.add(b.getBatchNo() + "：" + e.getMessage());
+            }
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", list.size());
+        result.put("repaired", repaired);
+        result.put("alreadyOnChain", already);
+        result.put("failed", failed.size());
+        result.put("failedDetails", failed);
+        return result;
     }
 
     /**

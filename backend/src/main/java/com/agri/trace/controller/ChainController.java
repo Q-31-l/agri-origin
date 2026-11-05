@@ -1,9 +1,13 @@
 package com.agri.trace.controller;
 
+import com.agri.trace.common.Constants;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.common.R;
 import com.agri.trace.entity.ChainRecord;
+import com.agri.trace.security.LoginUser;
 import com.agri.trace.security.RequirePerm;
+import com.agri.trace.security.RequireRoles;
+import com.agri.trace.security.UserContext;
 import com.agri.trace.service.BatchService;
 import com.agri.trace.service.ChainService;
 import com.agri.trace.sdk.TraceContractService;
@@ -12,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,5 +65,14 @@ public class ChainController {
         map.put("contractAddress", contractService.getContractAddress());
         map.put("blockNumber", contractService.getBlockNumber());
         return R.ok(map);
+    }
+
+    @Operation(summary = "修复：将未上链的历史批次补注册到链上")
+    @RequirePerm("chain:repair")
+    @RequireRoles({Constants.ROLE_REGULATOR, Constants.ROLE_ADMIN})
+    @PostMapping("/repair/batches")
+    public R<Map<String, Object>> repairBatches() {
+        LoginUser user = UserContext.require();
+        return R.ok(batchService.repairUnchainedBatches(user.getRealName()));
     }
 }

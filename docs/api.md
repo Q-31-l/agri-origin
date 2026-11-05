@@ -801,7 +801,7 @@ POST /quality
 POST /quality/{id}/audit
 ```
 
-**权限**：`quality:audit` · **角色**：`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
+**权限**：`quality:audit` · **角色**：`REGULATOR`、`ADMIN`
 
 **请求体**
 
@@ -891,7 +891,7 @@ POST /logistics
 POST /logistics/{id}/audit
 ```
 
-**权限**：`logistics:audit` · **角色**：`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
+**权限**：`logistics:audit` · **角色**：`REGULATOR`、`ADMIN`
 
 **请求体**
 
@@ -969,7 +969,7 @@ POST /sales
 POST /sales/{id}/audit
 ```
 
-**权限**：`sales:audit` · **角色**：`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
+**权限**：`sales:audit` · **角色**：`REGULATOR`、`ADMIN`
 
 **请求体**
 
@@ -1203,6 +1203,38 @@ GET /chain/status
   }
 }
 ```
+
+> `ready` 不再是"启动时连上过一次"的静态标记，而是每秒最多探测一次的真实链路状态：
+> 节点宕机时立即变为 `false` 并在 `message` 里给出原因，节点恢复后**无需重启后端**，
+> 下一个请求会自动重建 SDK 连接并回到 `true`。
+
+### 9.4 存量批次补注册（运维）
+
+```
+POST /chain/repair/batches
+```
+
+**权限**：`chain:repair` + 角色 `ADMIN` / `REGULATOR`
+
+合约除 `registerBatch` 外的所有写方法都带 `batchExists` 校验，未上链的历史/演示批次
+一旦被写入农事、质检、物流等记录就会 revert。该接口把 `chain_status != SUCCESS` 的
+批次逐条补注册（链上已存在的只回写本地状态，不重复注册），单条失败不影响其余批次。
+
+```json
+{
+  "code": 0,
+  "data": {
+    "total": 12,
+    "repaired": 12,
+    "alreadyOnChain": 0,
+    "failed": 0,
+    "failedDetails": []
+  }
+}
+```
+
+> 正常的业务写入路径已内置"懒注册"：任一环节写链前若发现批次未上链，会先补注册再写记录，
+> 因此该接口只用于批量修复存量数据，日常运行不需要人工调用。
 
 ---
 
@@ -1551,13 +1583,13 @@ GET /correction/page?page=1&size=10&batchId=1
 | 质检 | GET | `/quality/page` | `quality:list` | — |
 | | GET | `/quality/batch/{id}` | `quality:list` | — |
 | | POST | `/quality` | `quality:create` | INSPECTOR, ADMIN |
-| | POST | `/quality/{id}/audit` | `quality:audit` | VILLAGE_ADMIN, REGULATOR, ADMIN |
+| | POST | `/quality/{id}/audit` | `quality:audit` | REGULATOR, ADMIN |
 | 物流 | GET | `/logistics/page` | `logistics:list` | — |
 | | POST | `/logistics` | `logistics:create` | LOGISTICS, ADMIN |
-| | POST | `/logistics/{id}/audit` | `logistics:audit` | VILLAGE_ADMIN, REGULATOR, ADMIN |
+| | POST | `/logistics/{id}/audit` | `logistics:audit` | REGULATOR, ADMIN |
 | 销售 | GET | `/sales/page` | `sales:list` | — |
 | | POST | `/sales` | `sales:create` | SELLER, ADMIN |
-| | POST | `/sales/{id}/audit` | `sales:audit` | VILLAGE_ADMIN, REGULATOR, ADMIN |
+| | POST | `/sales/{id}/audit` | `sales:audit` | REGULATOR, ADMIN |
 | 异常 | GET | `/abnormal/page` | `abnormal:list` | — |
 | | POST | `/abnormal/{id}/dispose` | `abnormal:dispose` | REGULATOR, ADMIN |
 | | GET | `/abnormal/{id}/trace` | `abnormal:trace` | — |
@@ -1565,6 +1597,7 @@ GET /correction/page?page=1&size=10&batchId=1
 | 存证 | GET | `/chain/page` | `chain:list` | — |
 | | GET | `/chain/verify/{batchNo}` | `chain:verify` | — |
 | | GET | `/chain/status` | 登录 | — |
+| | POST | `/chain/repair/batches` | `chain:repair` | REGULATOR, ADMIN |
 | 溯源 | GET | `/trace/{code}` | 公开 | — |
 | | GET | `/trace/{code}/verify` | 公开 | — |
 | 文件 | POST | `/file/upload` | `file:upload` | — |

@@ -1,0 +1,26 @@
+[Unit]
+Description=Agri Origin Trace Backend (Spring Boot)
+After=network.target mysql.service fisco-chain.target
+Wants=fisco-chain.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/agri-origin/app
+# 溯源二维码指向的前端页面
+Environment=TRACE_URL_PREFIX=http://8.130.105.150/pages/trace/index?code=
+# chain.abi-path 走 classpath（资源已打进 jar，读取用的是 getInputStream，jar 内可用），
+# 不再依赖外部绝对路径
+ExecStart=/usr/bin/java -Xms512m -Xmx1024m -jar /opt/agri-origin/app/agri-trace-backend.jar \
+    --chain.config-file=/opt/agri-origin/chain/config.toml \
+    --chain.contract-address=0x0426e8fbda2b5e61c64c56773ab251e03f4bbedb \
+    --chain.private-key=589a07b45d8e99227f36c2718390a18e5ec6f99c5fc6c7fd820d18c053b1e62d \
+    --storage.upload-dir=/opt/agri-origin/app/uploads \
+    --mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.nologging.NoLoggingImpl
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/opt/agri-origin/app/backend.log
+StandardError=append:/opt/agri-origin/app/backend.log
+
+[Install]
+WantedBy=multi-user.target

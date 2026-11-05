@@ -12,6 +12,7 @@ import com.agri.trace.security.LoginUser;
 import com.agri.trace.security.UserContext;
 import com.agri.trace.sdk.ChainResult;
 import com.agri.trace.sdk.TraceContractService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.stereotype.Service;
@@ -37,10 +38,18 @@ public class CorrectionService {
     private FileService fileService;
 
     public PageResult<BizCorrection> page(long page, long size, Long batchId) {
-        return PageResult.of(correctionMapper.selectPage(new Page<>(page, size),
-                Wrappers.<BizCorrection>lambdaQuery()
-                        .eq(batchId != null, BizCorrection::getBatchId, batchId)
-                        .orderByDesc(BizCorrection::getId)));
+        LambdaQueryWrapper<BizCorrection> wrapper = Wrappers.<BizCorrection>lambdaQuery()
+                .eq(batchId != null, BizCorrection::getBatchId, batchId)
+                .orderByDesc(BizCorrection::getId);
+        // 更正说明里带着"改了什么、为什么改"，比业务记录更敏感，必须同样按数据范围收窄
+        java.util.List<Long> visible = batchService.visibleBatchIds(UserContext.require());
+        if (visible != null) {
+            if (visible.isEmpty()) {
+                return PageResult.of(java.util.Collections.emptyList(), 0, page, size);
+            }
+            wrapper.in(BizCorrection::getBatchId, visible);
+        }
+        return PageResult.of(correctionMapper.selectPage(new Page<>(page, size), wrapper));
     }
 
     @Transactional
@@ -70,6 +79,8 @@ public class CorrectionService {
 
         String dataHash = DigestHelper.correction(correction, evidenceHash);
         correction.setDataHash(dataHash);
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, user.getRealName());
         ChainResult chain = contractService.addCorrection(batch.getBatchNo(), dto.getBizType(),
                 String.valueOf(dto.getBizId()), dataHash, user.getRealName());
         correction.setChainStatus(chain.getStatus());

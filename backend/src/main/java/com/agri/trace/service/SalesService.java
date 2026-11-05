@@ -51,6 +51,15 @@ public class SalesService {
                 .orderByDesc(BizSalesRecord::getId);
         if (Constants.ROLE_SELLER.equals(UserContext.roleCode())) {
             wrapper.eq(BizSalesRecord::getSellerId, UserContext.userId());
+        } else {
+            // 非销售角色按批次数据范围收窄：生产主体只能看到自己建档批次的销售记录
+            List<Long> visible = batchService.visibleBatchIds(UserContext.require());
+            if (visible != null) {
+                if (visible.isEmpty()) {
+                    return PageResult.of(java.util.Collections.emptyList(), 0, page, size);
+                }
+                wrapper.in(BizSalesRecord::getBatchId, visible);
+            }
         }
         return PageResult.of(salesMapper.selectPage(new Page<>(page, size), wrapper));
     }
@@ -122,6 +131,8 @@ public class SalesService {
 
         String dataHash = DigestHelper.sales(record, evidenceHash);
         record.setDataHash(dataHash);
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, user.getRealName());
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_SALES,
                 String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());

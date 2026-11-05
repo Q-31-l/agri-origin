@@ -3,6 +3,7 @@ package com.agri.trace.websocket;
 import com.agri.trace.security.JwtUtil;
 import com.agri.trace.security.LoginUser;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
@@ -31,13 +32,13 @@ public class WsHandshakeInterceptor implements HandshakeInterceptor {
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
         if (!(request instanceof ServletServerHttpRequest)) {
-            return false;
+            return reject(response, "握手请求类型非法");
         }
         HttpServletRequest servletRequest = ((ServletServerHttpRequest) request).getServletRequest();
         String token = servletRequest.getParameter("token");
         if (token == null || token.trim().isEmpty()) {
             log.debug("WS 握手拒绝：缺少 token");
-            return false;
+            return reject(response, "缺少 token");
         }
         try {
             LoginUser user = jwtUtil.parse(token);
@@ -45,8 +46,21 @@ public class WsHandshakeInterceptor implements HandshakeInterceptor {
             return true;
         } catch (Exception e) {
             log.debug("WS 握手拒绝：token 无效 - {}", e.getMessage());
-            return false;
+            return reject(response, "token 无效或已过期");
         }
+    }
+
+    /**
+     * 拒绝握手时显式返回 401。若只 return false，Spring 会以 200 结束响应，
+     * 客户端无法区分"鉴权失败"和"服务异常"，往往会陷入无休止重连。
+     */
+    private boolean reject(ServerHttpResponse response, String reason) {
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        try {
+            response.getBody().write(("{\"code\":401,\"message\":\"" + reason + "\"}").getBytes("UTF-8"));
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     @Override

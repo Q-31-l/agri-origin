@@ -42,6 +42,8 @@ class PlantingServiceTest {
     private ChainService chainService;
     @Mock
     private TraceContractService contractService;
+    @Mock
+    private FileService fileService;
 
     @InjectMocks
     private PlantingService plantingService;
@@ -111,6 +113,9 @@ class PlantingServiceTest {
     void shouldSaveAndMarkSkippedWhenChainDisabled() {
         when(batchService.getById(1L)).thenReturn(batch);
         when(plantingMapper.selectCount(any())).thenReturn(0L);
+        // 无实证材料时证据根哈希为空串，摘要退化为纯业务字段
+        when(fileService.bindEvidence(any(), anyString(), any())).thenReturn(java.util.Collections.emptyList());
+        when(fileService.evidenceHash(any())).thenReturn("");
         doAnswer(invocation -> {
             BizPlantingRecord r = invocation.getArgument(0);
             r.setId(100L);

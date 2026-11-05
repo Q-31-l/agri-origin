@@ -643,8 +643,17 @@ agri-origin/
 │
 ├── sql/                            # 数据库脚本
 │   ├── init.sql                    # 建表
-│   ├── data.sql                    # 演示数据
-│   └── upgrade/                    # 版本迭代脚本
+│   ├── data.sql                    # 演示数据（含 41 个权限点 / 135 条角色授权）
+│   └── versions/                   # 增量补丁（微信登录 / 乐观锁 / 权限矩阵自洽性修复）
+│
+├── ops/                            # 生产部署配置（与线上一致）
+│   ├── fisco-node@.service         # 链节点 systemd 模板（每节点一实例）
+│   ├── fisco-chain.target          # 四节点聚合单元
+│   ├── agri-backend.service        # 后端单元（After=fisco-chain.target）
+│   └── nginx-agri-origin.conf      # nginx 站点（含 /api/ws 的 Upgrade 头）
+│
+├── scripts/
+│   └── e2e-acceptance.py           # 49 项断言的全角色全流程真实上链验收
 │
 ├── docs/                           # 文档
 │   ├── README.md  deploy.md  test.md  api.md

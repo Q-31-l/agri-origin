@@ -1,0 +1,9 @@
+[Unit]
+# 四节点共识集群聚合单元：拉起 node0~node3，任一节点退出会被
+# fisco-node@.service 的 Restart=always 拉回。
+Description=FISCO-BCOS 4-node consensus group (agri-origin)
+Wants=fisco-node@node0.service fisco-node@node1.service fisco-node@node2.service fisco-node@node3.service
+After=fisco-node@node0.service fisco-node@node1.service fisco-node@node2.service fisco-node@node3.service
+
+[Install]
+WantedBy=multi-user.target

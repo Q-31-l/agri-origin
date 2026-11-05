@@ -45,7 +45,29 @@
 | `REGULATOR` | 监管人员 | 全量监管、异常处置、一致性抽查 | PC |
 | `ADMIN` | 系统管理员 | 用户/角色/字典/日志管理 | PC |
 
-权限模型：**RBAC（角色-权限）+ 数据范围（本人 / 本村 / 本组织 / 全部）**，接口层通过 `@RequireRoles`、`@RequirePerm` 双注解校验，越权统一返回 `403 / 40301`。
+权限模型：**RBAC（角色-权限）+ 数据范围（SELF / VILLAGE / ORG / ALL）**，接口层通过 `@RequireRoles`、`@RequirePerm` 双注解校验，越权统一返回 `403 / 40301`。
+
+| 角色 | 数据范围 | 实际可见范围 | 审核职责 |
+| --- | --- | --- | --- |
+| 系统管理员 | `ALL` | 全量 | 拥有全部权限（含 `chain:repair` 存量补注册） |
+| 监管人员 | `ALL` | 全量 | 质检 / 物流 / 销售三类记录的复核、异常处置与结案 |
+| 生产主体 | `ORG` | 本人建档的批次及其全流程记录 | — |
+| 村级管理员 | `VILLAGE` | 本村批次、本村农户与本村农事/采收记录 | 批次核验、农事审核、采收审核 |
+| 农户 | `SELF` | 本人批次与本人录入的记录 | — |
+| 检测机构 | `ORG` | 质检报告（本机构出具） | — |
+| 物流企业 | `ORG` | 本人承运的运单 | — |
+| 销售商 | `ORG` | 本人登记的销售记录 | — |
+
+> **数据范围不是装饰**：分页查询、详情查询、看板统计、更正记录、上下游追溯都会按上表收窄。
+> 例如农户 `/stats/overview` 的批次总量与 `/batch/page` 的 total 恒等，生产主体看不到他人建档的批次详情，
+> 村管核验其他村批次直接 403。
+>
+> **审核权限与列表权限必须成对**：任一 `*:audit` 都必须同时拥有对应 `*:list`，否则前端菜单被裁掉、
+> 列表 403，审核按钮永远点不到。因此质检/物流/销售的复核权只授予监管方与管理员，村级管理员不持有——
+> 这三类记录不属于"农户侧数据"，村管不需要也不应该看到物流报价与销售单价。
+>
+> 权限点共 **41 个**，角色授权 **135 条**，无"有权限点无角色"的悬空授权，也无"有角色无权限点"的孤儿授权
+> （`sql/versions/patch-permission-matrix.sql` 末尾自带这两项自检 SQL）。
 
 ## 四、核心功能
 
@@ -176,7 +198,9 @@ agri-origin/
 │   ├── mobile-h5/           # 移动端（pages / components / api / utils）
 │   └── uni-app/             # 三端统一工程（H5 / 微信小程序 / App），一套代码三个产物
 ├── contracts/               # Solidity 合约、ABI/BIN、编译与部署脚本
-├── sql/                     # init.sql、data.sql、增量补丁（patch-wx-login / patch-optimistic-lock）
+├── ops/                     # 生产部署配置（systemd 单元、nginx 站点配置，与线上一致）
+├── scripts/                 # 运维/验收脚本（e2e-acceptance.py 全流程真实上链验收）
+├── sql/                     # init.sql、data.sql、增量补丁（patch-wx-login / patch-optimistic-lock / patch-permission-matrix）
 └── docs/                    # 项目说明、部署手册、测试用例、接口文档、uni-app 改造方案
 ```
 
@@ -248,6 +272,28 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 | logistics01 | 123456 | 物流企业 |
 | seller01 | 123456 | 销售商 |
 | regulator01 | 123456 | 监管人员 |
+
+## 七·补、生产部署与运维
+
+单机 ECS 上的实际部署形态（`ops/` 目录内是可直接使用的配置文件，均为线上在跑的那一份）：
+
+| 关注点 | 做法 | 对应文件 |
+| --- | --- | --- |
+| 链节点托管 | 每个节点一个 systemd 实例 `fisco-node@node0..3`，`Restart=always`；不再用 `build_chain` 生成的 `start.sh`（它用 `ps aux \| grep fisco-bcos` 判活，四个节点共用一个二进制路径，只掉三个时会被误判为"已运行"） | `ops/fisco-node@.service`、`ops/fisco-chain.target` |
+| 启动顺序 | 后端单元 `After=/Wants=fisco-chain.target`，链先起、后端后起 | `ops/agri-backend.service` |
+| 链断连自愈 | 客户端健康探测（3 秒缓存）+ 失败后按 10 秒冷却重建 SDK 连接，**无需重启后端**；`/chain/status` 的 `ready` 反映真实链路状态 | `BcosClient` |
+| WebSocket | nginx 单独给 `location = /api/ws` 配 `Upgrade`/`Connection` 头与 1 小时读超时，否则握手被当普通 HTTP，实时同步失效 | `ops/nginx-agri-origin.conf` |
+| 握手鉴权 | 无 token / token 非法一律返回 **401**（只 `return false` 会得到 200，客户端无法区分鉴权失败与服务异常，会无限重连） | `WsHandshakeInterceptor` |
+| ABI 加载 | 走 classpath（`getInputStream`），jar 内可用，不再依赖外部 `--chain.abi-path` | `BcosClient#readAbi` |
+
+上线自检（`scripts/e2e-acceptance.py` 在服务器本机执行，覆盖 49 项断言）：
+
+```bash
+python3 scripts/e2e-acceptance.py     # 8 角色登录 → 全流程真实上链 → 异常熔断 → 越权负例 → 数据范围隔离
+```
+
+> 脚本会真实写链（每轮新增若干区块），输出形如 `验收结果：49/49 通过`，
+> 任一项失败即非零退出，可直接接入发布流水线。
 
 ## 八、文档索引
 

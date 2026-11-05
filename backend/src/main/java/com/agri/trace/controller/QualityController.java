@@ -59,6 +59,7 @@ public class QualityController {
 
     @Operation(summary = "质检报告审核")
     @RequirePerm("quality:audit")
+    @RequireRoles({Constants.ROLE_REGULATOR, Constants.ROLE_ADMIN})
     @PostMapping("/{id}/audit")
     public R<Void> audit(@PathVariable Long id, @Valid @RequestBody AuditDTO dto) {
         qualityService.audit(id, dto);

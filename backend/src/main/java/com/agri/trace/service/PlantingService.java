@@ -48,6 +48,15 @@ public class PlantingService {
         LoginUser user = UserContext.require();
         if (Constants.ROLE_FARMER.equals(user.getRoleCode())) {
             wrapper.eq(BizPlantingRecord::getOperatorId, user.getUserId());
+        } else {
+            // 村管看本村、生产主体看本人建档批次的农事记录
+            List<Long> visible = batchService.visibleBatchIds(user);
+            if (visible != null) {
+                if (visible.isEmpty()) {
+                    return PageResult.of(java.util.Collections.emptyList(), 0, page, size);
+                }
+                wrapper.in(BizPlantingRecord::getBatchId, visible);
+            }
         }
         return PageResult.of(plantingMapper.selectPage(new Page<>(page, size), wrapper));
     }
@@ -116,6 +125,8 @@ public class PlantingService {
 
         String dataHash = DigestHelper.planting(record, evidenceHash);
         record.setDataHash(dataHash);
+        // 合约写方法带 batchExists 校验：演示/历史批次可能从未上链，先补注册再写记录
+        batchService.ensureChainRegistered(batch, user.getRealName());
         ChainResult chain = contractService.addRecord(batch.getBatchNo(), Constants.EVENT_PLANTING,
                 String.valueOf(record.getId()), dataHash, evidenceHash, user.getRealName());
         record.setChainStatus(chain.getStatus());

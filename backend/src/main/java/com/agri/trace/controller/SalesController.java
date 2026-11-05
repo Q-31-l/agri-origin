@@ -50,6 +50,7 @@ public class SalesController {
 
     @Operation(summary = "销售记录审核")
     @RequirePerm("sales:audit")
+    @RequireRoles({Constants.ROLE_REGULATOR, Constants.ROLE_ADMIN})
     @PostMapping("/{id}/audit")
     public R<Void> audit(@PathVariable Long id, @Valid @RequestBody AuditDTO dto) {
         salesService.audit(id, dto);

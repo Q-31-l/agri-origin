@@ -4,7 +4,7 @@
 --  所有演示账号密码均为 123456（BCrypt 10 轮）
 --
 --  数据规模（对应实训任务书「素材准备」要求）：
---    · 8 个角色、38 个权限点、9 个演示账号
+--    · 8 个角色、41 个权限点、9 个演示账号
 --    · 2 个行政村、2 个农场、3 种产品
 --    · 12 个批次，其中 2 个检测异常批次（批次 2 农残超标、批次 6 重金属超标）
 --    · 每个批次的业务节点记录均不少于 4 条：
@@ -47,12 +47,12 @@ INSERT INTO `sys_permission` (`perm_code`, `perm_name`, `perm_type`, `module`, `
 ('logistics:create', '物流交接登记',   'BUTTON','logistics','/logistics',            'POST'),
 ('sales:list',       '销售记录查询',   'API',  'sales',    '/sales/page',            'GET'),
 ('sales:create',     '销售登记',       'BUTTON','sales',   '/sales',                 'POST'),
-('trace:query',      '溯源查询',       'API',  'trace',    '/trace/{code}',          'GET'),
 ('abnormal:list',    '异常批次查询',   'API',  'abnormal', '/abnormal/page',         'GET'),
 ('abnormal:dispose', '异常处置',       'BUTTON','abnormal','/abnormal/{id}/dispose', 'POST'),
 ('abnormal:trace',   '上下游追溯',     'API',  'abnormal', '/abnormal/{id}/trace',   'GET'),
 ('chain:verify',     '一致性校验',     'API',  'chain',    '/chain/verify/{batchNo}', 'GET'),
 ('chain:list',       '存证流水查询',   'API',  'chain',    '/chain/page',            'GET'),
+('chain:repair',     '存量批次补注册', 'BUTTON','chain',   '/chain/repair/batches',  'POST'),
 ('user:list',        '用户查询',       'API',  'system',   '/user/page',             'GET'),
 ('user:create',      '用户新增',       'BUTTON','system',  '/user',                  'POST'),
 ('user:update',      '用户编辑',       'BUTTON','system',  '/user/{id}',             'PUT'),
@@ -81,8 +81,9 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('REGULATOR','stats:overview'),('REGULATOR','batch:list'),('REGULATOR','batch:detail'),
 ('REGULATOR','batch:audit'),('REGULATOR','planting:list'),('REGULATOR','harvest:list'),
 ('REGULATOR','quality:list'),('REGULATOR','logistics:list'),('REGULATOR','sales:list'),
-('REGULATOR','trace:query'),('REGULATOR','abnormal:list'),('REGULATOR','abnormal:dispose'),
+('REGULATOR','abnormal:list'),('REGULATOR','abnormal:dispose'),
 ('REGULATOR','abnormal:trace'),('REGULATOR','chain:verify'),('REGULATOR','chain:list'),
+('REGULATOR','chain:repair'),
 ('REGULATOR','log:list'),('REGULATOR','user:list'),('REGULATOR','product:list'),
 ('REGULATOR','farm:list'),('REGULATOR','village:list'),('REGULATOR','file:upload'),
 ('REGULATOR','quality:audit'),('REGULATOR','logistics:audit'),('REGULATOR','sales:audit');
@@ -92,44 +93,47 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('PRODUCER','stats:overview'),('PRODUCER','batch:list'),('PRODUCER','batch:detail'),
 ('PRODUCER','batch:create'),('PRODUCER','batch:update'),('PRODUCER','planting:list'),
 ('PRODUCER','harvest:list'),('PRODUCER','quality:list'),('PRODUCER','logistics:list'),
-('PRODUCER','sales:list'),('PRODUCER','trace:query'),('PRODUCER','chain:verify'),
+('PRODUCER','sales:list'),('PRODUCER','chain:verify'),
 ('PRODUCER','abnormal:list'),('PRODUCER','product:list'),('PRODUCER','product:create'),
-('PRODUCER','product:update'),('PRODUCER','farm:list'),('PRODUCER','file:upload');
+('PRODUCER','product:update'),('PRODUCER','farm:list'),('PRODUCER','file:upload'),
+('PRODUCER','abnormal:trace');
 
--- 村级管理员
+-- 村级管理员：只审农户侧数据（批次核验 / 农事 / 采收）。
+-- 质检报告、物流交接、销售流水的复核属监管职责，不授予村级，避免出现
+-- "有审核权限却看不到列表"的悬空授权（审核入口依赖对应 *:list）。
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('VILLAGE_ADMIN','stats:overview'),('VILLAGE_ADMIN','batch:list'),('VILLAGE_ADMIN','batch:detail'),
 ('VILLAGE_ADMIN','batch:audit'),('VILLAGE_ADMIN','planting:list'),('VILLAGE_ADMIN','planting:audit'),
 ('VILLAGE_ADMIN','harvest:list'),('VILLAGE_ADMIN','harvest:audit'),('VILLAGE_ADMIN','farm:list'),
 ('VILLAGE_ADMIN','farm:create'),('VILLAGE_ADMIN','farm:update'),('VILLAGE_ADMIN','user:list'),
 ('VILLAGE_ADMIN','user:create'),('VILLAGE_ADMIN','user:update'),('VILLAGE_ADMIN','user:reset'),
-('VILLAGE_ADMIN','trace:query'),('VILLAGE_ADMIN','chain:verify'),('VILLAGE_ADMIN','product:list'),
-('VILLAGE_ADMIN','village:list'),('VILLAGE_ADMIN','file:upload'),
-('VILLAGE_ADMIN','quality:audit'),('VILLAGE_ADMIN','logistics:audit'),('VILLAGE_ADMIN','sales:audit');
+('VILLAGE_ADMIN','chain:verify'),('VILLAGE_ADMIN','product:list'),
+('VILLAGE_ADMIN','village:list'),('VILLAGE_ADMIN','file:upload');
 
--- 农户
+-- 农户：stats:overview 必须授予——移动端工作台的"我的批次 / 异常批次 / 合格率"
+-- 三个卡片直接读该接口，服务端已按 farmer_id 收窄，不授会造成首页数字全空。
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
-('FARMER','batch:list'),('FARMER','batch:detail'),('FARMER','planting:list'),
-('FARMER','planting:create'),('FARMER','harvest:list'),('FARMER','harvest:create'),
-('FARMER','trace:query'),('FARMER','file:upload'),('FARMER','product:list');
+('FARMER','stats:overview'),('FARMER','batch:list'),('FARMER','batch:detail'),
+('FARMER','planting:list'),('FARMER','planting:create'),('FARMER','harvest:list'),
+('FARMER','harvest:create'),('FARMER','file:upload'),('FARMER','product:list');
 
 -- 检测机构
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('INSPECTOR','stats:overview'),('INSPECTOR','batch:list'),('INSPECTOR','batch:detail'),
-('INSPECTOR','quality:list'),('INSPECTOR','quality:create'),('INSPECTOR','trace:query'),
+('INSPECTOR','quality:list'),('INSPECTOR','quality:create'),
 ('INSPECTOR','chain:verify'),('INSPECTOR','file:upload'),('INSPECTOR','product:list');
 
 -- 物流企业
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('LOGISTICS','stats:overview'),('LOGISTICS','batch:list'),('LOGISTICS','batch:detail'),
-('LOGISTICS','logistics:list'),('LOGISTICS','logistics:create'),('LOGISTICS','trace:query'),
-('LOGISTICS','chain:verify'),('LOGISTICS','file:upload');
+('LOGISTICS','logistics:list'),('LOGISTICS','logistics:create'),
+('LOGISTICS','chain:verify'),('LOGISTICS','file:upload'),('LOGISTICS','product:list');
 
 -- 销售商
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('SELLER','stats:overview'),('SELLER','batch:list'),('SELLER','batch:detail'),
-('SELLER','sales:list'),('SELLER','sales:create'),('SELLER','trace:query'),
-('SELLER','chain:verify'),('SELLER','file:upload');
+('SELLER','sales:list'),('SELLER','sales:create'),
+('SELLER','chain:verify'),('SELLER','file:upload'),('SELLER','product:list');
 
 -- ---------------- 用户 ----------------
 INSERT INTO `sys_user` (`username`,`password`,`real_name`,`phone`,`role_code`,`org_name`,`village_id`,`farm_id`,`status`) VALUES

@@ -50,6 +50,7 @@ public class LogisticsController {
 
     @Operation(summary = "物流记录审核")
     @RequirePerm("logistics:audit")
+    @RequireRoles({Constants.ROLE_REGULATOR, Constants.ROLE_ADMIN})
     @PostMapping("/{id}/audit")
     public R<Void> audit(@PathVariable Long id, @Valid @RequestBody AuditDTO dto) {
         logisticsService.audit(id, dto);
