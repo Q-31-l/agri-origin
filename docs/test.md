@@ -154,14 +154,14 @@ curl -i -X POST http://localhost:8080/api/quality \
 | --- | --- |
 | 前置 | `farmer01`（张大山）拥有批次 1、2、4、5、7、8、10、11；`farmer02`（李桂花）拥有批次 3、6、9、12 |
 | 步骤 | 1. 用 `farmer02` 登录<br>2. 请求 `GET /api/batch/1` |
-| 预期 | 403，`{"message":"无权访问该数据"}`，**不返回任何批次内容** |
+| 预期 | 403，`{"message":"无权查看其他农户的批次"}`，**不返回任何批次内容** |
 
 #### TC-PERM-04 数据范围收窄：列表只返回本村数据
 
 | 项 | 内容 |
 | --- | --- |
 | 步骤 | 用 `village01`（溪头村）请求 `GET /api/batch/page` |
-| 预期 | 仅返回 `villageId=1` 的 8 个批次（1、2、4、5、7、8、10、11），不含上寨村的 3、6、9、12 |
+| 预期 | 只返回 `villageId=1` 的批次，不含上寨村（`villageId=2`）的任何批次；同时 `GET /api/stats/overview` 的 `totalBatches` 必须与列表 `total` 相等 |
 
 #### TC-PERM-05 前端菜单随权限渲染
 
@@ -176,6 +176,31 @@ curl -i -X POST http://localhost:8080/api/quality \
 | --- | --- |
 | 步骤 | 用 `seller01` 直接在地址栏输入 `/system/user` |
 | 预期 | 路由守卫拦截，跳转 `/403` 页面并提示无权限 |
+
+#### TC-PERM-07 权限矩阵自洽性（悬空授权 / 孤儿授权）
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 执行 `sql/versions/patch-permission-matrix.sql` 末尾的两条自检 SQL |
+| 预期 | `悬空授权(有权限点无角色)=0` 且 `孤儿授权(有角色无权限点)=0`；权限点 41 个、角色授权 135 条 |
+
+> 该用例防的是两类静默缺陷：一是代码里写了 `@RequirePerm` 但库里没有对应权限点（除管理员豁免外谁都调不通，
+> 也无法在权限页授权）；二是库里授权了某个权限点但代码从不校验，让人误以为接口受保护。
+
+#### TC-PERM-08 审核权限必须配套列表权限
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 逐个角色检查：凡持有 `X:audit` 的角色，是否同时持有 `X:list` |
+| 预期 | 全部成对。`quality:audit` / `logistics:audit` / `sales:audit` 仅授予 `REGULATOR`、`ADMIN`，两者均持有对应 `*:list`；`VILLAGE_ADMIN` 不再持有这三项 |
+| 说明 | 只给审核权不给列表权，前端菜单会被裁掉、列表返回 403，审核按钮永远点不到，属于"看起来有权限、实际不可达" |
+
+#### TC-PERM-09 链断连自愈（不重启后端）
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 1. `systemctl stop fisco-node@node0..3`<br>2. 请求 `GET /api/chain/status`<br>3. 重新启动四节点，等待 20 秒后再请求一次 |
+| 预期 | 第 2 步 `ready=false` 且 `message` 给出连接失败原因；第 3 步 `ready=true`、`blockNumber` 可读，**全程未重启后端进程** |
 
 ---
 
