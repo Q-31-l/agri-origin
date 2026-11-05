@@ -56,43 +56,36 @@ export function sys() {
  */
 export const PC_MIN_WIDTH = 768
 
-const VIEW_MODE_KEY = 'agri_view_mode'
-
 /**
- * 读取手动指定的视图模式：'auto' 按宽度自适应，'pc' 强制 PC，'mobile' 强制移动端。
- * 用于"三端互通预览"——PC 上切手机版、手机上切电脑版。
+ * 是否手机设备（H5）：靠 UA 区分「手机」与「桌面 / 平板」。
+ * 只在明确是手机（iPhone / Android 手机 / iPod）时返回 true，
+ * Android 平板 UA 无 `Mobile` 关键字，会落入宽度判断，与桌面一致。
  */
-export function getViewMode() {
+function isTouchPhone() {
   // #ifdef H5
   try {
-    return localStorage.getItem(VIEW_MODE_KEY) || 'auto'
+    const ua = navigator.userAgent || ''
+    return /iPhone|iPod|Android[\s\S]*Mobile/i.test(ua)
   } catch (e) {
-    return 'auto'
+    return false
   }
   // #endif
   // #ifndef H5
-  return 'auto'
+  return false
   // #endif
 }
 
-/** 设置手动视图模式（'auto' | 'pc' | 'mobile'），并刷新当前页 */
-export function setViewMode(mode) {
-  // #ifdef H5
-  try {
-    if (mode === 'auto') localStorage.removeItem(VIEW_MODE_KEY)
-    else localStorage.setItem(VIEW_MODE_KEY, mode)
-  } catch (e) {
-    /* ignore */
-  }
-  // #endif
-}
-
-/** H5 宽屏判定：手动指定优先，否则 ≥768px 视为 PC 布局 */
+/**
+ * H5 宽屏判定 —— 纯自动自适应，无任何手动覆盖：
+ * 1. 手机设备（iPhone / Android 手机）→ 永远移动版；
+ * 2. 其余（桌面 / 平板）→ 按窗口宽度，≥768px 视为 PC 布局。
+ *
+ * 效果：手机上打开就是手机版，电脑上打开就是电脑版，
+ * 桌面浏览器拖宽 / 拖窄窗口还会实时在两端之间自动切换。
+ */
 export function isPcWidth() {
   // #ifdef H5
-  const force = getViewMode()
-  if (force === 'pc') return true
-  if (force === 'mobile') return false
+  if (isTouchPhone()) return false
   return (window.innerWidth || sys().windowWidth) >= PC_MIN_WIDTH
   // #endif
   // #ifndef H5

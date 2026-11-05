@@ -63,13 +63,6 @@
           <text class="mi-title">设置</text>
           <text class="mi-arrow">›</text>
         </view>
-        <!-- #ifdef H5 -->
-        <view class="menu-item" @click="toPc">
-          <text class="mi-icon">🖥</text>
-          <text class="mi-title">切换到电脑版</text>
-          <text class="mi-arrow">›</text>
-        </view>
-        <!-- #endif -->
         <!-- #ifdef MP-WEIXIN -->
         <view class="menu-item" @click="go('/pages-mp/poster/index')">
           <text class="mi-icon">▣</text>
@@ -104,7 +97,7 @@ import { useUserStore } from '@/store/user'
 import { statsOverview } from '@/api'
 import { nav, relaunch } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
-import { platformName, setViewMode } from '@/config/platform'
+import { platformName } from '@/config/platform'
 import { ENV } from '@/config/env'
 import { confirm } from '@/utils/ui'
 
@@ -123,14 +116,6 @@ function go(path) {
 
 function toBatch() {
   uni.switchTab({ url: ROUTES.TAB_BATCH })
-}
-
-// H5：移动端切到电脑版（PC 管理台）
-function toPc() {
-  // #ifdef H5
-  setViewMode('pc')
-  relaunch(ROUTES.PC_DASHBOARD)
-  // #endif
 }
 
 async function onLogout() {

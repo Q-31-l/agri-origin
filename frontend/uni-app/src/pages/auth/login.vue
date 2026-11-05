@@ -7,7 +7,6 @@
     :version="version"
     @submit="submit"
     @trace="toTrace"
-    @mobile="toMobile"
   />
   <!-- #endif -->
 
@@ -96,13 +95,6 @@
       </view>
 
       <text class="footer">FISCO-BCOS 联盟链 · 全流程上链存证</text>
-
-      <!-- #ifdef H5 -->
-      <view class="switch-view" @click="toPc">
-        <text class="sv-icon">🖥</text>
-        <text class="sv-text">切换到电脑版</text>
-      </view>
-      <!-- #endif -->
     </view>
   </view>
 </template>
@@ -117,7 +109,7 @@ import PcLogin from '@/components/auth/pc-login.vue'
 // #endif
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
-import { isPcWidth, setViewMode } from '@/config/platform'
+import { isPcWidth } from '@/config/platform'
 import { ENV } from '@/config/env'
 import { storage } from '@/utils/storage'
 import { toast } from '@/utils/ui'
@@ -131,8 +123,9 @@ const form = reactive({ username: '', password: '' })
 const version = ENV.version
 
 /**
- * 宽屏判定：≥900px 走 PC 专用登录版式（左右分栏），
+ * 宽屏判定：≥768px 走 PC 专用登录版式（左右分栏），
  * 窄屏仍是手机版（叠层 hero + 卡片），两者共用同一套登录逻辑。
+ * 纯自动自适应，随窗口宽度实时切换。
  */
 const wide = ref(false)
 
@@ -220,22 +213,6 @@ async function submitWx() {
 
 function toTrace() {
   uni.navigateTo({ url: ROUTES.TRACE })
-}
-
-// 移动端手动切到电脑版：强制 PC 视图后重建本页（pc-login）
-function toPc() {
-  // #ifdef H5
-  setViewMode('pc')
-  uni.reLaunch({ url: ROUTES.LOGIN })
-  // #endif
-}
-
-// PC 端手动切到手机版：强制移动视图后重建本页（移动版登录）
-function toMobile() {
-  // #ifdef H5
-  setViewMode('mobile')
-  uni.reLaunch({ url: ROUTES.LOGIN })
-  // #endif
 }
 </script>
 
@@ -466,23 +443,6 @@ function toMobile() {
   margin-top: 48rpx;
   font-size: 20rpx;
   color: $text-4;
-}
-.switch-view {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  margin-top: 20rpx;
-  padding: 16rpx 0;
-  gap: 10rpx;
-}
-.sv-icon {
-  font-size: 26rpx;
-}
-.sv-text {
-  font-size: 24rpx;
-  color: $brand;
-  font-weight: 500;
 }
 
 /* 平板竖屏（600–899px）：rpx 在 768 宽会被放大一倍，这里改用 px 把版式压回手机比例，

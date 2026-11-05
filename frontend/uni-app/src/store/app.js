@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { sys, PC_MIN_WIDTH } from '@/config/platform'
+import { sys, isPcWidth } from '@/config/platform'
 
 export const useAppStore = defineStore('app', {
   state: () => ({
@@ -33,7 +33,7 @@ export const useAppStore = defineStore('app', {
         this.windowHeight = info.windowHeight
         this.statusBarHeight = info.statusBarHeight || 0
         // #ifdef H5
-        this.isPc = (window.innerWidth || info.windowWidth) >= PC_MIN_WIDTH
+        this.isPc = isPcWidth()
         // #endif
         // #ifndef H5
         this.isPc = false
