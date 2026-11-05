@@ -170,6 +170,11 @@
         <text class="sa">→</text>
       </view>
 
+      <view class="switch-view" @click="$emit('mobile')">
+        <text class="sv-icon">📱</text>
+        <text class="sv-text">切换到手机版</text>
+      </view>
+
       <text class="foot">FISCO-BCOS 联盟链 · 全流程上链存证 · v{{ version }}</text>
     </view>
   </view>
@@ -185,7 +190,7 @@ const props = defineProps({
   accounts: { type: Array, default: () => [] },
   version: { type: String, default: '' }
 })
-const emit = defineEmits(['submit', 'trace'])
+const emit = defineEmits(['submit', 'trace', 'mobile'])
 
 const STEPS = ['种植', '采收', '质检', '物流', '销售']
 const KEY = 'last_user'
@@ -682,6 +687,27 @@ function ok() {
 .sa {
   font-size: 13px;
   color: #1f7a4d;
+}
+.switch-view {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+.switch-view:hover .sv-text {
+  color: #14532d;
+}
+.sv-icon {
+  font-size: 14px;
+}
+.sv-text {
+  font-size: 12px;
+  color: #1f7a4d;
+  transition: color 0.15s ease;
 }
 .foot {
   margin-top: 26px;

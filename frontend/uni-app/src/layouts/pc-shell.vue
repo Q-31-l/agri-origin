@@ -46,6 +46,9 @@
               <text class="u-role">{{ store.roleName }}</text>
             </view>
           </view>
+          <!-- #ifdef H5 -->
+          <text class="mobile-link" @click="goMobile">📱 手机版</text>
+          <!-- #endif -->
           <text class="logout" @click="onLogout">退出</text>
         </view>
       </view>
@@ -64,6 +67,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import BrandLogo from '@/components/common/brand-logo.vue'
 import { PC_MENUS } from '@/config/routes'
+import { setViewMode } from '@/config/platform'
 import { useUserStore } from '@/store/user'
 import { chainStatus } from '@/api'
 import { ENV } from '@/config/env'
@@ -273,6 +277,14 @@ function go(path) {
 
 function goMine() {
   uni.reLaunch({ url: '/pages/tabbar/mine' })
+}
+
+// H5：PC 端切到手机版（移动工作台）
+function goMobile() {
+  // #ifdef H5
+  setViewMode('mobile')
+  uni.reLaunch({ url: '/pages/tabbar/home' })
+  // #endif
 }
 
 async function onLogout() {
@@ -593,6 +605,19 @@ chainStatus()
   font-size: 10px;
   color: #94a3b8;
   line-height: 1.2;
+}
+.mobile-link {
+  font-size: 12px;
+  color: #1f7a4d;
+  cursor: pointer;
+  padding: 4px 10px;
+  border: 1px solid rgba(31, 122, 77, 0.3);
+  border-radius: 12px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.mobile-link:hover {
+  background: #eaf3ee;
+  border-color: rgba(31, 122, 77, 0.55);
 }
 .logout {
   font-size: 12px;

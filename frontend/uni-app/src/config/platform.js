@@ -48,10 +48,52 @@ export function sys() {
   return sysInfo
 }
 
-/** H5 宽屏判定：≥900px 视为 PC 布局 */
+/**
+ * PC 布局最小宽度（px）：≥768 视为宽屏（平板 / 桌面）。
+ * 之前用 900，笔记本浏览器窗口未最大化或分屏时（<900）会被误判成手机端，
+ * 导致"电脑上打开只有手机预览"。降到 768（标准平板断点）后，
+ * 只要窗口宽度达到平板级别就进入 PC 管理台。
+ */
+export const PC_MIN_WIDTH = 768
+
+const VIEW_MODE_KEY = 'agri_view_mode'
+
+/**
+ * 读取手动指定的视图模式：'auto' 按宽度自适应，'pc' 强制 PC，'mobile' 强制移动端。
+ * 用于"三端互通预览"——PC 上切手机版、手机上切电脑版。
+ */
+export function getViewMode() {
+  // #ifdef H5
+  try {
+    return localStorage.getItem(VIEW_MODE_KEY) || 'auto'
+  } catch (e) {
+    return 'auto'
+  }
+  // #endif
+  // #ifndef H5
+  return 'auto'
+  // #endif
+}
+
+/** 设置手动视图模式（'auto' | 'pc' | 'mobile'），并刷新当前页 */
+export function setViewMode(mode) {
+  // #ifdef H5
+  try {
+    if (mode === 'auto') localStorage.removeItem(VIEW_MODE_KEY)
+    else localStorage.setItem(VIEW_MODE_KEY, mode)
+  } catch (e) {
+    /* ignore */
+  }
+  // #endif
+}
+
+/** H5 宽屏判定：手动指定优先，否则 ≥768px 视为 PC 布局 */
 export function isPcWidth() {
   // #ifdef H5
-  return (window.innerWidth || sys().windowWidth) >= 900
+  const force = getViewMode()
+  if (force === 'pc') return true
+  if (force === 'mobile') return false
+  return (window.innerWidth || sys().windowWidth) >= PC_MIN_WIDTH
   // #endif
   // #ifndef H5
   return false
