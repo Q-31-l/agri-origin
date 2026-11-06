@@ -51,7 +51,9 @@ public class ChainController {
     @RequirePerm("chain:verify")
     @GetMapping("/verify/{batchNo}")
     public R<ChainVerifyVO> verify(@PathVariable String batchNo) {
-        batchService.getByNo(batchNo);
+        // 入参是批次号而不是主键，必须显式过一遍数据范围，
+        // 否则农户/生产主体可以拿任意批次号探测别家的存证状态
+        batchService.getAuthorizedByNo(batchNo);
         return R.ok(chainService.verifyBatch(batchNo));
     }
 

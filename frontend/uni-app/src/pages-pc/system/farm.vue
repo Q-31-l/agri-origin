@@ -129,7 +129,7 @@ import {
   createFarm,
   updateFarm,
   villageList,
-  userList
+  userOptions
 } from '@/api'
 import { useUserStore } from '@/store/user'
 import { toast } from '@/utils/ui'
@@ -151,7 +151,7 @@ const villageOptions = computed(() =>
   villages.value.map((v) => ({ value: v.id, label: v.villageName }))
 )
 const farmerOptions = computed(() =>
-  farmers.value.map((u) => ({ value: u.id, label: `${u.realName}（${u.username}）` }))
+  farmers.value.map((u) => ({ value: u.id, label: u.realName || `用户${u.id}` }))
 )
 const statusOptions = [
   { value: 1, label: '启用' },
@@ -168,7 +168,9 @@ async function loadBase() {
   }
   if (!farmers.value.length) {
     try {
-      farmers.value = (await userList({ roleCode: 'FARMER' })).data || []
+      // 用最小字段集接口：/user/list 需要 user:list，生产主体没有该权限，
+      // 原来这里直接 403，导致"新建农场"选不了负责人
+      farmers.value = (await userOptions({ roleCode: 'FARMER' })).data || []
     } catch (e) {
       farmers.value = []
     }

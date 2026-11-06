@@ -16,9 +16,14 @@
           <input
             class="s-input"
             v-model="code"
-            placeholder="请输入溯源码，如 TC20260610012"
+            :focus="inputFocus"
+            placeholder="输入溯源码，或点右侧扫码"
             @confirm="doQuery"
           />
+          <view class="s-scan" @click="onScan">
+            <text class="s-scan-ico">⌗</text>
+            <text class="s-scan-txt">扫码</text>
+          </view>
           <view class="s-btn" @click="doQuery">立即查询</view>
         </view>
         <view class="samples">
@@ -165,10 +170,11 @@ import PcShell from '@/layouts/pc-shell.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcQr from '@/components/pc/pc-qr.vue'
 import PcTimeline from '@/components/pc/pc-timeline.vue'
-import { traceQuery, traceVerify, batchPage } from '@/api'
+import { traceQuery, traceVerify, traceSamples } from '@/api'
 import { QUALITY_RESULT } from '@/config/constants'
 import { toast } from '@/utils/ui'
 import { formatQty } from '@/utils/format'
+import { scan, extractTraceCode } from '@/utils/scan'
 
 const code = ref('')
 const data = ref(null)
@@ -176,6 +182,7 @@ const verify = ref(null)
 const loading = ref(false)
 const notFound = ref(false)
 const samples = ref([])
+const inputFocus = ref(false)
 
 const qualityText = computed(() => {
   const r = data.value && data.value.qualityResult
@@ -215,12 +222,24 @@ function quick(c) {
   doQuery()
 }
 
+/** PC 上通常没有摄像头：扫码层会自动退到「上传二维码图片识别」，同样能读码 */
+async function onScan() {
+  const raw = await scan({ title: '扫描或上传溯源码' })
+  if (!raw) {
+    inputFocus.value = false
+    setTimeout(() => (inputFocus.value = true), 60)
+    return
+  }
+  const c = extractTraceCode(raw)
+  if (!c) return toast('未识别到有效溯源码')
+  code.value = c
+  doQuery()
+}
+
 async function loadSamples() {
   try {
-    const res = await batchPage({ page: 1, size: 3 })
-    samples.value = ((res.data && res.data.records) || [])
-      .map((b) => b.traceCode)
-      .filter(Boolean)
+    const res = await traceSamples(3)
+    samples.value = (res.data || []).filter(Boolean)
   } catch (e) {
     samples.value = []
   }
@@ -296,6 +315,31 @@ onLoad((opt) => {
 }
 .s-btn:hover {
   background: #e09b1c;
+}
+.s-scan {
+  height: 40px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-left: none;
+  color: #fff;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.s-scan:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+.s-scan-ico {
+  font-size: 15px;
+  line-height: 1;
+}
+.s-scan-txt {
+  font-size: 13px;
 }
 .samples {
   display: flex;

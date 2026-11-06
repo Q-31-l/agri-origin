@@ -39,6 +39,7 @@
           <text class="pc-th w-material">投入品</text>
           <text class="pc-th w-dosage">用量</text>
           <text class="pc-th w-op">操作人</text>
+          <text class="pc-th w-audit">审核</text>
           <text class="pc-th w-chain">上链</text>
         </view>
 
@@ -53,6 +54,10 @@
             <text class="pc-td w-material">{{ r.materialName || '-' }}</text>
             <text class="pc-td w-dosage">{{ r.dosage || '-' }}</text>
             <text class="pc-td w-op">{{ r.operatorName || '-' }}</text>
+            <view class="pc-td w-audit">
+              <pc-status :value="r.auditStatus" type="audit" />
+              <text v-if="canAudit && r.auditStatus === 'PENDING'" class="au-link" @click="doAudit(r)">去审核</text>
+            </view>
             <view class="pc-td w-chain"><pc-status :value="r.chainStatus" type="chain" /></view>
           </view>
         </view>
@@ -124,7 +129,7 @@ import PcSelect from '@/components/pc/pc-select.vue'
 import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
-import { plantingPage, createPlanting, batchOptions } from '@/api'
+import { plantingPage, createPlanting, auditPlanting, batchOptions } from '@/api'
 import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
@@ -142,6 +147,48 @@ const batches = ref([])
 const query = reactive({ page: 1, size: 10, batchId: '', batchNo: '' })
 
 const canCreate = computed(() => store.hasPerm('planting:create'))
+const canAudit = computed(() => store.hasPerm('planting:audit'))
+
+/**
+ * 村级审核：/planting/{id}/audit 早就有了，但界面一直没有入口，
+ * 导致 planting:audit 成了悬空权限——村管能看到"待审核"却点不动。
+ */
+async function doAudit(row) {
+  const pick = await new Promise((resolve) => {
+    uni.showActionSheet({
+      itemList: ['审核通过', '驳回'],
+      success: (res) => resolve(res.tapIndex),
+      fail: () => resolve(-1)
+    })
+  })
+  if (pick < 0) return
+  const approve = pick === 0
+
+  const input = await new Promise((resolve) => {
+    uni.showModal({
+      title: approve ? '审核通过' : '驳回农事记录',
+      editable: true,
+      placeholderText: approve ? '审核意见（可选）' : '请填写驳回原因',
+      success: (res) => resolve(res),
+      fail: () => resolve({ cancel: true })
+    })
+  })
+  if (!input || input.cancel) return
+  const remark = (input.content || '').trim()
+  if (!approve && !remark) return toast('驳回时必须填写原因')
+
+  try {
+    await auditPlanting(row.id, {
+      auditStatus: approve ? 'APPROVED' : 'REJECTED',
+      auditRemark: remark
+    })
+    toast(approve ? '已通过' : '已驳回')
+    cache.invalidate('planting:list')
+    load()
+  } catch (e) {
+    /* 请求层已提示 */
+  }
+}
 
 const batchOpts = computed(() =>
   batches.value.map((b) => ({
@@ -279,6 +326,14 @@ onShow(load)
 .w-material { flex: 1.1; }
 .w-dosage { flex: 0.9; }
 .w-op { flex: 0.9; }
+.w-audit { flex: 1.1; display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.au-link {
+  font-size: 11.5px;
+  color: #1f7a4d;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.au-link:hover { text-decoration: underline; }
 .w-chain { flex: 1; }
 .mono {
   font-family: Consolas, monospace;

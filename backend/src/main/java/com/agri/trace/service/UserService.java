@@ -26,7 +26,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户与基层人员管理
@@ -78,6 +81,30 @@ public class UserService {
                 .eq(SysUser::getStatus, 1)
                 .orderByAsc(SysUser::getId));
         return users.stream().map(this::toVO).collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 用户下拉选项：只给 id、姓名、所属村。
+     *
+     * <p>农场档案要选"负责人"，但 /user/list 需要 user:list，会连带返回手机号、
+     * 所属机构等字段。生产主体只需要知道"有哪些农户可选"，不该看到这些，
+     * 所以单独开一个最小字段集的接口，权限挂在 farm:list 上（能管农场才需要选人）。
+     */
+    public List<Map<String, Object>> options(String roleCode, Long villageId) {
+        List<SysUser> users = userMapper.selectList(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getRoleCode, roleCode)
+                .eq(villageId != null, SysUser::getVillageId, villageId)
+                .eq(SysUser::getStatus, 1)
+                .orderByAsc(SysUser::getId));
+        List<Map<String, Object>> list = new ArrayList<>(users.size());
+        for (SysUser u : users) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", u.getId());
+            m.put("realName", u.getRealName());
+            m.put("villageId", u.getVillageId());
+            list.add(m);
+        }
+        return list;
     }
 
     @Transactional

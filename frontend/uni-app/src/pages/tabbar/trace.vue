@@ -20,7 +20,15 @@
     <view class="manual">
       <text class="manual-title">或手动输入溯源码</text>
       <view class="manual-row">
-        <input v-model="code" class="manual-input" placeholder="如 TC20260512001" placeholder-class="ph" @confirm="query" />
+        <input
+          v-model="code"
+          class="manual-input"
+          :focus="inputFocus"
+          placeholder="如 TC20260512001"
+          placeholder-class="ph"
+          confirm-type="search"
+          @confirm="query"
+        />
         <view class="manual-btn" @click="query">查询</view>
       </view>
       <text class="hint">溯源码可在产品包装标签或批次详情页找到</text>
@@ -51,6 +59,7 @@ import { toast } from '@/utils/ui'
 
 const code = ref('')
 const history = ref([])
+const inputFocus = ref(false)
 
 onShow(() => {
   history.value = storage.get('trace_history', []) || []
@@ -82,18 +91,21 @@ function query() {
 }
 
 async function onScan() {
-  try {
-    const raw = await scan()
-    const c = extractTraceCode(raw)
-    remember(c)
-    nav(ROUTES.TRACE, { code: c })
-  } catch (e) {
-    if (e && e.cancel) return
-    // H5 无摄像头时引导手动输入
+  // scan() 内部已经按「权限被拒 / 无摄像头 / 非 HTTPS」给出对应说明，
+  // 这里不再用一句笼统的"请手动输入"盖掉真实原因。
+  const raw = await scan({ title: '扫描包装上的溯源码' })
+  if (!raw) {
+    // 用户在扫码层里选了「手动输入」→ 直接把焦点打过去
     // #ifdef H5
-    toast('可手动输入溯源码查询')
+    inputFocus.value = false
+    setTimeout(() => (inputFocus.value = true), 60)
     // #endif
+    return
   }
+  const c = extractTraceCode(raw)
+  if (!c) return toast('未识别到有效溯源码')
+  remember(c)
+  nav(ROUTES.TRACE, { code: c })
 }
 </script>
 

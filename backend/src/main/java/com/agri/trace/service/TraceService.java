@@ -24,6 +24,11 @@ public class TraceService {
     @Resource
     private TrustScoreService trustScoreService;
 
+    /** 示例溯源码：公开数据，供溯源页做"试试这些码"的引导 */
+    public List<String> samples(int limit) {
+        return batchService.sampleTraceCodes(limit);
+    }
+
     public TraceVO query(String code) {
         BizBatch batch = batchService.getByCode(code);
         BatchDetailVO detail = batchService.detailPublic(batch);

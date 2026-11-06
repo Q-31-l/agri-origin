@@ -7,6 +7,7 @@
           <text class="pc-sub">FISCO-BCOS 联盟链存证流水与链上链下一致性校验</text>
         </view>
         <view class="pc-acts">
+          <view v-if="canRepair" class="pc-btn ghost" @click="doRepair">补登记未上链批次</view>
           <view class="pc-btn ghost" @click="loadAll">刷新</view>
         </view>
       </view>
@@ -188,10 +189,15 @@ import PcSelect from '@/components/pc/pc-select.vue'
 import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
-import { chainPage, chainVerifyByNo, chainStatus, chainFailed } from '@/api'
+import { chainPage, chainVerifyByNo, chainStatus, chainFailed, chainRepair } from '@/api'
 import { EVENT_TYPE } from '@/config/constants'
 import { toast } from '@/utils/ui'
 import { formatDateTime, shortHash } from '@/utils/format'
+import { useUserStore } from '@/store/user'
+
+const store = useUserStore()
+/** 补登记是高危写操作，仅监管方与管理员可见（后端同样有 @RequireRoles 兜底） */
+const canRepair = computed(() => store.hasPerm('chain:repair'))
 
 const loading = ref(false)
 const list = ref([])
@@ -265,6 +271,39 @@ function loadAll() {
   loadChain()
   load()
   loadFailed()
+}
+
+/**
+ * 补登记：把历史"未上链 / 上链失败"的批次重新注册到合约。
+ * 后端已有 /chain/repair/batches，界面此前没有入口，chain:repair 成了空授权。
+ */
+async function doRepair() {
+  const ok = await new Promise((resolve) => {
+    uni.showModal({
+      title: '补登记未上链批次',
+      content: '将把当前所有未上链的批次重新注册到 FISCO-BCOS，过程会逐笔上链，可能需要几十秒。确认继续？',
+      confirmText: '开始补登记',
+      success: (res) => resolve(res.confirm),
+      fail: () => resolve(false)
+    })
+  })
+  if (!ok) return
+
+  uni.showLoading({ title: '上链中…', mask: true })
+  try {
+    const res = await chainRepair()
+    const d = res.data || {}
+    uni.hideLoading()
+    uni.showModal({
+      title: '补登记完成',
+      content: `共 ${d.total || 0} 个待处理批次：本次补登记 ${d.repaired || 0} 个，此前已在链上 ${d.alreadyOnChain || 0} 个，失败 ${d.failed || 0} 个`,
+      showCancel: false
+    })
+    loadAll()
+  } catch (e) {
+    uni.hideLoading()
+    /* 请求层已提示 */
+  }
 }
 
 function search() {

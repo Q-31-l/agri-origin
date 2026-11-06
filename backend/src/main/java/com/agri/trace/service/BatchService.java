@@ -149,6 +149,38 @@ public class BatchService {
         return batch;
     }
 
+    /**
+     * 示例溯源码（免登录场景专用）。
+     *
+     * <p>溯源页要放几个"试试这些溯源码"做引导，之前直接调 /batch/page，
+     * 未登录访客拿到 401 后被请求拦截器整页踢到登录页——公开页面不能依赖
+     * 需要鉴权的接口。这里只取编码本身，不含任何业务数据，可安全公开。
+     */
+    public List<String> sampleTraceCodes(int limit) {
+        int n = Math.min(Math.max(limit, 1), 10);
+        List<BizBatch> list = batchMapper.selectList(Wrappers.<BizBatch>lambdaQuery()
+                .select(BizBatch::getTraceCode)
+                .isNotNull(BizBatch::getTraceCode)
+                .ne(BizBatch::getTraceCode, "")
+                .orderByDesc(BizBatch::getId)
+                .last("limit " + n));
+        List<String> codes = new ArrayList<>(list.size());
+        for (BizBatch b : list) {
+            codes.add(b.getTraceCode());
+        }
+        return codes;
+    }
+
+    /**
+     * 按批次号取批次，并校验当前用户可见（越权抛 403）。
+     * 供 /chain/verify/{batchNo} 这类"以批次号为入参"的接口复用。
+     */
+    public BizBatch getAuthorizedByNo(String batchNo) {
+        BizBatch batch = getByNo(batchNo);
+        getAuthorized(batch.getId());
+        return batch;
+    }
+
     public BizBatch getById(Long id) {
         BizBatch batch = batchMapper.selectById(id);
         if (batch == null) {

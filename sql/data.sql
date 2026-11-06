@@ -98,7 +98,9 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('PRODUCER','sales:list'),('PRODUCER','chain:verify'),
 ('PRODUCER','abnormal:list'),('PRODUCER','product:list'),('PRODUCER','product:create'),
 ('PRODUCER','product:update'),('PRODUCER','farm:list'),('PRODUCER','file:upload'),
-('PRODUCER','abnormal:trace'),('PRODUCER','correction:create');
+('PRODUCER','abnormal:trace'),('PRODUCER','correction:create'),
+-- 农场档案必须选所属行政村，没有 village:list 连新建弹窗都填不完
+('PRODUCER','village:list');
 
 -- 村级管理员：只审农户侧数据（批次核验 / 农事 / 采收）。
 -- 质检报告、物流交接、销售流水的复核属监管职责，不授予村级，避免出现
@@ -118,7 +120,11 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('FARMER','stats:overview'),('FARMER','batch:list'),('FARMER','batch:detail'),
 ('FARMER','planting:list'),('FARMER','planting:create'),('FARMER','harvest:list'),
-('FARMER','harvest:create'),('FARMER','file:upload'),('FARMER','product:list');
+('FARMER','harvest:create'),('FARMER','file:upload'),('FARMER','product:list'),
+-- 农户是批次的第一责任人，批次详情页的「一致性校验」对他是核心能力。
+-- 授权不会带来越权读取：/batch/{id}/verify 走 getAuthorized 按 farmer_id 收窄，
+-- /chain/verify/{batchNo} 也已改为 getAuthorizedByNo。
+('FARMER','chain:verify');
 
 -- 检测机构
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES

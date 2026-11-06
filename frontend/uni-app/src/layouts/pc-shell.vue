@@ -1,6 +1,6 @@
 <template>
   <view class="pc-shell">
-    <view class="side">
+    <view v-if="loggedIn" class="side">
       <view class="brand">
         <brand-logo size="sm" tone="light" />
       </view>
@@ -36,17 +36,20 @@
           <text class="c-cur">{{ title }}</text>
         </view>
         <view class="top-right">
-          <text class="chain-state" :class="{ off: !chainOn }">
-            <text class="dot"></text>{{ chainOn ? '链服务正常' : '演示模式' }}
-          </text>
-          <view class="user" @click="goMine">
-            <text class="u-avatar">{{ avatar }}</text>
-            <view class="col">
-              <text class="u-name">{{ store.displayName }}</text>
-              <text class="u-role">{{ store.roleName }}</text>
+          <template v-if="loggedIn">
+            <text class="chain-state" :class="{ off: !chainOn }">
+              <text class="dot"></text>{{ chainOn ? '链服务正常' : '演示模式' }}
+            </text>
+            <view class="user" @click="goMine">
+              <text class="u-avatar">{{ avatar }}</text>
+              <view class="col">
+                <text class="u-name">{{ store.displayName }}</text>
+                <text class="u-role">{{ store.roleName }}</text>
+              </view>
             </view>
-          </view>
-          <text class="logout" @click="onLogout">退出</text>
+            <text class="logout" @click="onLogout">退出</text>
+          </template>
+          <text v-else class="login-entry" @click="goLogin">登录管理后台 ›</text>
         </view>
       </view>
 
@@ -75,6 +78,13 @@ const store = useUserStore()
 const version = ENV.version
 const chainOn = ref(true)
 const current = ref('')
+
+/**
+ * 这个外壳既服务于登录后的管理后台，也包着公开的「溯源查询」页。
+ * 未登录时不能渲染侧栏，更不能去调 /chain/status——那是需要鉴权的接口，
+ * 401 会被请求拦截器当成"登录失效"整页踢回登录页，消费者就查不了溯源码。
+ */
+const loggedIn = computed(() => store.isLogin)
 
 const avatar = computed(() => (store.displayName || 'U').slice(0, 1))
 
@@ -275,6 +285,10 @@ function goMine() {
   uni.reLaunch({ url: '/pages/tabbar/mine' })
 }
 
+function goLogin() {
+  uni.reLaunch({ url: '/pages/auth/login' })
+}
+
 async function onLogout() {
   const ok = await confirm('确定退出登录吗？', '退出')
   if (!ok) return
@@ -282,13 +296,15 @@ async function onLogout() {
   uni.reLaunch({ url: '/pages/auth/login' })
 }
 
-chainStatus()
-  .then((r) => {
-    chainOn.value = !!(r.data && r.data.enabled)
-  })
-  .catch(() => {
-    chainOn.value = false
-  })
+if (store.isLogin) {
+  chainStatus()
+    .then((r) => {
+      chainOn.value = !!(r.data && r.data.enabled)
+    })
+    .catch(() => {
+      chainOn.value = false
+    })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -508,6 +524,18 @@ chainStatus()
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+.login-entry {
+  font-size: 13px;
+  color: #1f7a4d;
+  cursor: pointer;
+  padding: 6px 12px;
+  border: 1px solid rgba(31, 122, 77, 0.28);
+  border-radius: 16px;
+  white-space: nowrap;
+}
+.login-entry:hover {
+  background: #e8f5ee;
 }
 .topbar {
   height: 60px;

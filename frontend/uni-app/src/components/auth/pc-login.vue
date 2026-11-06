@@ -69,17 +69,18 @@
         </view>
       </view>
 
-      <!-- 两枚"链上回执"浮签：补住左栏中下部的空，也让"上链"这件事有画面 -->
+      <!-- 两枚"链上回执"浮签：补住左栏中下部的空，也让"上链"这件事有画面。
+           只写结构性事实（上链网络、存证粒度），不写区块高度/分数——
+           装饰性数字会与真实链状态不一致，这个平台不伪造任何存证数据。 -->
       <view class="floats">
         <view class="fchip f1">
           <view class="fdot"></view>
-          <text class="ft">存证成功</text>
-          <text class="fv">区块 #8,241,905</text>
+          <text class="ft">上链网络</text>
+          <text class="fv">FISCO BCOS</text>
         </view>
         <view class="fchip f2">
-          <text class="ft">可信度</text>
-          <text class="fv">88 / 100</text>
-          <text class="fgrade">A 级</text>
+          <text class="ft">存证粒度</text>
+          <text class="fv">一环节一存证</text>
         </view>
       </view>
 
@@ -414,14 +415,6 @@ function ok() {
   font-weight: 600;
   color: #eafff3;
   letter-spacing: 0.3px;
-}
-.fgrade {
-  font-size: 10px;
-  color: #0d3d26;
-  background: #8bf0b5;
-  border-radius: 999px;
-  padding: 2px 7px;
-  font-weight: 700;
 }
 
 /* 底部三组指标 */

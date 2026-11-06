@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.annotation.Resource;
 import javax.validation.Valid;
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "系统与基础数据")
 @RestController
@@ -63,6 +64,14 @@ public class SystemController {
     public R<List<UserVO>> userList(@RequestParam String roleCode,
                                     @RequestParam(required = false) Long villageId) {
         return R.ok(userService.listByRole(roleCode, villageId));
+    }
+
+    @Operation(summary = "用户下拉选项（仅 id/姓名/所属村，供农场负责人选择器）")
+    @RequirePerm("farm:list")
+    @GetMapping("/user/options")
+    public R<List<Map<String, Object>>> userOptions(@RequestParam String roleCode,
+                                                    @RequestParam(required = false) Long villageId) {
+        return R.ok(userService.options(roleCode, villageId));
     }
 
     @Operation(summary = "新增用户（默认密码 123456）")

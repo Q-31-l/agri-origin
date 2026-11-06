@@ -30,6 +30,12 @@ public class TraceController {
     @Resource
     private QrCodeService qrCodeService;
 
+    @Operation(summary = "示例溯源码（免登录，供溯源页引导）")
+    @GetMapping("/samples")
+    public R<java.util.List<String>> samples(@RequestParam(defaultValue = "3") int limit) {
+        return R.ok(traceService.samples(limit));
+    }
+
     @Operation(summary = "按溯源码/批次号查询完整流转履历")
     @GetMapping("/{code}")
     public R<TraceVO> query(@PathVariable String code) {

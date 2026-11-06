@@ -7,6 +7,7 @@
         <input
           v-model="code"
           class="input"
+          :focus="inputFocus"
           placeholder="输入包装上的溯源码，如 TC20260512001"
           placeholder-class="ph"
           confirm-type="search"
@@ -134,7 +135,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
-import { traceQuery, traceVerify } from '@/api'
+import { traceQuery, traceVerify, traceSamples } from '@/api'
 import StatusTag from '@/components/common/status-tag.vue'
 import ChainBadge from '@/components/common/chain-badge.vue'
 import TraceTimeline from '@/components/business/trace-timeline.vue'
@@ -148,9 +149,11 @@ const code = ref('')
 const result = ref(null)
 const loading = ref(false)
 const notFound = ref(false)
+const inputFocus = ref(false)
 
 const steps = ['种植记录', '采收登记', '质量检测', '物流运输', '销售去向']
-const samples = ['TC20260512001', 'TC20260515002', 'TC20260601003']
+// 示例码由后端给真实数据，不要写死——写死的码一旦被删就变成"点了查不到"
+const samples = ref([])
 
 onLoad((opt) => {
   const c = opt && (opt.code || opt.scene)
@@ -158,7 +161,17 @@ onLoad((opt) => {
     code.value = extractTraceCode(decodeURIComponent(c))
     query()
   }
+  loadSamples()
 })
+
+async function loadSamples() {
+  try {
+    const res = await traceSamples(3)
+    samples.value = (res.data || []).filter(Boolean)
+  } catch (e) {
+    samples.value = []
+  }
+}
 
 onUnload(() => {
   // #ifdef H5
@@ -194,13 +207,17 @@ async function query() {
 }
 
 async function onScan() {
-  try {
-    const raw = await scan()
-    code.value = extractTraceCode(raw)
-    query()
-  } catch (e) {
-    if (e && e.cancel) return
+  const raw = await scan({ title: '扫描包装上的溯源码' })
+  if (!raw) {
+    // 用户在扫码层里选了「手动输入」→ 聚焦到输入框
+    inputFocus.value = false
+    setTimeout(() => (inputFocus.value = true), 60)
+    return
   }
+  const c = extractTraceCode(raw)
+  if (!c) return toast('未识别到有效溯源码')
+  code.value = c
+  query()
 }
 
 async function verify() {

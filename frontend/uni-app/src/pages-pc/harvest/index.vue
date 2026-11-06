@@ -39,6 +39,7 @@
           <text class="pc-th">天气</text>
           <text class="pc-th w-remark">备注</text>
           <text class="pc-th">操作人</text>
+          <text class="pc-th w-audit">审核</text>
           <text class="pc-th w-chain">上链</text>
         </view>
 
@@ -53,6 +54,10 @@
             <text class="pc-td">{{ r.weather || '-' }}</text>
             <view class="pc-td w-remark">{{ r.remark || '-' }}</view>
             <text class="pc-td">{{ r.operatorName || '-' }}</text>
+            <view class="pc-td w-audit">
+              <pc-status :value="r.auditStatus" type="audit" />
+              <text v-if="canAudit && r.auditStatus === 'PENDING'" class="au-link" @click="doAudit(r)">去审核</text>
+            </view>
             <view class="pc-td w-chain"><pc-status :value="r.chainStatus" type="chain" /></view>
           </view>
         </view>
@@ -121,7 +126,7 @@ import PcSelect from '@/components/pc/pc-select.vue'
 import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
-import { harvestPage, createHarvest, batchOptions } from '@/api'
+import { harvestPage, createHarvest, auditHarvest, batchOptions } from '@/api'
 import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
@@ -139,6 +144,48 @@ const batches = ref([])
 const query = reactive({ page: 1, size: 10, batchId: '', batchNo: '' })
 
 const canCreate = computed(() => store.hasPerm('harvest:create'))
+const canAudit = computed(() => store.hasPerm('harvest:audit'))
+
+/**
+ * 村级审核采收记录。与农事一致：后端 /harvest/{id}/audit 一直存在，
+ * 但界面没有入口，harvest:audit 等于没生效。
+ */
+async function doAudit(row) {
+  const pick = await new Promise((resolve) => {
+    uni.showActionSheet({
+      itemList: ['审核通过', '驳回'],
+      success: (res) => resolve(res.tapIndex),
+      fail: () => resolve(-1)
+    })
+  })
+  if (pick < 0) return
+  const approve = pick === 0
+
+  const input = await new Promise((resolve) => {
+    uni.showModal({
+      title: approve ? '审核通过' : '驳回采收记录',
+      editable: true,
+      placeholderText: approve ? '审核意见（可选）' : '请填写驳回原因',
+      success: (res) => resolve(res),
+      fail: () => resolve({ cancel: true })
+    })
+  })
+  if (!input || input.cancel) return
+  const remark = (input.content || '').trim()
+  if (!approve && !remark) return toast('驳回时必须填写原因')
+
+  try {
+    await auditHarvest(row.id, {
+      auditStatus: approve ? 'APPROVED' : 'REJECTED',
+      auditRemark: remark
+    })
+    toast(approve ? '已通过' : '已驳回')
+    cache.invalidate('harvest:list')
+    load()
+  } catch (e) {
+    /* 请求层已提示 */
+  }
+}
 
 const batchOpts = computed(() =>
   batches.value.map((b) => ({
@@ -276,6 +323,14 @@ onShow(load)
 .w-date { flex: 1.1; }
 .w-batch { flex: 1.5; }
 .w-remark { flex: 1.8; }
+.w-audit { flex: 1.1; display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.au-link {
+  font-size: 11.5px;
+  color: #1f7a4d;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.au-link:hover { text-decoration: underline; }
 .w-chain { flex: 1; }
 .mono {
   font-family: Consolas, monospace;
