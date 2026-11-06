@@ -352,8 +352,13 @@ python3 scripts/e2e-acceptance.py     # 8 角色登录 → 全流程真实上链
 | 入口 | 地址 | 说明 |
 | --- | --- | --- |
 | 业务系统（H5/PC 自适应） | <http://8.130.105.150/> | 9 个演示账号，密码统一 `123456` |
-| 免登录溯源页 | <http://8.130.105.150/pages/trace/index?code=TC20261105003> | 消费者扫码后的落地页 |
+| 免登录溯源页 | <http://8.130.105.150/pages/trace/index?code=TC20261106013> | 消费者扫码后的落地页 |
 | 链上控制台 | <http://8.130.105.150/WeBASE-Front/> | 账号 `webase` / `Agri@2026`；看区块、交易回执、节点状态 |
+
+> **扫码要实时取景，请走 HTTPS**：浏览器只在 HTTPS 或 `localhost` 下开放摄像头
+> （`navigator.mediaDevices`），`http://` 页面点扫码会自动降级为"拍照识别 / 从相册选图"，
+> 这两种方式不需要摄像头权限，一样能识别。证书与反代配置见
+> [docs/deploy.md 7.3.1](./docs/deploy.md#731-启用-https扫码功能的前提)。
 
 ## 八、文档索引
 

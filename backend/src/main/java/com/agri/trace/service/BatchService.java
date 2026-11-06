@@ -158,18 +158,67 @@ public class BatchService {
      */
     public List<String> sampleTraceCodes(int limit) {
         int n = Math.min(Math.max(limit, 1), 10);
-        List<BizBatch> list = batchMapper.selectList(Wrappers.<BizBatch>lambdaQuery()
-                .select(BizBatch::getTraceCode)
+        // 多取一批候选再挑，避免"最近 N 条"里混进异常熔断/质检不合格的批次。
+        // 示例码是访客点开的第一个样本，若满屏红字（质检不合格、异常熔断），
+        // 会被当成系统坏了。
+        int pool = Math.min(n * 8, 80);
+        List<BizBatch> candidates = batchMapper.selectList(Wrappers.<BizBatch>lambdaQuery()
+                // 显式 select 时 MP 不会自动带上主键，排序要用到 id，必须手动列出
+                .select(BizBatch::getId, BizBatch::getTraceCode,
+                        BizBatch::getStatus, BizBatch::getAbnormalFlag)
                 .isNotNull(BizBatch::getTraceCode)
                 .ne(BizBatch::getTraceCode, "")
                 .orderByDesc(BizBatch::getId)
-                .last("limit " + n));
-        List<String> codes = new ArrayList<>(list.size());
-        for (BizBatch b : list) {
+                .last("limit " + pool));
+
+        List<BizBatch> good = new ArrayList<>(candidates.size());
+        for (BizBatch b : candidates) {
+            Integer flag = b.getAbnormalFlag();
+            if (flag != null && flag != 0) {
+                continue;
+            }
+            if (sampleRank(b.getStatus()) >= 9) {
+                continue;
+            }
+            good.add(b);
+        }
+        // 已经走到流通环节的批次信息最完整，优先展示；其次才是"已闭环"的历史批次
+        good.sort(java.util.Comparator
+                .comparingInt((BizBatch b) -> sampleRank(b.getStatus()))
+                .thenComparing(BizBatch::getId, java.util.Comparator.reverseOrder()));
+
+        List<BizBatch> pick = good.isEmpty() ? candidates : good;
+        List<String> codes = new ArrayList<>(n);
+        for (BizBatch b : pick) {
+            if (codes.size() >= n) {
+                break;
+            }
             codes.add(b.getTraceCode());
         }
         return codes;
     }
+
+    /** 示例码的状态优先级：越靠近消费者、信息越完整越靠前；>=9 表示不适合当示例。 */
+    private static int sampleRank(String status) {
+        if (status == null) {
+            return 9;
+        }
+        switch (status) {
+            case "ON_SALE":
+                return 0;
+            case "SOLD":
+                return 1;
+            case "CLOSED":
+                return 2;
+            case "IN_TRANSIT":
+                return 3;
+            case "QUALIFIED":
+                return 4;
+            default:
+                return 9;
+        }
+    }
+
 
     /**
      * 按批次号取批次，并校验当前用户可见（越权抛 403）。

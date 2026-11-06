@@ -417,6 +417,8 @@ export function openScanner(opts = {}) {
       hideLoading()
       frame.style.display = 'none'
       hint.style.display = 'none'
+      // 说明面板里已经给了"拍照识别/相册选择"，底部那两个按钮就重复了
+      actions.style.display = 'none'
       const info = explainCameraError(err)
 
       const box = el('div', 'asc-state')
@@ -442,6 +444,7 @@ export function openScanner(opts = {}) {
           box.remove()
           frame.style.display = ''
           hint.style.display = ''
+          actions.style.display = ''
           startLive()
         })
         box.append(btns, retry)

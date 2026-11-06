@@ -554,10 +554,71 @@ server {
 }
 ```
 
-启用 HTTPS（推荐，生产必须）：
+#### 7.3.1 启用 HTTPS（扫码功能的前提）
+
+浏览器只在**安全上下文**（HTTPS 或 `localhost`）下开放 `navigator.mediaDevices.getUserMedia`。
+移动端 H5 扫码要调用摄像头，站点必须是 HTTPS，否则只能退回"拍照识别/相册选图"。
+
+有域名时最省事：
 
 ```bash
 certbot --nginx -d trace.example.com
+```
+
+没有域名、只有公网 IP 时，用 `sslip.io` 的通配解析 + `acme.sh` 也能签出受信任证书
+（`8-130-105-150.sslip.io` 会自动解析到 `8.130.105.150`，无需买域名）：
+
+```bash
+# 1) 安装 acme.sh（若官方安装脚本报 cannot copy，手动落到 ~/.acme.sh 再 --install）
+curl -s https://get.acme.sh | sh -s email=you@example.com
+
+# 2) HTTP-01 签发：nginx 的 80 端口必须能从公网访问到 /.well-known/acme-challenge/
+~/.acme.sh/acme.sh --issue -d 8-130-105-150.sslip.io --webroot /var/www/html
+
+# 3) 装到 nginx 读的位置，并让 acme.sh 在续期后自动 reload
+~/.acme.sh/acme.sh --install-cert -d 8-130-105-150.sslip.io \
+  --key-file       /etc/nginx/ssl/agri.key \
+  --fullchain-file /etc/nginx/ssl/agri.crt \
+  --reloadcmd      "systemctl reload nginx"
+```
+
+nginx 侧把 80/443 的公共 location 抽到 snippet 里复用（80 只做 ACME 与 HTTP→HTTPS 跳转，
+443 挂证书并开 http2）：
+
+```nginx
+# /etc/nginx/snippets/agri-app.conf —— 两种协议共用，避免两份配置漂移
+location /api/ws { proxy_pass http://127.0.0.1:8080/api/ws; proxy_http_version 1.1;
+                   proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade"; }
+location /api/   { proxy_pass http://127.0.0.1:8080/api/; client_max_body_size 120m; }
+location /       { root /opt/agri-origin/web/h5; try_files $uri $uri/ /index.html; }
+```
+
+```nginx
+server {
+    listen 80;
+    server_name 8-130-105-150.sslip.io;
+    location /.well-known/acme-challenge/ { root /var/www/html; }   # 续期要用
+    location / { return 301 https://$host$request_uri; }
+}
+server {
+    listen 443 ssl http2;
+    server_name 8-130-105-150.sslip.io;
+    ssl_certificate     /etc/nginx/ssl/agri.crt;
+    ssl_certificate_key /etc/nginx/ssl/agri.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    include /etc/nginx/snippets/agri-app.conf;
+}
+```
+
+> **踩坑**：`curl https://127.0.0.1/` 通、公网 443 超时，说明本机 nginx 没问题，
+> 是**云厂商安全组没放行 443**。阿里云/腾讯云都要在控制台入方向加一条 `443/TCP`，
+> 这一步在服务器里改不了。放行后再用手机流量访问，`navigator.mediaDevices` 才会出现。
+
+后端生成溯源码里的跳转地址也要跟着改成 HTTPS，否则扫码后落到 HTTP 页面（又变成非安全上下文）：
+
+```bash
+# /etc/systemd/system/agri-backend.service
+Environment="TRACE_URL_PREFIX=https://8-130-105-150.sslip.io/pages/trace/index?code="
 ```
 
 ### 7.4 部署检查清单
@@ -571,6 +632,8 @@ certbot --nginx -d trace.example.com
 - [ ] 数据库账号不使用 root，改为最小权限账号
 - [ ] 已配置日志轮转（logrotate）
 - [ ] 已配置定时备份（`mysqldump` + 上传目录）
+- [ ] 已上 HTTPS，且 `TRACE_URL_PREFIX` 指向 HTTPS（否则扫码只能降级为拍照识别）
+- [ ] 云安全组已放行 443（只放行 80 时，HTTPS 在服务器内可达、公网不可达）
 
 ---
 
