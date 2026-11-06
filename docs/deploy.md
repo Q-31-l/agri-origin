@@ -580,7 +580,15 @@ curl -s https://get.acme.sh | sh -s email=you@example.com
   --key-file       /etc/nginx/ssl/agri.key \
   --fullchain-file /etc/nginx/ssl/agri.crt \
   --reloadcmd      "systemctl reload nginx"
+
+# 4) 确认续期定时任务存在（用官方脚本装 acme.sh 失败过一次，cron 就没装上，
+#    结果证书 90 天后在 ~/.acme.sh 里续了、nginx 里还是过期的那份）
+crontab -l | grep acme.sh || ~/.acme.sh/acme.sh --install-cronjob
 ```
+
+> 验证续期链路是否真的通了：`grep -E 'Le_Real|Le_Reload'
+> ~/.acme.sh/<域名>/<域名>.conf` 应当能看到 `Le_RealFullChainPath` 与 `Le_ReloadCmd`。
+> 只有手抄过证书、没跑 `--install-cert` 时，这两项为空，续期不会更新 nginx。
 
 nginx 侧把 80/443 的公共 location 抽到 snippet 里复用（80 只做 ACME 与 HTTP→HTTPS 跳转，
 443 挂证书并开 http2）：
