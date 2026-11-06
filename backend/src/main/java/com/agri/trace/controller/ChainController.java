@@ -64,6 +64,9 @@ public class ChainController {
         map.put("message", contractService.getChainMessage());
         map.put("contractAddress", contractService.getContractAddress());
         map.put("blockNumber", contractService.getBlockNumber());
+        // 节点二进制版本与群组号：答辩/运维时用来确认"连的是哪条链、哪个版本"
+        map.put("nodeVersion", contractService.getNodeVersion());
+        map.put("groupId", contractService.getGroupId());
         return R.ok(map);
     }
 

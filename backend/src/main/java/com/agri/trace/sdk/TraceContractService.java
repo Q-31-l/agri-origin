@@ -43,6 +43,15 @@ public class TraceContractService {
         return bcosClient.getContractAddress();
     }
 
+    /** 节点二进制版本（如 2.9.1），用于看板展示"真实链版本" */
+    public String getNodeVersion() {
+        return bcosClient.getNodeVersion();
+    }
+
+    public Integer getGroupId() {
+        return bcosClient.getGroupId();
+    }
+
     // ------------------------------------------------------------------
     // 写操作
     // ------------------------------------------------------------------

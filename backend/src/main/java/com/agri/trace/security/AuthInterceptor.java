@@ -32,6 +32,8 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Resource
     private PermissionCache permissionCache;
     @Resource
+    private UserAuthCache userAuthCache;
+    @Resource
     private ObjectMapper objectMapper;
 
     @Override
@@ -58,7 +60,17 @@ public class AuthInterceptor implements HandlerInterceptor {
             write(response, HttpServletResponse.SC_UNAUTHORIZED, ResultCode.UNAUTHORIZED, "登录状态已失效，请重新登录");
             return false;
         }
-        UserContext.set(user);
+        // 令牌只证明"曾经是谁"。账号可能在签发后被禁用、改角色或换村，
+        // 必须用库中最新状态覆盖，否则禁用与降级在令牌有效期内都不生效
+        LoginUser effective = userAuthCache.refresh(user);
+        if (effective == null) {
+            log.warn("拒绝已失效账号的令牌：userId={}, username={}, uri={}",
+                    user.getUserId(), user.getUsername(), request.getRequestURI());
+            write(response, HttpServletResponse.SC_UNAUTHORIZED, ResultCode.UNAUTHORIZED,
+                    "账号已被禁用或不存在，请重新登录");
+            return false;
+        }
+        UserContext.set(effective);
 
         HandlerMethod method = (HandlerMethod) handler;
 
@@ -66,8 +78,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (roles == null) {
             roles = method.getBeanType().getAnnotation(RequireRoles.class);
         }
-        if (roles != null && !contains(roles.value(), user.getRoleCode())) {
-            log.warn("越权访问(角色)：user={}, role={}, uri={}", user.getUsername(), user.getRoleCode(), request.getRequestURI());
+        if (roles != null && !contains(roles.value(), effective.getRoleCode())) {
+            log.warn("越权访问(角色)：user={}, role={}, uri={}",
+                    effective.getUsername(), effective.getRoleCode(), request.getRequestURI());
             write(response, HttpServletResponse.SC_FORBIDDEN, ResultCode.FORBIDDEN, "无权访问：当前角色不具备该操作权限");
             return false;
         }
@@ -76,10 +89,10 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (perm == null) {
             perm = method.getBeanType().getAnnotation(RequirePerm.class);
         }
-        if (perm != null && !Constants.ROLE_ADMIN.equals(user.getRoleCode())
-                && !permissionCache.has(user.getRoleCode(), perm.value())) {
+        if (perm != null && !Constants.ROLE_ADMIN.equals(effective.getRoleCode())
+                && !permissionCache.has(effective.getRoleCode(), perm.value())) {
             log.warn("越权访问(权限)：user={}, role={}, perm={}, uri={}",
-                    user.getUsername(), user.getRoleCode(), perm.value(), request.getRequestURI());
+                    effective.getUsername(), effective.getRoleCode(), perm.value(), request.getRequestURI());
             write(response, HttpServletResponse.SC_FORBIDDEN, ResultCode.FORBIDDEN, "无权访问：缺少权限 " + perm.value());
             return false;
         }

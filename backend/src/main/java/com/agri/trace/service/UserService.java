@@ -16,6 +16,7 @@ import com.agri.trace.mapper.SysRoleMapper;
 import com.agri.trace.mapper.SysUserMapper;
 import com.agri.trace.security.LoginUser;
 import com.agri.trace.security.PermissionCache;
+import com.agri.trace.security.UserAuthCache;
 import com.agri.trace.security.UserContext;
 import com.agri.trace.vo.UserVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -45,6 +46,8 @@ public class UserService {
     private BaseFarmMapper farmMapper;
     @Resource
     private PermissionCache permissionCache;
+    @Resource
+    private UserAuthCache userAuthCache;
 
     public PageResult<UserVO> page(long page, long size, String keyword, String roleCode, Long villageId) {
         LoginUser current = UserContext.require();
@@ -131,6 +134,9 @@ public class UserService {
             user.setPassword(BCrypt.hashpw(dto.getPassword(), BCrypt.gensalt()));
         }
         userMapper.updateById(user);
+        // 状态/角色/所属村可能刚被改动，立即废弃该账号的身份缓存，
+        // 让禁用与降级在下一次请求就生效，而不是等 60 秒 TTL
+        userAuthCache.evict(id);
     }
 
     @Transactional
@@ -146,6 +152,7 @@ public class UserService {
         user.setPassword(BCrypt.hashpw(password == null || password.isEmpty() ? DEFAULT_PASSWORD : password,
                 BCrypt.gensalt()));
         userMapper.updateById(user);
+        userAuthCache.evict(id);
     }
 
     public SysUser getByUsername(String username) {

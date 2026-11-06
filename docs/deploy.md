@@ -742,7 +742,134 @@ logrotate -d /etc/logrotate.d/agri-origin   # 演练，确认无语法错误
 
 ---
 
-## 十一、附录：一键本地启动脚本
+## 十一、WeBASE-Front 可视化控制台与链版本升级
+
+项目七条业务链路都已真实上链，但只有 txHash 是不够的——**要能"看见"区块和交易**才算闭环。
+WeBASE-Front 是官方出的联盟链控制台（区块浏览器 + 交易回执 + 合约 ABI 调用 + 节点监控），
+版本 **1.5.5** 配套链 **2.9.1**。
+
+### 11.1 安装（不重建链）
+
+已有的 `/opt/fisco` 链**不需要重建**，Front 只是这条链的一个 SDK 客户端：
+
+```bash
+# 1) 下载并解压（约 136MB）
+curl -fL --noproxy '*' -o /opt/webase-front.zip \
+  https://github.com/WeBankBlockchain/WeBASELargeFiles/releases/download/v1.5.5/webase-front.zip
+mkdir -p /opt/webase-front && cd /opt/webase-front
+python3 -c "import zipfile;zipfile.ZipFile('/opt/webase-front.zip').extractall('/opt/webase-front')"
+
+# 2) Front 按 <nodePath>/sdk 读证书；build_chain 只在 nodes/127.0.0.1 下放了一份 sdk
+ln -s ../sdk /opt/fisco/nodes/127.0.0.1/node0/sdk
+cp /opt/fisco/nodes/127.0.0.1/sdk/{ca.crt,sdk.crt,sdk.key} /opt/webase-front/webase-front/conf/
+
+# 3) 改 conf/application.yml（只改这三处，端口保持 5002）
+#    constant.nodePath    -> /opt/fisco/nodes/127.0.0.1/node0
+#    constant.monitorDisk -> /opt/fisco
+#    sdk.certPath         -> /opt/webase-front/webase-front/conf
+
+# 4) 用 systemd 托管
+cp ops/webase-front.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now webase-front
+```
+
+> **坑 1：不能用 `java -jar`。** `apps/WeBASE-Front.jar` 没有 `Main-Class`，
+> 直接 `-jar` 报 `no main manifest attribute`。官方 `start.sh` 用的是
+> `-cp "conf/:apps/*:lib/*" com.webank.webase.front.Application`，systemd 单元必须照抄这个写法。
+>
+> **坑 2：`nodePath` 必须指向 node 目录，且该目录下要有 `sdk/`。** build_chain 把证书放在
+> `nodes/127.0.0.1/sdk`（四个节点共用），node0 下没有，所以要补软链。
+>
+> **坑 3：事件订阅页空白不是故障。** 出块/合约事件订阅依赖 RabbitMQ（默认 127.0.0.1:5672），
+> 未安装时那两页显示空表，其余功能不受影响。
+
+### 11.2 公网暴露必须加认证
+
+WeBASE-Front **没有内置登录**，而它能用节点私钥签交易、部署合约——裸奔在公网等于把链的控制权交出去。
+因此只监听 `127.0.0.1:5002`，由 nginx 反代并强制 HTTP Basic 认证：
+
+```nginx
+location /WeBASE-Front/ {
+    auth_basic "WeBASE-Front";
+    auth_basic_user_file /etc/nginx/.htpasswd_webase;
+    proxy_pass http://127.0.0.1:5002/WeBASE-Front/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 300s;
+    proxy_buffering off;
+}
+```
+
+```bash
+printf 'webase:%s\n' "$(openssl passwd -apr1 '你的密码')" > /etc/nginx/.htpasswd_webase
+chmod 640 /etc/nginx/.htpasswd_webase && chown root:www-data /etc/nginx/.htpasswd_webase
+nginx -t && systemctl reload nginx
+```
+
+访问：`http://8.130.105.150/WeBASE-Front/`（演示账号 `webase` / `Agri@2026`）。
+
+验收要看到三件事，缺一不可：
+
+```bash
+# 无认证必须 401，带认证必须 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1/WeBASE-Front/                    # 401
+curl -s -u webase:Agri@2026 -o /dev/null -w '%{http_code}\n' http://127.0.0.1/WeBASE-Front/ # 200
+# 高度必须与后端一致
+curl -s -u webase:Agri@2026 http://127.0.0.1/WeBASE-Front/1/web3/blockNumber
+```
+
+### 11.3 用 Front 回读业务交易（证明"看的是同一条链"）
+
+`scripts/front-verify.py` 从 `chain_record` 取一条真实存证，再用 Front 的 REST 接口回读：
+区块里只有 1 笔交易、hash 与库里一致、`to` 是部署的合约地址、回执 `status=0x0`。
+
+```bash
+python3 scripts/front-verify.py
+# 业务存证: 0xcf27af77b804d2983f7c0b...
+#   批次=AG20261106008 类型=CLOSE 区块=151
+# Front 区块高度: 151
+# 区块 151 交易数: 1
+# 命中业务交易: 是
+#   from=0xfabd07030babe671b9  to=0x0426e8fbda2b5e61c6  input 长度=324 字节
+# 回执: status=0x0 区块=151 gasUsed=54613
+```
+
+### 11.4 链版本升级（2.9.0 → 2.9.1）
+
+2.9.1 是 2.9.x 的补丁版本，数据与证书完全兼容，**原地换二进制**即可，不需要重建链：
+
+```bash
+curl -fL -o /tmp/fisco291.tar.gz \
+  https://github.com/FISCO-BCOS/FISCO-BCOS/releases/download/v2.9.1/fisco-bcos.tar.gz
+mkdir -p /tmp/fisco291 && tar -xzf /tmp/fisco291.tar.gz -C /tmp/fisco291 && chmod +x /tmp/fisco291/fisco-bcos
+
+systemctl stop fisco-node@node0 fisco-node@node1 fisco-node@node2 fisco-node@node3
+cp -p /opt/fisco/nodes/127.0.0.1/fisco-bcos /opt/fisco/nodes/127.0.0.1/fisco-bcos-2.9.0.bak
+install -m 755 /tmp/fisco291/fisco-bcos /opt/fisco/nodes/127.0.0.1/fisco-bcos
+systemctl start fisco-node@node0 fisco-node@node1 fisco-node@node2 fisco-node@node3
+```
+
+> **最容易踩的坑：改错文件。** `build_chain` 会在 `nodes/127.0.0.1/` 下再放一份二进制，
+> systemd 单元执行的是 `nodes/127.0.0.1/fisco-bcos`，**不是**安装目录根下的 `/opt/fisco/fisco-bcos`。
+> 换错文件的表现是：`fisco-bcos -v` 显示 2.9.1，但 `getClientVersion` 仍报 2.9.0，
+> 因为进程用的还是旧文件。判据只认节点自报版本：
+
+```bash
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"getClientVersion","params":[],"id":1}' http://127.0.0.1:8545
+# {"FISCO-BCOS Version":"2.9.1","Supported Version":"2.9.0", ...}
+```
+
+`Supported Version` 仍是 `2.9.0` 是**正确**的：它来自 `config.ini` 的 `supported_version`，
+标识创世兼容版本，官方明确要求不可修改。后端 `/chain/status` 返回的 `nodeVersion` 取的是前者。
+
+升级后必须复验：节点 4/4 active、`connectedNodes=3`、区块高度不倒退、`scripts/e2e-acceptance.py` 全绿。
+
+---
+
+## 十二、附录：一键本地启动脚本
 
 `scripts/dev-start.sh`（可选自建）：
 
@@ -772,11 +899,11 @@ wait
 
 ---
 
-## 十二、参考资料
+## 十三、参考资料
 
 实训任务书「素材准备」要求准备的 FISCO BCOS 官方开发文档，统一收录于此，便于搭建与排错时查证。
 
-### 12.1 FISCO BCOS
+### 13.1 FISCO BCOS
 
 | 资料 | 地址 |
 | --- | --- |
@@ -791,7 +918,7 @@ wait
 
 > **版本提示**：本工程按 **链 2.9.x + Java SDK 2.9.1** 适配。SDK 3.x 的 API 与 2.9.x 差异较大（`TransactionProcessor` 系列类已重构），不要混用，否则会出现 `NoSuchMethodError`。
 
-### 12.2 业务标准
+### 13.2 业务标准
 
 | 标准号 | 名称 | 在本项目中的用途 |
 | --- | --- | --- |
@@ -800,7 +927,7 @@ wait
 
 > 上述限量为教学演示取值，实际判定应以标准原文和检测机构出具的限量要求为准。
 
-### 12.3 框架文档
+### 13.3 框架文档
 
 | 框架 | 文档 |
 | --- | --- |

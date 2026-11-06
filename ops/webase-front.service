@@ -1,0 +1,27 @@
+[Unit]
+Description=WeBASE-Front 1.5.5 - FISCO BCOS 2.9.1 可视化控制台
+Documentation=https://webasedoc.readthedocs.io/zh_CN/latest/
+After=network-online.target fisco-chain.target
+Wants=network-online.target fisco-chain.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/webase-front/webase-front
+Environment=JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+# WeBASE-Front 不是可执行 fat jar（无 Main-Class），必须按官方 start.sh 的方式
+# 用 classpath + 主类启动；更不能用 -jar，否则报 no main manifest attribute
+ExecStart=/usr/bin/java -Dfile.encoding=UTF-8 -Xms256m -Xmx512m \
+    -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m \
+    -Djdk.tls.namedGroups="SM2,secp256k1,x25519,secp256r1,secp384r1,secp521r1" \
+    -Djava.library.path=/opt/webase-front/webase-front/conf \
+    -cp "conf/:apps/*:lib/*" com.webank.webase.front.Application
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+SuccessExitStatus=143
+
+StandardOutput=append:/opt/agri-origin/logs/webase-front.log
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

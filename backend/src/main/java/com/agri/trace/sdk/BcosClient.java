@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.fisco.bcos.sdk.BcosSDK;
 import org.fisco.bcos.sdk.client.Client;
 import org.fisco.bcos.sdk.crypto.keypair.CryptoKeyPair;
+import org.fisco.bcos.sdk.model.NodeVersion;
 import org.fisco.bcos.sdk.model.TransactionReceipt;
 import org.fisco.bcos.sdk.transaction.manager.AssembleTransactionProcessor;
 import org.fisco.bcos.sdk.transaction.manager.TransactionProcessorFactory;
@@ -55,9 +56,13 @@ public class BcosClient {
     private static final long RETRY_COOLDOWN_MS = 10_000L;
     /** 健康探测缓存时间：3 秒内的重复调用不再打网络 */
     private static final long HEALTH_TTL_MS = 3_000L;
+    /** 节点版本缓存时间：版本不会变，1 分钟内复用 */
+    private static final long VERSION_TTL_MS = 60_000L;
 
     private volatile long lastAttemptAt = 0L;
     private volatile long lastHealthAt = 0L;
+    private volatile long lastVersionAt = 0L;
+    private volatile String nodeVersion;
     private volatile boolean healthy = false;
     private int attempts = 0;
 
@@ -217,6 +222,40 @@ public class BcosClient {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 节点版本号（如 2.9.1）。
+     *
+     * <p>注意区分两个概念：{@code getVersion()} 是节点二进制自身的版本，
+     * {@code getSupportedVersion()} 是链创世时写死的兼容版本（config.ini 的
+     * {@code supported_version}，官方要求不可修改）。原地升级二进制后，
+     * 前者会变成新版本，后者仍是旧值——看板要展示的是前者。
+     *
+     * <p>版本不会变，做 60 秒缓存，避免 /chain/status 被轮询时反复打 RPC。
+     */
+    public String getNodeVersion() {
+        long now = System.currentTimeMillis();
+        if (now - lastVersionAt < VERSION_TTL_MS) {
+            return nodeVersion;
+        }
+        if (!properties.isEnabled() || !ensureInitialized()) {
+            return nodeVersion;
+        }
+        try {
+            NodeVersion nv = client.getNodeVersion();
+            if (nv != null && nv.getNodeVersion() != null) {
+                nodeVersion = nv.getNodeVersion().getVersion();
+                lastVersionAt = now;
+            }
+        } catch (Exception e) {
+            log.debug("读取节点版本失败：{}", e.getMessage());
+        }
+        return nodeVersion;
+    }
+
+    public Integer getGroupId() {
+        return properties.getGroupId();
     }
 
     /**

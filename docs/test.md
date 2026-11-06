@@ -216,14 +216,23 @@ curl -i -X POST http://localhost:8080/api/quality \
 | 步骤 | 1. `producer01` 提交更正说明<br>2. `farmer01`、`seller01` 分别提交同一接口 |
 | 预期 | 第 1 步 200；第 2、3 步 403（角色门禁 + `correction:create` 双约束）；在 `sys_role_permission` 中删除该授权后重启，`producer01` 亦变为 403 |
 
-#### TC-BATCH-06 修改批次只传备注
+#### TC-PERM-12 账号禁用后旧令牌立即失效
 
 | 项 | 内容 |
 | --- | --- |
-| 步骤 | 对一个 `status=PLANTING` 且 `audit_status=PENDING` 的批次执行 `PUT /api/batch/{id}`，请求体仅 `{"remark":"..."}` |
-| 预期 | 200；备注已落库；不再要求 `productId/plantingDate/quantity`（历史缺陷：必填但静默丢弃） |
+| 步骤 | 1. `farmer02` 登录拿到 token，确认可访问 `/api/batch/page`<br>2. 管理员 `PUT /api/user/{id}` 把 `status` 改为 `0`<br>3. **用旧 token** 立刻再请求一次 |
+| 预期 | 第 3 步返回 **401**「账号已被禁用或不存在，请重新登录」，且该账号无法重新登录。<br>历史缺陷：JWT 无状态，禁用后旧令牌仍能用满 12 小时 |
 
----
+#### TC-PERM-13 改角色后旧令牌按新角色鉴权
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 1. `farmer02` 登录拿到 token<br>2. 管理员把其角色改为 `SELLER`<br>3. **用旧 token** 请求 `GET /api/planting/page` |
+| 预期 | **403**「无权访问：缺少权限 planting:list」——鉴权用的是库中最新角色，不是令牌里冻结的旧角色 |
+
+> 两条用例都依赖 `UserAuthCache`（60 秒 TTL + 变更即 `evict`）。只把最新身份写进
+> `UserContext`、却仍用令牌里的 `roleCode` 做判断，会出现"上下文对了、鉴权没变"的假修复；
+> `scripts/verify-auth-cache.py` 会把这类问题直接测出来（12/12 断言）。
 
 ### 3.3 批次全生命周期
 
@@ -323,6 +332,15 @@ curl -i -X POST http://localhost:8080/api/quality \
 | --- | --- |
 | 步骤 | 对仅有采收记录的批次直接登记销售 |
 | 预期 | 409「批次尚未完成物流交接，不可销售」 |
+
+---
+
+#### TC-BATCH-20 修改批次只传备注
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 对一个 `status=PLANTING` 且 `audit_status=PENDING` 的批次执行 `PUT /api/batch/{id}`，请求体仅 `{"remark":"..."}` |
+| 预期 | 200；备注已落库；不再要求 `productId/plantingDate/quantity`（历史缺陷：必填但静默丢弃） |
 
 ---
 
@@ -477,6 +495,37 @@ curl http://localhost:8080/api/chain/verify/AG20260512001 \
 | 前置 | `chain.enabled=true` 但 `contract-address` 配置错误 |
 | 步骤 | 创建一个批次 |
 | 预期 | 1. 业务数据正常入库<br>2. `chain_status=FAILED`，前端显示红色「上链失败」<br>3. `chain_record.error_msg` 记录具体原因<br>4. 界面不出现「存证成功」字样 |
+
+---
+
+#### TC-CHAIN-06 用 WeBASE-Front 回读业务交易（"看见"区块链）
+
+| 项 | 内容 |
+| --- | --- |
+| 前置 | WeBASE-Front 已启动（`systemctl is-active webase-front`），`chain_record` 有 `SUCCESS` 记录 |
+| 步骤 | 服务器本机执行 `python3 scripts/front-verify.py` |
+| 预期 | 1. Front 区块高度 ≥ 该笔交易所在区块<br>2. 该区块交易数与链上一致，且能按 hash 命中业务存证<br>3. `to` 等于部署的合约地址、`input` 长度 > 0（是真的合约调用，不是转账）<br>4. 回执 `status=0x0`、`gasUsed > 0`<br>5. 公网访问 `http://<IP>/WeBASE-Front/` 未认证返回 **401**，认证后 **200** |
+
+实测输出：
+
+```
+业务存证: 0xcf27af77b804d2983f7c0b...
+  批次=AG20261106008 类型=CLOSE 区块=151
+Front 区块高度: 151
+区块 151 交易数: 1
+命中业务交易: 是
+回执: status=0x0 区块=151 gasUsed=54613
+```
+
+#### TC-CHAIN-07 链版本与文档一致
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | `curl -s -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"getClientVersion","params":[],"id":1}' http://127.0.0.1:8545` |
+| 预期 | 1. `FISCO-BCOS Version` 为 **2.9.1**（节点二进制版本）<br>2. `Supported Version` 仍为 `2.9.0`（`config.ini` 的 `supported_version`，官方要求不改）<br>3. `GET /api/chain/status` 的 `nodeVersion` 与前者一致<br>4. 升级过程中区块高度不倒退，4 节点 `is-active` 全为 active、`connectedNodes=3` |
+
+> 只改 `/opt/fisco/fisco-bcos` 不会生效：systemd 执行的是 `nodes/127.0.0.1/fisco-bcos`。
+> 判据必须看 `getClientVersion`，`fisco-bcos -v` 只反映磁盘文件。
 
 ---
 

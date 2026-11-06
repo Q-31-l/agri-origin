@@ -1206,13 +1206,23 @@ GET /chain/status
     "ready": true,
     "message": "链服务正常",
     "contractAddress": "0x8f2a...",
-    "blockNumber": 26,
+    "blockNumber": 151,
+    "nodeVersion": "2.9.1",
     "groupId": 1
   }
 }
 ```
 
-> `ready` 不再是"启动时连上过一次"的静态标记，而是每秒最多探测一次的真实链路状态：
+| 字段 | 说明 |
+| --- | --- |
+| `enabled` | 配置是否开启链上存证（`chain.enabled`） |
+| `ready` | 真实链路可用性，见下方说明 |
+| `message` | 不可用时的具体原因（连接失败 / 合约地址未配置 / 未启用） |
+| `blockNumber` | 当前区块高度，读取失败为 `null` |
+| `nodeVersion` | 节点二进制版本（`getClientVersion` 的 `FISCO-BCOS Version`，60 秒缓存）。注意它与 `Supported Version` 不同：后者是 `config.ini` 的 `supported_version`，标识创世兼容版本，升级后仍为 `2.9.0` 属正常 |
+| `groupId` | 群组号，单群组固定为 1 |
+
+> `ready` 不再是"启动时连上过一次"的静态标记，而是每 3 秒最多探测一次的真实链路状态：
 > 节点宕机时立即变为 `false` 并在 `message` 里给出原因，节点恢复后**无需重启后端**，
 > 下一个请求会自动重建 SDK 连接并回到 `true`。
 

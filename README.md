@@ -29,7 +29,8 @@
 | 前端 三端统一（已实现） | uni-app（Vue 3 + Vite 5 + Pinia）：**一套代码**产出 H5（PC + 移动自适应）/ 微信小程序 / Android·iOS App，共用同一后端与同一账号体系，方案与落地记录见 [docs/uni-app-migration.md](./docs/uni-app-migration.md) |
 | 后端 | Spring Boot 2.7.18 + MyBatis-Plus 3.5 + JWT + Knife4j + Hutool |
 | 数据库 | MySQL 8.0（utf8mb4） |
-| 区块链 | FISCO-BCOS 2.9.x（Solidity 0.6.10）+ fisco-bcos-java-sdk 2.9.1 |
+| 区块链 | FISCO-BCOS **2.9.1**（Solidity 0.6.10，4 节点 PBFT）+ fisco-bcos-java-sdk 2.9.1 |
+| 链可视化 | WeBASE-Front 1.5.5（区块浏览器 / 交易回执 / 节点监控，nginx Basic 认证） |
 | 文件存储 | 本地磁盘（可切换 OSS/MinIO），文件 SHA-256 摘要上链 |
 
 ## 三、角色与权限
@@ -285,6 +286,9 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 | WebSocket | nginx 单独给 `location = /api/ws` 配 `Upgrade`/`Connection` 头与 1 小时读超时，否则握手被当普通 HTTP，实时同步失效 | `ops/nginx-agri-origin.conf` |
 | 握手鉴权 | 无 token / token 非法一律返回 **401**（只 `return false` 会得到 200，客户端无法区分鉴权失败与服务异常，会无限重连） | `WsHandshakeInterceptor` |
 | ABI 加载 | 走 classpath（`getInputStream`），jar 内可用，不再依赖外部 `--chain.abi-path` | `BcosClient#readAbi` |
+| 链可视化 | WeBASE-Front 1.5.5 只监听 `127.0.0.1:5002`，nginx 反代 + HTTP Basic 认证；它没有内置登录且能用节点私钥签交易，**不能裸奔公网** | `ops/webase-front.service`、`ops/nginx-agri-origin.conf` |
+| 链版本 | 2.9.0 → 2.9.1 原地换二进制（`nodes/127.0.0.1/fisco-bcos`，不是安装根目录那份），数据/证书不动，区块高度不倒退 | `docs/deploy.md` 11.4 |
+| 日志轮转 | systemd `StandardOutput=append` 不轮转，配 `logrotate`（`copytruncate`，否则进程写旧 inode） | `ops/logrotate-agri-origin.conf` |
 
 上线自检（`scripts/e2e-acceptance.py` 在服务器本机执行，覆盖 49 项断言）：
 
@@ -294,6 +298,14 @@ python3 scripts/e2e-acceptance.py     # 8 角色登录 → 全流程真实上链
 
 > 脚本会真实写链（每轮新增若干区块），输出形如 `验收结果：49/49 通过`，
 > 任一项失败即非零退出，可直接接入发布流水线。
+
+**线上地址（当前运行中）**
+
+| 入口 | 地址 | 说明 |
+| --- | --- | --- |
+| 业务系统（H5/PC 自适应） | <http://8.130.105.150/> | 8 个演示账号，密码统一 `123456` |
+| 免登录溯源页 | <http://8.130.105.150/pages/trace/index?code=TC20261105003> | 消费者扫码后的落地页 |
+| 链上控制台 | <http://8.130.105.150/WeBASE-Front/> | 账号 `webase` / `Agri@2026`；看区块、交易回执、节点状态 |
 
 ## 八、文档索引
 
