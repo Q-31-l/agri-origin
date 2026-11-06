@@ -17,12 +17,13 @@
             class="s-input"
             v-model="code"
             :focus="inputFocus"
-            placeholder="输入溯源码，或点右侧扫码"
+            placeholder="输入溯源码，或点右侧传图识别"
             @confirm="doQuery"
           />
+          <!-- 电脑端不启用摄像头，按钮就直说"传图识别"，别让用户以为点了会开摄像头 -->
           <view class="s-scan" @click="onScan">
-            <text class="s-scan-ico">⌗</text>
-            <text class="s-scan-txt">扫码</text>
+            <text class="s-scan-ico">🖼</text>
+            <text class="s-scan-txt">传图识别</text>
           </view>
           <view class="s-btn" @click="doQuery">立即查询</view>
         </view>
@@ -222,9 +223,9 @@ function quick(c) {
   doQuery()
 }
 
-/** PC 上通常没有摄像头：扫码层会自动退到「上传二维码图片识别」，同样能读码 */
+/** 电脑端只走「选择图片文件」识别，不申请摄像头权限 */
 async function onScan() {
-  const raw = await scan({ title: '扫描或上传溯源码' })
+  const raw = await scan({ title: '识别二维码图片' })
   if (!raw) {
     inputFocus.value = false
     setTimeout(() => (inputFocus.value = true), 60)

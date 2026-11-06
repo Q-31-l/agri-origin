@@ -1754,7 +1754,12 @@ export function useShare(getShareData) {
 | --- | --- | --- |
 | 微信小程序 | `uni.scanCode` | 无需额外配置；需用户授权相机（首次自动弹） |
 | App | `uni.scanCode` | 需在 `manifest.json` 声明 `Barcode` 模块 |
-| H5 | **无** `uni.scanCode` | 必须自己调摄像头 + 解码库；**http 环境下浏览器禁止调摄像头，必须 https 或 localhost** |
+| H5 手机端 | 站内实时取景（`utils/scan-overlay`） | 必须自己调摄像头 + 解码库；**http 环境下浏览器禁止调摄像头，必须 https 或 localhost** |
+| H5 电脑端 | 不申请摄像头，选二维码图片识别 | 笔记本摄像头扫码体验差且多数台式机没有，直接给"选择图片文件" |
+
+> H5 端不提供"拍照识别"：调起系统相机只是拍一张照片，用户以为在扫码，
+> 实际还要回到相册里挑图，多一步且容易误解。手机端就两个选择——实时扫码、
+> 从相册选图；电脑端就一个——选图片文件。
 
 实现（`src/utils/scan.js`，单文件条件编译，最稳）：
 

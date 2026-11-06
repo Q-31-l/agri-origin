@@ -15,10 +15,15 @@
  *   生成的引用少了 './' 前缀，浏览器按裸模块名解析直接抛
  *   Failed to resolve module specifier —— 扫码会永远起不来。
  *
- * 能力边界：
- *   - 安全上下文（HTTPS / localhost）且存在摄像头 → 实时取景解码
- *   - 非安全上下文、无摄像头、权限被拒 → 拍照识别 / 相册识别（不需摄像头）
- *   两者最终都返回二维码文本，由调用方 extractTraceCode 归一。
+ * 能力边界（按端区分，不做"一刀切"）：
+ *   - 手机（H5）：实时取景解码为主，另给"从相册选择"备选；
+ *     非安全上下文时如实说明"实时扫码需 HTTPS"，并给一键切换
+ *   - 电脑（H5）：不启用摄像头，直接"选择图片文件"识别（照片/截图皆可）
+ *   - 小程序 / App：走 uni.scanCode 原生扫码，进不到这里
+ *
+ *   刻意不提供"拍照识别"：调起系统相机只是拍一张照，用户以为在扫码，
+ *   实际还是回到相册里挑图，多一步且容易误解。要扫码就用实时取景，
+ *   要选图就明说"从相册选择"。
  */
 import { Html5Qrcode } from 'html5-qrcode'
 
@@ -106,6 +111,7 @@ const CSS = `
   cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
 }
 .asc-solid:active{background:#2f66d0;}
+.asc-solid[disabled]{opacity:.6;pointer-events:none;}
 .asc-ghost{
   height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.24);background:transparent;
   color:rgba(255,255,255,.86);font-size:14px;cursor:pointer;
@@ -119,7 +125,7 @@ const CSS = `
 .asc-toast{
   position:absolute;left:50%;bottom:110px;transform:translateX(-50%);
   background:rgba(0,0,0,.82);color:#fff;font-size:13px;padding:10px 18px;border-radius:20px;
-  z-index:9;white-space:nowrap;max-width:86vw;overflow:hidden;text-overflow:ellipsis;
+  z-index:9;max-width:78vw;text-align:center;line-height:1.6;
 }
 
 .asc-loading{
@@ -175,6 +181,29 @@ export function canUseLiveCamera() {
   )
 }
 
+/**
+ * 是否手机端。
+ *
+ * UA 为主，补两条兜底：
+ *   - iPadOS 13+ 把 UA 伪装成 Macintosh，用 maxTouchPoints > 1 判回来；
+ *   - 部分安卓定制浏览器 UA 里没有 Android 字样，用"只有粗指针没有精指针"兜。
+ * 电脑端据此不走摄像头，直接给"选择图片文件"。
+ */
+export function isMobileDevice() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  if (/Android|iPhone|iPod|iPad|Windows Phone|HarmonyOS|Mobile Safari|MicroMessenger/i.test(ua)) {
+    return true
+  }
+  if (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) return true
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    const coarse = window.matchMedia('(any-pointer: coarse)').matches
+    const fine = window.matchMedia('(any-pointer: fine)').matches
+    if (coarse && !fine) return true
+  }
+  return false
+}
+
 /** 是否存在可用摄像头（异步探测，失败一律视为没有） */
 export async function probeCamera() {
   if (!canUseLiveCamera()) return false
@@ -183,6 +212,28 @@ export async function probeCamera() {
     return list.some((d) => d.kind === 'videoinput')
   } catch (e) {
     return false
+  }
+}
+
+/**
+ * HTTPS 地址是否真的打得开。
+ *
+ * "切换到 HTTPS" 是纯 HTTP 页面恢复实时扫码的唯一出路，但服务器没监听 /
+ * 云安全组没放行 443 时，点下去只会把用户送到浏览器的错误页，还得退回来。
+ * 先用 no-cors 探一下：能拿到响应（哪怕是 404 的 opaque）就算通，
+ * 连不上会直接 reject。http → https 的请求不受混合内容限制。
+ */
+async function httpsReachable(url) {
+  if (typeof fetch !== 'function' || typeof AbortController !== 'function') return true
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 5000)
+  try {
+    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal })
+    return true
+  } catch (e) {
+    return false
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -195,39 +246,39 @@ function explainCameraError(err) {
     return {
       title: '摄像头权限被拒绝',
       desc:
-        '浏览器记住了上次的"拒绝"。请点击地址栏左侧的锁形图标 → 将"摄像头"改为"允许" → 刷新页面。' +
-        '也可以直接用下方的拍照识别，无需摄像头权限。'
+        '浏览器记住了上次的"拒绝"。请点击地址栏左侧的锁形图标 → 将"摄像头"改为"允许" → 刷新页面后重试。<br>' +
+        '临时应急可以先用「从相册选择」挑一张二维码照片。'
     }
   }
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
     return {
       title: '未检测到摄像头',
-      desc: '这台设备没有可用的摄像头。请改用拍照识别或相册选图，同样能读取二维码。'
+      desc: '这台设备没有可用的摄像头。请改用「从相册选择」，或是换一台带摄像头的手机。'
     }
   }
   if (name === 'NotReadableError' || name === 'TrackStartError') {
     return {
       title: '摄像头被占用',
-      desc: '摄像头正被其他程序使用（视频会议、相机等）。请关闭后重试，或改用拍照识别。'
+      desc: '摄像头正被其他程序使用（视频会议、相机等）。请关闭后点「重试摄像头」，或先用「从相册选择」。'
     }
   }
   if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
     return {
       title: '摄像头不支持所需参数',
-      desc: '已尝试切换其它摄像头仍失败。请改用拍照识别，或换一台设备。'
+      desc: '已尝试切换其它摄像头仍失败。请换一台设备，或改用「从相册选择」。'
     }
   }
   if (name === 'SecurityError' || !isSecureOrigin()) {
     return {
-      title: '当前地址不允许调用摄像头',
+      title: '实时扫码需要 HTTPS 地址',
       desc:
-        '浏览器规定：只有 <b>HTTPS</b> 或 localhost 页面才能打开摄像头。' +
-        '请改用下方的拍照识别（仍会调起手机相机），或访问站点的 HTTPS 地址。'
+        '浏览器规定：只有 <b>HTTPS</b> 或 localhost 页面才能打开摄像头，当前是 <b>HTTP</b> 地址。' +
+        '点下面的「切换到 HTTPS 地址」即可实时扫码；临时应急也可以先用「从相册选择」。'
     }
   }
   return {
     title: '无法启动摄像头',
-    desc: '可以重试一次，或直接使用拍照识别 / 从相册选择。'
+    desc: '可以重试一次，或改用「从相册选择」挑一张二维码照片。'
   }
 }
 
@@ -272,6 +323,8 @@ export function openScanner(opts = {}) {
   ensureStyle()
 
   return new Promise((resolve) => {
+    const mobile = isMobileDevice()
+
     const root = el('div')
     root.id = ROOT_ID
     root.setAttribute('role', 'dialog')
@@ -281,10 +334,13 @@ export function openScanner(opts = {}) {
     const bar = el('div', 'asc-bar')
     const closeBtn = el('button', 'asc-circle', '✕')
     closeBtn.setAttribute('aria-label', '关闭扫码')
-    const title = el('div', 'asc-title', opts.title || '扫描溯源码')
+    // 电脑端不取景，标题固定为"识别二维码图片"，不让调用方传进来的扫码文案误导
+    const title = el('div', 'asc-title', mobile ? opts.title || '扫描溯源码' : '识别二维码图片')
     const torchBtn = el('button', 'asc-circle', '☀')
     torchBtn.setAttribute('aria-label', '手电筒')
     torchBtn.setAttribute('disabled', '')
+    // 电脑端没有取景也没有手电筒，占位键留着会误导
+    if (!mobile) torchBtn.style.visibility = 'hidden'
     bar.append(closeBtn, title, torchBtn)
 
     /* ---- 取景区 ---- */
@@ -299,13 +355,19 @@ export function openScanner(opts = {}) {
     const hint = el('div', 'asc-hint', '把包装上的二维码放进取景框，识别成功会自动跳转')
     stage.append(reader, frame, hint)
 
-    /* ---- 底部操作 ---- */
+    // 电脑端不取景，直接进入"选文件"面板，取景框与提示先收起来
+    if (!mobile) {
+      frame.style.display = 'none'
+      hint.style.display = 'none'
+      stage.style.background = '#0b1220'
+    }
+
+    /* ---- 底部操作（仅手机端：相册） ---- */
     const actions = el('div', 'asc-actions')
-    const shootBtn = el('button', 'asc-act')
-    shootBtn.innerHTML = '<span class="ico">📷</span>拍照识别'
     const albumBtn = el('button', 'asc-act')
     albumBtn.innerHTML = '<span class="ico">🖼</span>从相册选择'
-    actions.append(shootBtn, albumBtn)
+    actions.appendChild(albumBtn)
+    if (!mobile) actions.style.display = 'none'
 
     root.append(bar, stage, actions)
     document.body.appendChild(root)
@@ -348,12 +410,13 @@ export function openScanner(opts = {}) {
 
     closeBtn.addEventListener('click', () => finish({ cancel: true }))
 
-    /* ---- 文件识别（拍照 / 相册），不依赖摄像头 ---- */
-    function pickImage(capture) {
+    /* ---- 文件识别（相册 / 本地文件），不依赖摄像头 ---- */
+    function pickImage() {
       const input = document.createElement('input')
       input.type = 'file'
       input.accept = 'image/*'
-      if (capture) input.setAttribute('capture', 'environment')
+      // 不加 capture 属性：加了会强制调起系统相机"拍一张"，用户以为在扫码，
+      // 结果还是回到相册挑图。交给系统自己的选择面板更符合直觉。
       input.style.display = 'none'
       document.body.appendChild(input)
       input.addEventListener('change', async () => {
@@ -393,8 +456,7 @@ export function openScanner(opts = {}) {
       input.click()
     }
 
-    shootBtn.addEventListener('click', () => pickImage(true))
-    albumBtn.addEventListener('click', () => pickImage(false))
+    albumBtn.addEventListener('click', () => pickImage())
 
     /* ---- 加载 / 状态层 ---- */
     let loadingEl = null
@@ -417,7 +479,7 @@ export function openScanner(opts = {}) {
       hideLoading()
       frame.style.display = 'none'
       hint.style.display = 'none'
-      // 说明面板里已经给了"拍照识别/相册选择"，底部那两个按钮就重复了
+      // 说明面板里已经给了"从相册选择 / 手动输入"，底部按钮条就重复了
       actions.style.display = 'none'
       const info = explainCameraError(err)
 
@@ -428,17 +490,35 @@ export function openScanner(opts = {}) {
         <div class="asc-state-desc">${info.desc}</div>
       `
       const btns = el('div', 'asc-state-btns')
-      const b1 = el('button', 'asc-solid')
-      b1.innerHTML = '<span>📷</span>拍照识别'
-      b1.addEventListener('click', () => pickImage(true))
-      const b2 = el('button', 'asc-ghost')
-      b2.innerHTML = '<span>🖼</span>从相册选择'
-      b2.addEventListener('click', () => pickImage(false))
-      const b3 = el('button', 'asc-ghost', '手动输入溯源码')
-      b3.addEventListener('click', () => finish({ manual: true }))
-      btns.append(b1, b2, b3)
+      // 非安全上下文时，"切换到 HTTPS"才是真正能恢复实时扫码的那一步，
+      // 放到最上面当主按钮；相册与手输退到次选。
+      const secure = isSecureOrigin()
+      if (!secure) {
+        const jump = el('button', 'asc-solid')
+        jump.innerHTML = '<span>🔒</span>切换到 HTTPS 地址'
+        jump.addEventListener('click', async () => {
+          const target = toHttpsUrl()
+          jump.setAttribute('disabled', '')
+          jump.textContent = '正在检查 HTTPS 是否可用…'
+          const ok = await httpsReachable(target)
+          if (ok) {
+            location.href = target
+            return
+          }
+          jump.removeAttribute('disabled')
+          jump.innerHTML = '<span>🔒</span>切换到 HTTPS 地址'
+          showToast(root, '该地址的 HTTPS 端口暂时打不开（可能未放行 443），请先用相册识别', 4500)
+        })
+        btns.appendChild(jump)
+      }
+      const b1 = el('button', secure ? 'asc-solid' : 'asc-ghost')
+      b1.innerHTML = '<span>🖼</span>从相册选择'
+      b1.addEventListener('click', () => pickImage())
+      const b2 = el('button', 'asc-ghost', '手动输入溯源码')
+      b2.addEventListener('click', () => finish({ manual: true }))
+      btns.append(b1, b2)
 
-      if (isSecureOrigin()) {
+      if (secure) {
         const retry = el('button', 'asc-toggle', '重试摄像头')
         retry.addEventListener('click', () => {
           box.remove()
@@ -449,12 +529,35 @@ export function openScanner(opts = {}) {
         })
         box.append(btns, retry)
       } else {
-        const tip = el('button', 'asc-toggle', '想用实时扫码？切换 HTTPS 地址')
-        tip.addEventListener('click', () => {
-          location.href = toHttpsUrl()
-        })
-        box.append(btns, tip)
+        box.append(btns)
       }
+      stage.appendChild(box)
+    }
+
+    /** 电脑端：不碰摄像头，直接选一张二维码图片 */
+    function showDesktopPanel() {
+      hideLoading()
+      frame.style.display = 'none'
+      hint.style.display = 'none'
+      actions.style.display = 'none'
+
+      const box = el('div', 'asc-state')
+      box.innerHTML = `
+        <div class="asc-state-ico">🖼</div>
+        <div class="asc-state-title">选择二维码图片</div>
+        <div class="asc-state-desc">
+          电脑一般不接摄像头，这里直接识别图片文件：把包装上的二维码拍照或截图，
+          选择后会自动读出溯源码。也可以直接在页面输入框里手动输入。
+        </div>
+      `
+      const btns = el('div', 'asc-state-btns')
+      const b1 = el('button', 'asc-solid')
+      b1.innerHTML = '<span>📁</span>选择图片文件'
+      b1.addEventListener('click', () => pickImage())
+      const b2 = el('button', 'asc-ghost', '手动输入溯源码')
+      b2.addEventListener('click', () => finish({ manual: true }))
+      btns.append(b1, b2)
+      box.appendChild(btns)
       stage.appendChild(box)
     }
 
@@ -551,7 +654,11 @@ export function openScanner(opts = {}) {
       }
     }
 
-    // 用户直接拒绝过权限时不要反复弹窗，先探测一次
-    startLive()
+    // 手机端直接进实时取景；电脑端不碰摄像头，给"选择图片文件"
+    if (mobile) {
+      startLive()
+    } else {
+      showDesktopPanel()
+    }
   })
 }

@@ -1,15 +1,14 @@
 /**
  * 三端统一扫码入口
  *
- *   小程序 / App : uni.scanCode（原生相机，权限由宿主 App 申请，自带相册入口）
- *   H5           : 自建取景层（utils/scan-overlay）
- *                  · HTTPS/localhost → 实时摄像头解码
- *                  · HTTP、无摄像头、权限被拒 → 拍照识别 / 相册识图
+ *   小程序 / App : uni.scanCode（宿主自带的扫码界面，真正实时扫码，含相册入口）
+ *   H5 手机端    : 自建取景层实时解码；HTTPS/localhost 才有摄像头，HTTP 时
+ *                  如实提示并提供"切换到 HTTPS / 从相册选择"
+ *   H5 电脑端    : 不走摄像头，直接"选择图片文件"识别
  *
  * 注意：浏览器只在**安全上下文**（HTTPS 或 localhost）下开放
  * navigator.mediaDevices。纯 HTTP + 公网 IP 访问时，实时取景一定失败，
- * 这不是代码 bug，是浏览器的硬性规定——所以 H5 必须保留不依赖摄像头的
- * 图片识别通道，否则用户就只剩手动输入一条路。
+ * 这不是代码 bug，是浏览器的硬性规定——所以手机端要真正扫码，站点必须上 HTTPS。
  */
 import { toast } from './ui'
 
