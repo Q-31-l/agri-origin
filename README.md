@@ -372,6 +372,8 @@ python3 scripts/e2e-acceptance.py     # 8 角色登录 → 全流程真实上链
 - [docs/test.md](docs/test.md) —— 验收测试用例（正常流转、异常拦截、越权、重复提交、一致性）
 - [docs/assets/README.md](docs/assets/README.md) —— 流程图、用例图、模拟质检报告与农产品图片素材
 - [contracts/README.md](contracts/README.md) —— 合约设计与部署说明
+- [docs/项目一核对报告.md](docs/项目一核对报告.md) —— 实训任务书逐条核对（需求→实现→证据）
+- [docs/deploy.md §11.6](docs/deploy.md#116-webase-front-http-调用实战) —— 第二种链上接入方式：HTTP 调用实战
 
 ## 九、验收演示路径（建议 10 分钟）
 

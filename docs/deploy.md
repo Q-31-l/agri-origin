@@ -1029,6 +1029,45 @@ curl -s -X POST -H 'Content-Type: application/json' \
 
 ---
 
+### 11.6 WeBASE-Front HTTP 调用实战（不依赖 SDK 的第二种接入方式）
+
+后端业务主链路走 Java SDK；此外还打通了**纯 HTTP 经 WeBASE-Front 调合约**的方式，
+与参考材料《WeBASE-Front HTTP 调用实战》同款 `/trans/handle` 全流程。
+
+**定位**：WeBASE-Front 是「私钥托管 + ABI 编解码 + 交易签名 + 回执轮询」的交易网关。
+业务系统只发 HTTP POST 就能调链，`view` 函数走 `eth_call`（不上链），写函数同步等回执。
+
+**前提（缺一不可）**：
+1. WeBASE-Front 本地密钥库里有签名用户（`/trans/handle` 的 `user` 字段）；
+2. 合约地址 + 整包 ABI；
+3. `version` 与 `contractAddress` 至少给一个；`funcParam` 在 1.5.5 是**字符串数组**。
+
+**本环境实测结果**：
+
+| 对象 | 地址 | 方式 | 结果 |
+|---|---|---|---|
+| 生产合约 Traceability | `0x0426e8fb…bbedb` | HTTP 只读 | `getBatchCount()=44`、`getBatch(...)` 正确 |
+| 演示合约 StorageCenter | `0x26e59c7c…aa9` | HTTP 读写 | `writeData` 区块 212、`accessData` 区块 213，回执 `0x0`，事件 1 条 |
+
+**建用户 + 部署演示合约 + 跑全流程**：
+
+```bash
+# 1) 建一个本地签名用户（随机 32 字节私钥，WeBASE 自动派生地址）
+KEY=$(openssl rand -hex 32)
+curl -s -u webase:Agri@2026 \
+  "http://127.0.0.1:5002/WeBASE-Front/privateKey/import?privateKey=$KEY&userName=agri-admin"
+# 返回 {"address":"0x...","userName":"agri-admin",...} —— 记下 address
+
+# 2) 一键跑全流程脚本（探活/只读/写入/回执/计数，见 scripts/webase-http-demo.py）
+FRONT_BASE=http://127.0.0.1:5002/WeBASE-Front python3 scripts/webase-http-demo.py
+```
+
+**注意**：本机 WeBASE-Front 服务端编译器固定 `solc 0.4.25`；`/contract/contractCompile` 的
+入参是 `{contractName, solidityBase64}`（源码要 Base64），出参 `contractAbi` 是**字符串**需二次解析；
+`/contract/deploy` 返回的是**裸合约地址字符串**，不是 JSON——客户端要按文本处理。
+
+---
+
 ## 十二、附录：一键本地启动脚本
 
 `scripts/dev-start.sh`（可选自建）：
