@@ -1066,6 +1066,24 @@ FRONT_BASE=http://127.0.0.1:5002/WeBASE-Front python3 scripts/webase-http-demo.p
 入参是 `{contractName, solidityBase64}`（源码要 Base64），出参 `contractAbi` 是**字符串**需二次解析；
 `/contract/deploy` 返回的是**裸合约地址字符串**，不是 JSON——客户端要按文本处理。
 
+**把业务合约登记进合约库**（让控制台「合约列表/IDE」能看到本系统的合约及真实地址）：
+
+```bash
+# POST /contract/save —— contractSource 存源码、contractAbi 存 ABI 字符串、contractAddress 存已部署地址
+curl -s -u webase:Agri@2026 -X POST http://127.0.0.1:5002/WeBASE-Front/contract/save \
+  -H 'Content-Type: application/json' -d '{
+    "groupId":1, "contractName":"Traceability", "contractPath":"agri",
+    "contractSource":"<Traceability.sol 源码>", "contractAbi":"<Traceability.abi 文本>",
+    "contractAddress":"0x0426e8fbda2b5e61c64c56773ab251e03f4bbedb",
+    "contractBin":"<bytecode>", "bytecodeBin":"<bytecode>", "version":"0.6.10"
+  }'
+```
+
+登记后合约库应有：`Traceability`（path=agri，地址 `0x0426e8fb…`）与 `StorageCenter`（path=demo，
+地址 `0x26e59c7c…`）。注意「合约列表」UI 只显示 `contractStatus=2`（经控制台部署）的条目，
+SDK 部署的 `Traceability` 登记后是 `contractStatus=1`，在「合约IDE」的 `agri` 目录可见、可打开编译，
+经 HTTP `/trans/handle` 可直接读写——两条链上路径都已打通。
+
 ---
 
 ## 十二、附录：一键本地启动脚本
