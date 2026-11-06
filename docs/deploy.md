@@ -191,7 +191,7 @@ chain:
   group-id: 1
   contract-address: ""          # 部署后再填
   abi-path: classpath:contracts/Traceability.abi
-  private-key: ""               # 留空则用 SDK 临时账户；建议填固定账户私钥
+  private-key: ""               # 留空则用 SDK 临时账户；只在本机调试时填，生产环境见 10.2（backend.env）
   strict: true
 ```
 
@@ -664,7 +664,36 @@ systemctl enable fisco-chain.target
 ps -ef | grep -c '[f]isco-bcos -c config.ini'   # 期望 4
 ```
 
-### 10.2 启动顺序：链先就绪，后端再起
+### 10.2 敏感参数：私钥与口令放 backend.env
+
+链账户私钥能以合约 owner 身份签名，泄露等于把存证写权限交出去；数据库口令、JWT 签名密钥同理。
+这类值一律不写进 systemd 单元、也不进版本库，改由 `EnvironmentFile=` 注入：
+
+```bash
+install -m 600 ops/backend.env.example /opt/agri-origin/app/backend.env
+vi /opt/agri-origin/app/backend.env      # 填 CHAIN_PRIVATE_KEY / DB_PASSWORD / JWT_SECRET
+systemctl daemon-reload && systemctl restart agri-backend
+```
+
+`ops/agri-backend.service` 对应的三处取值：
+
+| 配置项 | 来源 |
+| --- | --- |
+| `--chain.private-key=${CHAIN_PRIVATE_KEY}` | `backend.env` |
+| `spring.datasource.password` | 环境变量 `DB_PASSWORD`（`application.yml` 写的是 `${DB_PASSWORD:root}`） |
+| `jwt.secret` | 环境变量 `JWT_SECRET`（`application.yml` 保留了仅供本地开发的默认值） |
+
+两道兜底，避免"配错了还照常启动"：
+
+- `EnvironmentFile=` 指向的文件不存在 → systemd 直接启动失败；
+- `ExecStartPre` 再校验一次 `CHAIN_PRIVATE_KEY` 非空 → 空值同样拒绝启动。
+
+> **私钥一旦外泄怎么处理**：光改文件没用，要在链上收回权限。
+> 若后端账户正是合约 owner，用旧账户执行 `transferOwnership(新地址)`；
+> 若只是被 `authorize()` 的账户，先 `revoke(旧地址)` 再 `authorize(新地址)`
+> （方法签名见 `contracts/README.md`）。历史区块里的旧签名无法抹除，但写权限已经收回。
+
+### 10.3 启动顺序：链先就绪，后端再起
 
 `ops/agri-backend.service` 里 `After=` 与 `Wants=` 都指向 `fisco-chain.target`。
 即便如此，仍可能出现"后端先起、链还没监听 20200"的竞态——所以客户端不再"初始化一次失败就永久不可用"：
@@ -683,7 +712,7 @@ sleep 20
 curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/chain/status   # ready=true，不重启后端
 ```
 
-### 10.3 nginx：WebSocket 必须单独配 Upgrade
+### 10.4 nginx：WebSocket 必须单独配 Upgrade
 
 ```nginx
 location = /api/ws {
@@ -709,7 +738,7 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 
 无 token 或 token 非法时应返回 **401**（而不是 200）。
 
-### 10.4 上线自检脚本
+### 10.5 上线自检脚本
 
 ```bash
 python3 scripts/e2e-acceptance.py
@@ -721,7 +750,7 @@ python3 scripts/e2e-acceptance.py
 
 脚本直连 `http://127.0.0.1:8080/api`，需在服务器本机执行（避免公网抖动影响判定）。
 
-### 10.5 日志轮转（必做）
+### 10.6 日志轮转（必做）
 
 `ops/agri-backend.service` 用 systemd 的 `StandardOutput=append:` 把标准输出直接追加到
 `/opt/agri-origin/app/backend.log`，systemd 自身不做轮转，Spring Boot 也没有配置文件输出。

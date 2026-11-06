@@ -276,7 +276,7 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 
 ## 七·补、生产部署与运维
 
-单机 ECS 上的实际部署形态（`ops/` 目录内是可直接使用的配置文件，均为线上在跑的那一份）：
+单机 ECS 上的实际部署形态（`ops/` 内是线上在用的那一份；链账户私钥、数据库口令、JWT 密钥已抽到 `backend.env`，单元文件本身不含任何密钥）：
 
 | 关注点 | 做法 | 对应文件 |
 | --- | --- | --- |
@@ -289,6 +289,7 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 | 链可视化 | WeBASE-Front 1.5.5 只监听 `127.0.0.1:5002`，nginx 反代 + HTTP Basic 认证；它没有内置登录且能用节点私钥签交易，**不能裸奔公网** | `ops/webase-front.service`、`ops/nginx-agri-origin.conf` |
 | 链版本 | 2.9.0 → 2.9.1 原地换二进制（`nodes/127.0.0.1/fisco-bcos`，不是安装根目录那份），数据/证书不动，区块高度不倒退 | `docs/deploy.md` 11.4 |
 | 日志轮转 | systemd `StandardOutput=append` 不轮转，配 `logrotate`（`copytruncate`，否则进程写旧 inode） | `ops/logrotate-agri-origin.conf` |
+| 密钥管理 | 链账户私钥 / 数据库口令 / JWT 密钥统一放 `backend.env`（`600`），由 `EnvironmentFile=` 注入；文件缺失或私钥为空则拒绝启动 | `ops/agri-backend.service`、`ops/backend.env.example` |
 
 上线自检（`scripts/e2e-acceptance.py` 在服务器本机执行，覆盖 49 项断言）：
 

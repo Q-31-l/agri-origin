@@ -7,6 +7,12 @@ Wants=fisco-chain.target
 Type=simple
 User=root
 WorkingDirectory=/opt/agri-origin/app
+# 敏感参数（链账户私钥 / 数据库口令 / JWT 签名密钥）统一放 backend.env，权限 600，
+# 不写进单元文件、不进版本库。模板见 ops/backend.env.example：
+#   install -m 600 ops/backend.env.example /opt/agri-origin/app/backend.env && vi 填值
+# 文件缺失时 systemd 直接报错退出，避免"用了空私钥还静默跑起来"
+EnvironmentFile=/opt/agri-origin/app/backend.env
+ExecStartPre=/bin/sh -c 'test -n "$CHAIN_PRIVATE_KEY" || { echo "CHAIN_PRIVATE_KEY 未配置，见 ops/backend.env.example" >&2; exit 1; }'
 # 溯源二维码指向的前端页面
 Environment=TRACE_URL_PREFIX=http://8.130.105.150/pages/trace/index?code=
 # chain.abi-path 走 classpath（资源已打进 jar，读取用的是 getInputStream，jar 内可用），
@@ -14,7 +20,7 @@ Environment=TRACE_URL_PREFIX=http://8.130.105.150/pages/trace/index?code=
 ExecStart=/usr/bin/java -Xms512m -Xmx1024m -jar /opt/agri-origin/app/agri-trace-backend.jar \
     --chain.config-file=/opt/agri-origin/chain/config.toml \
     --chain.contract-address=0x0426e8fbda2b5e61c64c56773ab251e03f4bbedb \
-    --chain.private-key=589a07b45d8e99227f36c2718390a18e5ec6f99c5fc6c7fd820d18c053b1e62d \
+    --chain.private-key=${CHAIN_PRIVATE_KEY} \
     --storage.upload-dir=/opt/agri-origin/app/uploads \
     --mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.nologging.NoLoggingImpl
 Restart=on-failure

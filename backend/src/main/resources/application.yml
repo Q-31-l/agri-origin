@@ -13,7 +13,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/agri_trace?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: root
+    # 生产环境用 DB_PASSWORD 覆盖（systemd EnvironmentFile 注入），本地默认 root
+    password: ${DB_PASSWORD:root}
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -48,7 +49,8 @@ mybatis-plus:
 
 # ---------------- JWT ----------------
 jwt:
-  secret: agri-origin-fisco-bcos-traceability-secret-key-2026
+  # 生产环境务必用 JWT_SECRET 覆盖（openssl rand -hex 32），下面的默认值只用于本地开发
+  secret: ${JWT_SECRET:agri-origin-fisco-bcos-traceability-secret-key-2026}
   # 访问令牌有效期（小时）
   expire-hours: 12
   # 刷新令牌有效期（天）：access token 过期后前端静默换发，用户无感

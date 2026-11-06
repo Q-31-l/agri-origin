@@ -56,6 +56,9 @@ sdk.key
 .env
 .env.*
 !.env.example
+# systemd EnvironmentFile：含链账户私钥 / 数据库口令 / JWT 密钥，只提交 .example
+backend.env
+ops/backend.env
 
 # 合约部署时释放的 SDK 配置目录
 chain-conf/
