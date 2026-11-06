@@ -557,6 +557,9 @@ export function openScanner(opts = {}) {
       const b2 = el('button', 'asc-ghost', '手动输入溯源码')
       b2.addEventListener('click', () => finish({ manual: true }))
       btns.append(b1, b2)
+      // 电脑屏幕宽，说明文字不必挤在手机那档 340px 里
+      const desc = box.querySelector('.asc-state-desc')
+      if (desc) desc.style.maxWidth = '460px'
       box.appendChild(btns)
       stage.appendChild(box)
     }
