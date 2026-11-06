@@ -981,6 +981,12 @@ bash ops/webase-front-https-fix.sh        # 幂等，自动备份、打补丁、
 
 回滚：`rm -f /opt/webase-front/webase-front/conf/static/static/js/*.js && systemctl restart webase-front`。
 
+**修完别人还看到旧报错？是浏览器缓存**。这个控制台的 chunk 文件名带内容哈希，
+但热补丁是「同名文件、内容变了」，浏览器启发式缓存会继续用旧文件。
+已在 `/WeBASE-Front/` 的 nginx location 里加 `add_header Cache-Control "no-cache" always;`
+（见 `ops/nginx-agri-app.conf`），此后每次打开都会回源校验，有变化自动下发新文件。
+老用户只需 **Ctrl+F5 强刷一次**即可拿到修复后的文件。
+
 > **「合约列表」显示暂无数据不是故障**：该页只查 `contractStatus=2`（已部署）的合约，
 > 只编译不部署不会出现在那里；本系统的合约由后端 SDK 部署，同样不进这张表。
 > 要看业务合约与存证，用「数据概览 / 区块与交易」或后端的 `/api/chain/record` 更直接。
