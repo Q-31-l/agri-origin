@@ -620,6 +620,8 @@ chain:
 | `链客户端初始化失败：connect failed` | 节点未启动或 peers 配置错 | 检查 `config.toml` 的 `peers`，确认节点日志正常出块 |
 | `交易回执状态异常：0x16` | 合约 revert（多为权限或状态不符） | 查看后端日志确认具体方法，检查部署账户是否被 `authorize` |
 | 存证状态一直 `FAILED` | SDK 与节点版本不匹配 | 确认节点为 2.9.x，SDK 为 2.9.1 |
+| 后端日志出现 `ConnectionManager - connect to 127.0.0.1:20200 failed` / `Processing message timeout` | **计划内停链**（升级、重启节点）时 SDK 内部重连器的正常输出 | 无需处理；链恢复后 `/chain/status` 自动回到 `ready=true`，不必重启后端。若链没停却持续刷，再查节点进程与 20200-20203 端口 |
+| `fisco-bcos -v` 是新版本但 `getClientVersion` 仍报旧版本 | 换错文件：systemd 执行的是 `nodes/127.0.0.1/fisco-bcos` | 换对路径后重启四节点，见 11.4 |
 
 ### 9.3 前端相关
 
