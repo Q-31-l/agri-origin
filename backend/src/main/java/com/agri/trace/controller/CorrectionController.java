@@ -29,6 +29,7 @@ public class CorrectionController {
     private CorrectionService correctionService;
 
     @Operation(summary = "提交更正说明（追加式，不覆盖原始记录）")
+    @RequirePerm("correction:create")
     @RequireRoles({Constants.ROLE_PRODUCER, Constants.ROLE_VILLAGE, Constants.ROLE_REGULATOR, Constants.ROLE_ADMIN})
     @PostMapping
     public R<Long> create(@Valid @RequestBody CorrectionDTO dto) {

@@ -519,7 +519,15 @@ PUT /batch/{id}
 
 **权限**：`batch:update`
 
-说明：仅允许修改 `remark`，核心字段（产品、农场、农户、日期、数量）不可修改，以保证链上摘要稳定。如需修正请使用「更正说明」接口。
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `remark` | string | 否 | 批次备注，最多 255 字 |
+
+说明：仅允许修改 `remark`，核心字段（产品、农场、农户、日期、数量）在建档时确定归属、数据范围与链上摘要，不可修改。如需修正请使用「更正说明」接口（追加式留痕）。
+
+> 契约说明：本接口只接受 `remark`。此前误用建档 DTO 校验，要求客户端必须回传 `productId/plantingDate/quantity`，却只写入 `remark`——即"必填但静默丢弃"，已修正为独立入参对象。
 
 ### 3.6 批次核验
 
@@ -1409,6 +1417,11 @@ GET /stats/overview
 
 **权限**：`stats:overview`
 
+**数据范围**：农户→本人批次，村管→本村批次，生产主体→本人建档批次，监管/管理员→全站。
+`totalBatches`、各状态计数、`totalReports`、`totalChainRecords`、`chainSuccess/Failed/Skipped`、
+`qualifiedRate`、`statusDistribution`、`villageDistribution`、`trend` **全部按同一范围收窄**，
+与列表接口的 `total` 严格一致（`chain_record` 只落 `batch_no`，服务端按可见批次号回查）。
+
 **响应 `data`**（`StatsVO`）
 
 ```json
@@ -1522,7 +1535,7 @@ GET /stats/chain-failed
 POST /correction
 ```
 
-**权限**：登录 · **角色**：`PRODUCER`、`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
+**权限**：`correction:create` · **角色**：`PRODUCER`、`VILLAGE_ADMIN`、`REGULATOR`、`ADMIN`
 
 **请求体**
 
@@ -1604,7 +1617,7 @@ GET /correction/page?page=1&size=10&batchId=1
 | | GET | `/file/download/{id}` | 公开 | — |
 | 统计 | GET | `/stats/overview` | `stats:overview` | — |
 | | GET | `/stats/chain-failed` | `chain:list` | — |
-| 更正 | POST | `/correction` | 登录 | PRODUCER, VILLAGE_ADMIN, REGULATOR, ADMIN |
+| 更正 | POST | `/correction` | `correction:create` | PRODUCER, VILLAGE_ADMIN, REGULATOR, ADMIN |
 | | GET | `/correction/page` | `batch:list` | — |
 | 系统 | GET | `/user/page` | `user:list` | — |
 | | GET | `/user/list` | `user:list` | — |

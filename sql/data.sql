@@ -4,7 +4,7 @@
 --  所有演示账号密码均为 123456（BCrypt 10 轮）
 --
 --  数据规模（对应实训任务书「素材准备」要求）：
---    · 8 个角色、41 个权限点、9 个演示账号
+--    · 8 个角色、42 个权限点、9 个演示账号
 --    · 2 个行政村、2 个农场、3 种产品
 --    · 12 个批次，其中 2 个检测异常批次（批次 2 农残超标、批次 6 重金属超标）
 --    · 每个批次的业务节点记录均不少于 4 条：
@@ -69,7 +69,8 @@ INSERT INTO `sys_permission` (`perm_code`, `perm_name`, `perm_type`, `module`, `
 ('quality:audit',    '质检报告审核',   'BUTTON','quality',  '/quality/{id}/audit',    'POST'),
 ('logistics:audit',  '物流记录审核',   'BUTTON','logistics','/logistics/{id}/audit',  'POST'),
 ('sales:audit',      '销售记录审核',   'BUTTON','sales',    '/sales/{id}/audit',      'POST'),
-('file:upload',      '文件上传',       'API',  'file',     '/file/upload',           'POST');
+('file:upload',      '文件上传',       'API',  'file',     '/file/upload',           'POST'),
+('correction:create', '提交更正说明',   'BUTTON','correction','/correction',           'POST');
 
 -- ---------------- 角色-权限 ----------------
 -- 系统管理员：全部权限
@@ -86,7 +87,8 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('REGULATOR','chain:repair'),
 ('REGULATOR','log:list'),('REGULATOR','user:list'),('REGULATOR','product:list'),
 ('REGULATOR','farm:list'),('REGULATOR','village:list'),('REGULATOR','file:upload'),
-('REGULATOR','quality:audit'),('REGULATOR','logistics:audit'),('REGULATOR','sales:audit');
+('REGULATOR','quality:audit'),('REGULATOR','logistics:audit'),('REGULATOR','sales:audit'),
+('REGULATOR','correction:create');
 
 -- 生产主体
 INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
@@ -96,7 +98,7 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('PRODUCER','sales:list'),('PRODUCER','chain:verify'),
 ('PRODUCER','abnormal:list'),('PRODUCER','product:list'),('PRODUCER','product:create'),
 ('PRODUCER','product:update'),('PRODUCER','farm:list'),('PRODUCER','file:upload'),
-('PRODUCER','abnormal:trace');
+('PRODUCER','abnormal:trace'),('PRODUCER','correction:create');
 
 -- 村级管理员：只审农户侧数据（批次核验 / 农事 / 采收）。
 -- 质检报告、物流交接、销售流水的复核属监管职责，不授予村级，避免出现
@@ -108,7 +110,8 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('VILLAGE_ADMIN','farm:create'),('VILLAGE_ADMIN','farm:update'),('VILLAGE_ADMIN','user:list'),
 ('VILLAGE_ADMIN','user:create'),('VILLAGE_ADMIN','user:update'),('VILLAGE_ADMIN','user:reset'),
 ('VILLAGE_ADMIN','chain:verify'),('VILLAGE_ADMIN','product:list'),
-('VILLAGE_ADMIN','village:list'),('VILLAGE_ADMIN','file:upload');
+('VILLAGE_ADMIN','village:list'),('VILLAGE_ADMIN','file:upload'),
+('VILLAGE_ADMIN','correction:create');
 
 -- 农户：stats:overview 必须授予——移动端工作台的"我的批次 / 异常批次 / 合格率"
 -- 三个卡片直接读该接口，服务端已按 farmer_id 收窄，不授会造成首页数字全空。

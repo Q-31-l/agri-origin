@@ -182,7 +182,7 @@ curl -i -X POST http://localhost:8080/api/quality \
 | 项 | 内容 |
 | --- | --- |
 | 步骤 | 执行 `sql/versions/patch-permission-matrix.sql` 末尾的两条自检 SQL |
-| 预期 | `悬空授权(有权限点无角色)=0` 且 `孤儿授权(有角色无权限点)=0`；权限点 41 个、角色授权 135 条 |
+| 预期 | `悬空授权(有权限点无角色)=0` 且 `孤儿授权(有角色无权限点)=0`；权限点 42 个、角色授权 139 条 |
 
 > 该用例防的是两类静默缺陷：一是代码里写了 `@RequirePerm` 但库里没有对应权限点（除管理员豁免外谁都调不通，
 > 也无法在权限页授权）；二是库里授权了某个权限点但代码从不校验，让人误以为接口受保护。
@@ -201,6 +201,27 @@ curl -i -X POST http://localhost:8080/api/quality \
 | --- | --- |
 | 步骤 | 1. `systemctl stop fisco-node@node0..3`<br>2. 请求 `GET /api/chain/status`<br>3. 重新启动四节点，等待 20 秒后再请求一次 |
 | 预期 | 第 2 步 `ready=false` 且 `message` 给出连接失败原因；第 3 步 `ready=true`、`blockNumber` 可读，**全程未重启后端进程** |
+
+#### TC-PERM-10 看板存证条数必须按数据范围收窄
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 用 `farmer02`（仅 6 个批次、6 条存证）请求 `GET /api/stats/overview`，与 SQL `SELECT COUNT(*) FROM chain_record WHERE batch_no IN (SELECT batch_no FROM biz_batch WHERE farmer_id=?)` 对比 |
+| 预期 | `data.totalChainRecords` 与 SQL 结果**完全相等**（曾为全站 100 条，属越权泄露平台总量）；`chainSuccess/chainFailed/chainSkipped` 之和与之一致 |
+
+#### TC-PERM-11 更正说明的权限点可收回
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 1. `producer01` 提交更正说明<br>2. `farmer01`、`seller01` 分别提交同一接口 |
+| 预期 | 第 1 步 200；第 2、3 步 403（角色门禁 + `correction:create` 双约束）；在 `sys_role_permission` 中删除该授权后重启，`producer01` 亦变为 403 |
+
+#### TC-BATCH-06 修改批次只传备注
+
+| 项 | 内容 |
+| --- | --- |
+| 步骤 | 对一个 `status=PLANTING` 且 `audit_status=PENDING` 的批次执行 `PUT /api/batch/{id}`，请求体仅 `{"remark":"..."}` |
+| 预期 | 200；备注已落库；不再要求 `productId/plantingDate/quantity`（历史缺陷：必填但静默丢弃） |
 
 ---
 

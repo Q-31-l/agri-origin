@@ -719,6 +719,27 @@ python3 scripts/e2e-acceptance.py
 
 脚本直连 `http://127.0.0.1:8080/api`，需在服务器本机执行（避免公网抖动影响判定）。
 
+### 10.5 日志轮转（必做）
+
+`ops/agri-backend.service` 用 systemd 的 `StandardOutput=append:` 把标准输出直接追加到
+`/opt/agri-origin/app/backend.log`，systemd 自身不做轮转，Spring Boot 也没有配置文件输出。
+**若不配置 logrotate，该文件会无限增长**（实测约 9MB/天，一年约 3GB，逐步吃满根分区）。
+
+```bash
+cp ops/logrotate-agri-origin.conf /etc/logrotate.d/agri-origin
+chmod 644 /etc/logrotate.d/agri-origin
+logrotate -d /etc/logrotate.d/agri-origin   # 演练，确认无语法错误
+```
+
+关键点：
+
+- 必须用 `copytruncate`。systemd 以 `O_APPEND` 长期持有该文件句柄，直接 `mv` 重命名后
+  进程仍写旧 inode，新文件永远是空的；`copytruncate` 先复制再截断，无需重启服务。
+- 策略为 `daily + maxsize 50M + rotate 14 + compress`：无论按时间还是按体积，都不会失控。
+
+> 首次安装时 `logrotate -d` 可能提示 `log has already been rotated`。这是因为尚无状态记录时
+> logrotate 以日志文件的 mtime 作为上次轮转时间，属正常现象，次日或超过 50MB 即会轮转。
+
 ---
 
 ## 十一、附录：一键本地启动脚本

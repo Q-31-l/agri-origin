@@ -5,6 +5,7 @@ import com.agri.trace.common.PageResult;
 import com.agri.trace.common.R;
 import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.BatchDTO;
+import com.agri.trace.dto.BatchUpdateDTO;
 import com.agri.trace.entity.BizBatch;
 import com.agri.trace.security.RequirePerm;
 import com.agri.trace.security.RequireRoles;
@@ -76,10 +77,10 @@ public class BatchController {
         return R.ok("批次创建成功", batchService.create(dto));
     }
 
-    @Operation(summary = "修改批次（仅备注，核心字段不可改）")
+    @Operation(summary = "修改批次备注（建档要素不可改，须走更正说明）")
     @RequirePerm("batch:update")
     @PutMapping("/{id}")
-    public R<Void> update(@PathVariable Long id, @Valid @RequestBody BatchDTO dto) {
+    public R<Void> update(@PathVariable Long id, @Valid @RequestBody BatchUpdateDTO dto) {
         batchService.update(id, dto);
         return R.ok();
     }

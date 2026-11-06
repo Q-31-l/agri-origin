@@ -74,10 +74,17 @@ public class StatsService {
 
         // 质检报告与合格率必须与批次范围同口径，否则会出现"总量 2 条、合格率基于全站 7 条"的错位
         List<Long> visibleBatchIds = null;
+        List<String> visibleBatchNos = null;
         if (farmerId != null || villageId != null || createBy != null) {
             visibleBatchIds = batchService.visibleBatchIds(user);
             if (visibleBatchIds == null) {
                 visibleBatchIds = java.util.Collections.emptyList();
+            }
+            // 存证表只有 batch_no，看板上的存证条数同样要按范围收窄，
+            // 否则农户看到的是全站存证总量（口径与列表不一致）
+            visibleBatchNos = batchService.visibleBatchNos(user);
+            if (visibleBatchNos == null) {
+                visibleBatchNos = java.util.Collections.emptyList();
             }
         }
         LambdaQueryWrapper<BizQualityReport> reportScope = Wrappers.lambdaQuery();
@@ -86,6 +93,10 @@ public class StatsService {
                 vo.setTotalReports(0L);
                 vo.setQualifiedRate(0);
                 vo.setTotalChainRecords(0L);
+                vo.setChainSuccess(0L);
+                vo.setChainFailed(0L);
+                vo.setChainSkipped(0L);
+                vo.setChainSuccessRate(0);
                 vo.setStatusDistribution(batchMapper.countByStatus(farmerId, villageId, createBy));
                 vo.setVillageDistribution(batchMapper.countByVillage(farmerId, villageId, createBy));
                 vo.setTrend(batchMapper.countByDay(farmerId, villageId, createBy));
@@ -94,14 +105,11 @@ public class StatsService {
             reportScope.in(BizQualityReport::getBatchId, visibleBatchIds);
         }
         vo.setTotalReports(qualityMapper.selectCount(reportScope));
-        vo.setTotalChainRecords(chainRecordMapper.selectCount(Wrappers.emptyWrapper()));
+        vo.setTotalChainRecords(chainCount(visibleBatchNos, null));
 
-        long success = chainRecordMapper.selectCount(Wrappers.<ChainRecord>lambdaQuery()
-                .eq(ChainRecord::getStatus, Constants.CHAIN_SUCCESS));
-        long failed = chainRecordMapper.selectCount(Wrappers.<ChainRecord>lambdaQuery()
-                .eq(ChainRecord::getStatus, Constants.CHAIN_FAILED));
-        long skipped = chainRecordMapper.selectCount(Wrappers.<ChainRecord>lambdaQuery()
-                .eq(ChainRecord::getStatus, Constants.CHAIN_SKIPPED));
+        long success = chainCount(visibleBatchNos, Constants.CHAIN_SUCCESS);
+        long failed = chainCount(visibleBatchNos, Constants.CHAIN_FAILED);
+        long skipped = chainCount(visibleBatchNos, Constants.CHAIN_SKIPPED);
         vo.setChainSuccess(success);
         vo.setChainFailed(failed);
         vo.setChainSkipped(skipped);
@@ -141,6 +149,23 @@ public class StatsService {
 
     private long count(LoginUser user, String status) {
         return batchMapper.selectCount(scope(user).eq(BizBatch::getStatus, status));
+    }
+
+    /**
+     * 存证条数统计。
+     *
+     * @param batchNos 可见批次号；null 表示不受限（监管方、管理员）
+     * @param status   存证状态；null 表示不限状态
+     */
+    private long chainCount(List<String> batchNos, String status) {
+        if (batchNos != null && batchNos.isEmpty()) {
+            return 0L;
+        }
+        LambdaQueryWrapper<ChainRecord> wrapper = Wrappers.<ChainRecord>lambdaQuery()
+                .eq(status != null, ChainRecord::getStatus, status)
+                .in(batchNos != null, ChainRecord::getBatchNo, batchNos);
+        Long count = chainRecordMapper.selectCount(wrapper);
+        return count == null ? 0L : count;
     }
 
     private double round(double value) {

@@ -8,6 +8,7 @@ import com.agri.trace.common.PageResult;
 import com.agri.trace.common.ResultCode;
 import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.BatchDTO;
+import com.agri.trace.dto.BatchUpdateDTO;
 import com.agri.trace.entity.BaseFarm;
 import com.agri.trace.entity.BaseProduct;
 import com.agri.trace.entity.BaseVillage;
@@ -188,16 +189,7 @@ public class BatchService {
      */
     public List<Long> visibleBatchIds(LoginUser user) {
         LambdaQueryWrapper<BizBatch> wrapper = Wrappers.<BizBatch>lambdaQuery().select(BizBatch::getId);
-        if (Constants.ROLE_FARMER.equals(user.getRoleCode())) {
-            wrapper.eq(BizBatch::getFarmerId, user.getUserId());
-        } else if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())) {
-            if (user.getVillageId() == null) {
-                return new ArrayList<>();
-            }
-            wrapper.eq(BizBatch::getVillageId, user.getVillageId());
-        } else if (Constants.ROLE_PRODUCER.equals(user.getRoleCode())) {
-            wrapper.eq(BizBatch::getCreateBy, user.getUserId());
-        } else {
+        if (!scopeByRole(wrapper, user)) {
             return null;
         }
         List<Long> ids = new ArrayList<>();
@@ -205,6 +197,24 @@ public class BatchService {
             ids.add(b.getId());
         }
         return ids;
+    }
+
+    /**
+     * 当前用户可见的批次号集合。存证表 chain_record 只落 batch_no、没有 batch_id，
+     * 看板上的存证条数/成功率必须按批次号收窄，否则农户会看到全站存证总量。
+     *
+     * @return null 表示不受限（监管方、管理员）
+     */
+    public List<String> visibleBatchNos(LoginUser user) {
+        LambdaQueryWrapper<BizBatch> wrapper = Wrappers.<BizBatch>lambdaQuery().select(BizBatch::getBatchNo);
+        if (!scopeByRole(wrapper, user)) {
+            return null;
+        }
+        List<String> nos = new ArrayList<>();
+        for (BizBatch b : batchMapper.selectList(wrapper)) {
+            nos.add(b.getBatchNo());
+        }
+        return nos;
     }
 
     @Transactional
@@ -350,7 +360,7 @@ public class BatchService {
      * 批次核心字段不可修改：仅允许补充备注，录入错误走"更正说明"
      */
     @Transactional
-    public void update(Long id, BatchDTO dto) {
+    public void update(Long id, BatchUpdateDTO dto) {
         BizBatch batch = getAuthorized(id);
         if (!Constants.BATCH_PLANTING.equals(batch.getStatus())) {
             throw BizException.status("批次已进入后续流转，不可修改；如有错误请提交更正说明");
@@ -654,14 +664,35 @@ public class BatchService {
         item.setChainStatus(record.getStatus());
     }
 
-    private void applyScope(LambdaQueryWrapper<BizBatch> wrapper, LoginUser user) {
+    /**
+     * 数据范围的唯一实现：列表、子表、看板、存证流水全部走这里，避免各处口径漂移。
+     *
+     * @return true 表示已按角色收窄（可能收窄为空集）；false 表示不受限（监管方、管理员）
+     */
+    private boolean scopeByRole(LambdaQueryWrapper<BizBatch> wrapper, LoginUser user) {
         if (Constants.ROLE_FARMER.equals(user.getRoleCode())) {
             wrapper.eq(BizBatch::getFarmerId, user.getUserId());
-        } else if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())) {
-            wrapper.eq(BizBatch::getVillageId, user.getVillageId());
-        } else if (Constants.ROLE_PRODUCER.equals(user.getRoleCode())) {
-            wrapper.eq(BizBatch::getCreateBy, user.getUserId());
+            return true;
         }
+        if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())) {
+            if (user.getVillageId() == null) {
+                // 未绑定村落的村管不应看到任何批次。用恒假条件表达，
+                // 不能写成 village_id = null（SQL 里永远不成立，却依赖 NULL 语义、也容易被误读）
+                wrapper.apply("1 = 0");
+            } else {
+                wrapper.eq(BizBatch::getVillageId, user.getVillageId());
+            }
+            return true;
+        }
+        if (Constants.ROLE_PRODUCER.equals(user.getRoleCode())) {
+            wrapper.eq(BizBatch::getCreateBy, user.getUserId());
+            return true;
+        }
+        return false;
+    }
+
+    private void applyScope(LambdaQueryWrapper<BizBatch> wrapper, LoginUser user) {
+        scopeByRole(wrapper, user);
     }
 
     /**
