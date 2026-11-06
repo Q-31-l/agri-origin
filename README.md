@@ -373,6 +373,7 @@ python3 scripts/e2e-acceptance.py     # 8 角色登录 → 全流程真实上链
 - [docs/assets/README.md](docs/assets/README.md) —— 流程图、用例图、模拟质检报告与农产品图片素材
 - [contracts/README.md](contracts/README.md) —— 合约设计与部署说明
 - [docs/项目一核对报告.md](docs/项目一核对报告.md) —— 实训任务书逐条核对（需求→实现→证据）
+- [docs/WeBASE-Front-HTTP调用实战.md](docs/WeBASE-Front-HTTP调用实战.md) —— 第二种链上接入方式：HTTP 调用实现（本项目实测）
 - [docs/deploy.md §11.6](docs/deploy.md#116-webase-front-http-调用实战) —— 第二种链上接入方式：HTTP 调用实战
 
 ## 九、验收演示路径（建议 10 分钟）
