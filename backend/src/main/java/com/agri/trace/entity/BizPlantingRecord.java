@@ -33,6 +33,8 @@ public class BizPlantingRecord {
     private String operatorName;
     private String images;
     private String gps;
+    /** 作业地点文本：农场档案地址 + 自动定位坐标，解决"只存坐标没人看得懂" */
+    private String location;
 
     private String auditStatus;
     private String auditRemark;

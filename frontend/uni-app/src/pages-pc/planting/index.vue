@@ -76,11 +76,24 @@
           <view class="pc-form-grid">
             <view class="pc-field">
               <text class="pc-label">所属批次<text class="req">*</text></text>
-              <pc-select v-model="form.batchId" :options="batchOpts" placeholder="请选择批次" width="100%" />
+              <pc-select
+                v-model="form.batchId"
+                :options="batchPickOpts"
+                placeholder="请选择批次"
+                width="100%"
+                pop-width="360px"
+              />
             </view>
             <view class="pc-field">
               <text class="pc-label">操作类型</text>
               <pc-select v-model="form.recordType" :options="typeOptions" width="100%" />
+            </view>
+            <view v-if="selectedBatch" class="pc-field full">
+              <view class="binfo">
+                <text class="binfo-t">{{ batchDesc(selectedBatch) || '未关联农场' }}</text>
+                <pc-status :value="selectedBatch.status" type="batch" />
+                <pc-status :value="selectedBatch.auditStatus" type="audit" />
+              </view>
             </view>
             <view class="pc-field">
               <text class="pc-label">操作日期<text class="req">*</text></text>
@@ -99,8 +112,14 @@
               <input class="pc-input" v-model="form.dosage" placeholder="如：20kg/亩" />
             </view>
             <view class="pc-field">
-              <text class="pc-label">GPS 坐标</text>
-              <input class="pc-input" v-model="form.gps" placeholder="如：113.26,23.13" />
+              <text class="pc-label">作业地点</text>
+              <view class="loc">
+                <view class="loc-main">
+                  <text class="loc-t" :class="{ ph: !form.location }">{{ form.location || '待定位' }}</text>
+                  <text class="loc-note">{{ locNote }}</text>
+                </view>
+                <text class="loc-r" @click="autoLocate">{{ locating ? '定位中…' : '重测' }}</text>
+              </view>
             </view>
             <view class="pc-field full">
               <text class="pc-label">操作内容<text class="req">*</text></text>
@@ -111,8 +130,9 @@
                 maxlength="300"></textarea>
             </view>
             <view class="pc-field full">
-              <text class="pc-label">现场实证（图片 / 视频）</text>
+              <text class="pc-label">现场实证（图片 / 视频）<text class="req">*</text></text>
               <evidence-uploader ref="uploader" v-model="evidenceFiles" :max="6" />
+              <text class="pc-hint">至少上传 1 个图片或视频；证据哈希会随本次记录一并上链。</text>
             </view>
           </view>
         </view>
@@ -122,7 +142,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import PcShell from '@/layouts/pc-shell.vue'
 import PcSelect from '@/components/pc/pc-select.vue'
@@ -135,6 +155,8 @@ import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
 import { PLANTING_TYPE_OPTIONS, plantingTypeLabel } from '@/config/constants'
+import { batchDesc, batchPlace, toBatchOption } from '@/utils/batch-label'
+import { locate, formatCoord, explainLocationError } from '@/utils/geo'
 
 const store = useUserStore()
 const cache = useCacheStore()
@@ -142,7 +164,10 @@ const cache = useCacheStore()
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
+/** 查询下拉：全部批次，方便回查历史 */
 const batches = ref([])
+/** 新增下拉：只放能真正录进去的（种植中 + 已核验 + 无异常） */
+const creatableBatches = ref([])
 
 const query = reactive({ page: 1, size: 10, batchId: '', batchNo: '' })
 
@@ -197,6 +222,9 @@ const batchOpts = computed(() =>
   }))
 )
 
+/** 新增弹窗里的批次下拉：两行 + 状态，避免只看到流水码选错批次 */
+const batchPickOpts = computed(() => creatableBatches.value.map(toBatchOption))
+
 const typeOptions = PLANTING_TYPE_OPTIONS
 
 async function loadBatches() {
@@ -205,6 +233,15 @@ async function loadBatches() {
     batches.value = (await batchOptions()).data || []
   } catch (e) {
     batches.value = []
+  }
+}
+
+/** 每次开弹窗都重新拉：别的端刚审核通过/刚采收，批次状态随时会变 */
+async function loadCreatableBatches() {
+  try {
+    creatableBatches.value = (await batchOptions({ status: 'PLANTING', usable: true })).data || []
+  } catch (e) {
+    creatableBatches.value = []
   }
 }
 
@@ -256,8 +293,50 @@ const form = reactive({
   content: '',
   materialName: '',
   dosage: '',
-  gps: ''
+  gps: '',
+  location: ''
 })
+
+const selectedBatch = computed(
+  () => creatableBatches.value.find((b) => String(b.id) === String(form.batchId)) || null
+)
+
+const locating = ref(false)
+const locNote = ref('')
+
+/** 作业地点 = 地块（村 + 农场）+ 自动定位坐标，人看得懂、机器也对得上 */
+function composeLocation() {
+  const base = batchPlace(selectedBatch.value)
+  if (!form.gps) {
+    form.location = base
+    return
+  }
+  form.location = base ? `${base}（${form.gps}）` : `已定位 ${form.gps}`
+}
+
+/**
+ * 打开新增就自动定位，不需要用户点。
+ * 定位失败不阻塞提交：地点退回"村 + 农场"，坐标留空，并在下方说明原因。
+ */
+async function autoLocate() {
+  if (locating.value) return
+  locating.value = true
+  locNote.value = '正在获取当前位置…'
+  try {
+    const pos = await locate({ timeout: 8000 })
+    form.gps = formatCoord(pos.lat, pos.lng)
+    locNote.value = `已自动定位${pos.accuracy ? `（精度约 ${pos.accuracy} 米）` : ''}`
+  } catch (e) {
+    form.gps = ''
+    locNote.value = explainLocationError(e)
+  } finally {
+    locating.value = false
+    composeLocation()
+  }
+}
+
+// 换批次时地块会变，地点文本要跟着更新（坐标仍保留本次定位结果）
+watch(() => form.batchId, composeLocation)
 
 function today() {
   const d = new Date()
@@ -270,7 +349,7 @@ function onDate(e) {
 }
 
 async function openCreate() {
-  await loadBatches()
+  await loadCreatableBatches()
   form.batchId = ''
   form.recordType = 'SOIL'
   form.operationDate = today()
@@ -278,7 +357,12 @@ async function openCreate() {
   form.materialName = ''
   form.dosage = ''
   form.gps = ''
+  form.location = ''
+  evidenceFiles.value = []
   createVisible.value = true
+  locNote.value = ''
+  // 弹窗一打开就定位，用户不用点任何按钮
+  autoLocate()
 }
 
 async function submit() {
@@ -286,6 +370,9 @@ async function submit() {
   if (!form.batchId) return toast('请选择所属批次')
   if (!form.operationDate) return toast('请选择操作日期')
   if (!form.content.trim()) return toast('请填写操作内容')
+  if (uploader.value && uploader.value.isUploading()) return toast('实证文件仍在上传，请稍候')
+  const ids = uploader.value ? uploader.value.ids() : []
+  if (!ids.length) return toast('请上传现场实证（图片或视频至少 1 个）')
 
   submitting.value = true
   try {
@@ -297,7 +384,8 @@ async function submit() {
       materialName: form.materialName,
       dosage: form.dosage,
       gps: form.gps,
-      evidenceIds: uploader.value ? uploader.value.ids() : []
+      location: form.location,
+      evidenceIds: ids
     })
     uni.showToast({ title: '记录已提交', icon: 'success' })
     createVisible.value = false
@@ -311,7 +399,11 @@ async function submit() {
   }
 }
 
-onShow(load)
+// 查询下拉的候选批次要在进页面时就备好，不能等用户点过"新增"才加载
+onShow(() => {
+  load()
+  loadBatches()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -347,5 +439,63 @@ onShow(load)
 .picker-box .ph {
   color: #b6bec9;
   font-size: 12px;
+}
+.binfo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #f6faf7;
+  border: 1px solid #e3efe7;
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+.binfo-t {
+  font-size: 11.5px;
+  color: #5b6b7a;
+}
+.loc {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  border: 1px solid #dfe5ec;
+  border-radius: 6px;
+  background: #fbfcfd;
+  padding: 4px 10px;
+  box-sizing: border-box;
+}
+.loc-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.loc-t {
+  font-size: 12px;
+  color: #334155;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.loc-t.ph {
+  color: #b6bec9;
+}
+.loc-note {
+  font-size: 10.5px;
+  color: #93a0ad;
+  margin-top: 1px;
+}
+.loc-r {
+  font-size: 11.5px;
+  color: #1f7a4d;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.loc-r:hover {
+  text-decoration: underline;
 }
 </style>

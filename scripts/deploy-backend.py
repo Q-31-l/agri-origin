@@ -109,7 +109,8 @@ def main():
         ok = False
         for _ in range(30):
             time.sleep(2)
-            code, o, e = run("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/api/chain/status")
+            # 必须直连 8080：站点的 80 端口已 301 到 HTTPS，curl 不加 -L 只会拿到 301
+            code, o, e = run("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/chain/status")
             if o.strip() in ("200", "401"):
                 ok = True
                 break

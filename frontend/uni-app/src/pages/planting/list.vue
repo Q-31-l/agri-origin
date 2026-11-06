@@ -8,7 +8,7 @@
       <view v-for="p in list" :key="p.id" class="row-card" @click="toBatch(p)">
         <view class="rc-head">
           <view class="row">
-            <text class="type">{{ p.recordType }}</text>
+            <text class="type">{{ plantingTypeLabel(p.recordType) }}</text>
             <status-tag v-if="p.auditStatus" :value="p.auditStatus" type="audit" />
           </view>
           <text class="date">{{ formatDate(p.operationDate) }}</text>
@@ -36,6 +36,7 @@ import LoadMore from '@/components/common/load-more.vue'
 import { useList } from '@/composables/useList'
 import { plantingPage } from '@/api'
 import { formatDate } from '@/utils/format'
+import { plantingTypeLabel } from '@/config/constants'
 import { nav } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
 

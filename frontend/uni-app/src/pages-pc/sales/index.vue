@@ -78,7 +78,13 @@
           <view class="pc-form-grid">
             <view class="pc-field">
               <text class="pc-label">所属批次<text class="req">*</text></text>
-              <pc-select v-model="form.batchId" :options="batchOpts" placeholder="请选择批次" width="100%" />
+              <pc-select
+                v-model="form.batchId"
+                :options="batchPickOpts"
+                placeholder="请选择批次"
+                width="100%"
+                pop-width="360px"
+              />
             </view>
             <view class="pc-field">
               <text class="pc-label">销售日期<text class="req">*</text></text>
@@ -156,6 +162,7 @@ import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
 import { formatQty } from '@/utils/format'
+import { toBatchOption } from '@/utils/batch-label'
 
 const store = useUserStore()
 const cache = useCacheStore()
@@ -164,6 +171,8 @@ const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const batches = ref([])
+/** 新增弹窗用：可销售的批次 */
+const creatableBatches = ref([])
 
 const query = reactive({ page: 1, size: 10, batchId: '', batchNo: '' })
 
@@ -177,12 +186,16 @@ function canAuditRow(r) {
   )
 }
 
+/** 查询下拉：全部批次 */
 const batchOpts = computed(() =>
   batches.value.map((b) => ({
     value: b.id,
     label: `${b.batchNo} · ${b.productName || ''}`
   }))
 )
+
+/** 新增下拉：两行 + 状态 */
+const batchPickOpts = computed(() => creatableBatches.value.map(toBatchOption))
 
 const unitOptions = ['kg', '吨', '斤', '箱', '件'].map((u) => ({ value: u, label: u }))
 
@@ -197,15 +210,27 @@ function amount(r) {
   return `￥${(p * q).toFixed(2)}`
 }
 
+/** 查询下拉：全部批次 */
 async function loadBatches() {
   if (batches.value.length) return
   try {
-    const res = await batchOptions()
-    batches.value = (res.data || []).filter((b) =>
-      ['QUALIFIED', 'IN_TRANSIT', 'ON_SALE'].includes(b.status)
-    )
+    batches.value = (await batchOptions()).data || []
   } catch (e) {
     batches.value = []
+  }
+}
+
+/**
+ * 新增下拉：运输中 + 销售中，且已核验、无异常。
+ * 原先前端按 QUALIFIED/IN_TRANSIT/ON_SALE 过滤，但后端只认 IN_TRANSIT/ON_SALE，
+ * 于是"已质检合格"的批次能选、点了却被拒——过滤口径必须与后端一致。
+ */
+async function loadCreatableBatches() {
+  try {
+    creatableBatches.value =
+      (await batchOptions({ status: 'IN_TRANSIT,ON_SALE', usable: true })).data || []
+  } catch (e) {
+    creatableBatches.value = []
   }
 }
 
@@ -271,7 +296,7 @@ const form = reactive({
 })
 
 async function openCreate() {
-  await loadBatches()
+  await loadCreatableBatches()
   form.batchId = ''
   form.salesDate = today()
   form.marketName = ''
@@ -349,7 +374,10 @@ async function submitAudit() {
   }
 }
 
-onShow(load)
+onShow(() => {
+  load()
+  loadBatches()
+})
 </script>
 
 <style lang="scss" scoped>

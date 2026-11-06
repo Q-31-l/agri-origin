@@ -121,7 +121,10 @@
                   <view v-for="r in plantings" :key="r.id" class="pc-tr">
                     <text class="pc-td">{{ r.operationDate || '-' }}</text>
                     <text class="pc-td">{{ plantingTypeLabel(r.recordType) }}</text>
-                    <view class="pc-td f2">{{ r.content || '-' }}</view>
+                    <view class="pc-td f2">
+                      <text class="cell-main">{{ r.content || '-' }}</text>
+                      <text v-if="r.location" class="cell-sub">作业地点：{{ r.location }}</text>
+                    </view>
                     <text class="pc-td">{{ r.materialName || '-' }}</text>
                     <text class="pc-td">{{ r.dosage || '-' }}</text>
                     <text class="pc-td">{{ r.operatorName || '-' }}</text>
@@ -774,6 +777,17 @@ function openFile(r) {
 .pc-thead.inner .pc-th.f2,
 .pc-tr .pc-td.f2 {
   flex: 2;
+}
+.cell-main {
+  display: block;
+  line-height: 1.45;
+}
+.cell-sub {
+  display: block;
+  font-size: 10.5px;
+  color: #97a3b0;
+  margin-top: 2px;
+  line-height: 1.4;
 }
 .center {
   display: flex;

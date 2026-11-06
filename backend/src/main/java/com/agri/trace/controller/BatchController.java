@@ -55,11 +55,12 @@ public class BatchController {
                 villageId, farmId, farmerId, startDate, endDate));
     }
 
-    @Operation(summary = "批次下拉选项")
+    @Operation(summary = "批次下拉选项（usable=true 只返回可录入的：指定状态 + 已核验 + 无异常）")
     @RequirePerm("batch:list")
     @GetMapping("/options")
-    public R<List<BizBatch>> options(@RequestParam(required = false) String status) {
-        return R.ok(batchService.listForSelect(status));
+    public R<List<BizBatch>> options(@RequestParam(required = false) String status,
+                                     @RequestParam(required = false) Boolean usable) {
+        return R.ok(batchService.listForSelect(status, usable));
     }
 
     @Operation(summary = "批次详情（全流程数据 + 时间轴 + 存证流水）")

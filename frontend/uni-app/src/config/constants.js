@@ -89,6 +89,26 @@ export function plantingTypeLabel(code) {
   return hit ? hit.text : code || '-'
 }
 
+/**
+ * 天气选项。采收登记会按当天实况自动填入其中一个，用户也能改。
+ * 取值必须与后端 WeatherService.wmoText 的输出一一对应，否则自动填进来的
+ * 值在下拉里找不到，会显示成空白。
+ */
+export const WEATHER_OPTIONS = [
+  '晴',
+  '多云',
+  '阴',
+  '小雨',
+  '中雨',
+  '大雨',
+  '阵雨',
+  '雷阵雨',
+  '冻雨',
+  '雪',
+  '阵雪',
+  '雾'
+].map((v) => ({ value: v, label: v }))
+
 /** 异常类型：与后端 dict(abnormal_type) 保持一致 */
 export const ABNORMAL_TYPE = {
   PESTICIDE: { text: '农药残留超标' },

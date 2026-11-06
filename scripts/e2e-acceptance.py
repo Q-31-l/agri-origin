@@ -115,9 +115,11 @@ def main():
     check("农事记录带真实交易哈希", pl.get("chainStatus") == "SUCCESS" and str(pl.get("chainTxHash", "")).startswith("0x"),
           "chainStatus=%s tx=%s block=%s" % (pl.get("chainStatus"), pl.get("chainTxHash"), pl.get("blockNumber")))
 
-    # 重复提交应 409
+    # 重复提交应 409（现场实证是必填项，这里仍要带上，否则先被参数校验拦成 400，
+    # 就测不到"重复"这条业务规则了）
     st, j = call("POST", "/planting", "farmer01", json={
-        "batchId": bid, "recordType": "FERTILIZE", "operationDate": today(), "content": "重复提交"})
+        "batchId": bid, "recordType": "FERTILIZE", "operationDate": today(),
+        "content": "重复提交", "evidenceIds": [f_plant["id"]]})
     check("重复农事被拦截(409)", st == 409, "http=%s code=%s" % (st, j.get("code")))
 
     st, j = call("POST", "/harvest", "farmer01", json={
@@ -205,8 +207,10 @@ def main():
     check("创建异常测试批次", j.get("code") == 0, j)
     b2 = batch_of("producer01", bid2)
     call("POST", "/batch/%d/audit" % bid2, "village01", json={"auditStatus": "APPROVED"})
+    f_harvest2 = upload("farmer01", "E2E 异常批次采收现场照片")
     st, j = call("POST", "/harvest", "farmer01", json={
-        "batchId": bid2, "harvestDate": today(), "quantity": 200, "qualityLevel": "B"})
+        "batchId": bid2, "harvestDate": today(), "quantity": 200, "qualityLevel": "B",
+        "weather": "多云", "evidenceIds": [f_harvest2["id"]]})
     check("异常批次采收登记", j.get("code") == 0, j)
 
     qf2 = upload("inspector01", "E2E 质检报告 FAIL")

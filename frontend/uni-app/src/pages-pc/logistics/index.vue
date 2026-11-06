@@ -81,7 +81,13 @@
           <view class="pc-form-grid">
             <view class="pc-field">
               <text class="pc-label">所属批次<text class="req">*</text></text>
-              <pc-select v-model="form.batchId" :options="batchOpts" placeholder="请选择批次" width="100%" />
+              <pc-select
+                v-model="form.batchId"
+                :options="batchPickOpts"
+                placeholder="请选择批次"
+                width="100%"
+                pop-width="360px"
+              />
             </view>
             <view class="pc-field">
               <text class="pc-label">物流单号</text>
@@ -175,6 +181,7 @@ import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
 import { formatDateTime } from '@/utils/format'
+import { toBatchOption } from '@/utils/batch-label'
 
 const store = useUserStore()
 const cache = useCacheStore()
@@ -183,6 +190,8 @@ const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const batches = ref([])
+/** 新增弹窗用：可发运的批次 */
+const creatableBatches = ref([])
 
 const query = reactive({ page: 1, size: 10, batchId: '', batchNo: '' })
 
@@ -196,12 +205,16 @@ function canAuditRow(r) {
   )
 }
 
+/** 查询下拉：全部批次 */
 const batchOpts = computed(() =>
   batches.value.map((b) => ({
     value: b.id,
     label: `${b.batchNo} · ${b.productName || ''}`
   }))
 )
+
+/** 新增下拉：只给能发运的（质检合格 / 运输中），两行 + 状态 */
+const batchPickOpts = computed(() => creatableBatches.value.map(toBatchOption))
 
 const STATUS_TEXT = {
   DEPARTED: '运输中',
@@ -213,12 +226,23 @@ function statusText(s) {
   return STATUS_TEXT[s] || s || '-'
 }
 
+/** 查询下拉：全部批次（含已发运的，要能回查历史） */
 async function loadBatches() {
   if (batches.value.length) return
   try {
-    batches.value = (await batchOptions({ status: 'QUALIFIED' })).data || []
+    batches.value = (await batchOptions()).data || []
   } catch (e) {
     batches.value = []
+  }
+}
+
+/** 新增下拉：质检合格 + 运输中（中转/多次发运），且已核验、无异常 */
+async function loadCreatableBatches() {
+  try {
+    creatableBatches.value =
+      (await batchOptions({ status: 'QUALIFIED,IN_TRANSIT', usable: true })).data || []
+  } catch (e) {
+    creatableBatches.value = []
   }
 }
 
@@ -289,7 +313,7 @@ const form = reactive({
 })
 
 async function openCreate() {
-  await loadBatches()
+  await loadCreatableBatches()
   form.batchId = ''
   form.logisticsNo = ''
   form.fromOrg = ''
@@ -375,7 +399,10 @@ async function submitAudit() {
   }
 }
 
-onShow(load)
+onShow(() => {
+  load()
+  loadBatches()
+})
 </script>
 
 <style lang="scss" scoped>

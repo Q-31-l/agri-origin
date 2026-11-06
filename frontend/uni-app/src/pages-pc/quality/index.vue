@@ -80,7 +80,13 @@
           <view class="pc-form-grid">
             <view class="pc-field">
               <text class="pc-label">所属批次<text class="req">*</text></text>
-              <pc-select v-model="form.batchId" :options="batchOpts" placeholder="请选择批次" width="100%" />
+              <pc-select
+                v-model="form.batchId"
+                :options="batchOpts"
+                placeholder="请选择批次"
+                width="100%"
+                pop-width="360px"
+              />
             </view>
             <view class="pc-field">
               <text class="pc-label">报告编号<text class="req">*</text></text>
@@ -193,6 +199,7 @@ import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
 import { resolveFileUrl } from '@/utils/file'
 import { chooseFile, uploadFile } from '@/utils/upload'
+import { toBatchOption } from '@/utils/batch-label'
 
 const store = useUserStore()
 const cache = useCacheStore()
@@ -214,12 +221,8 @@ function canAuditRow(r) {
   )
 }
 
-const batchOpts = computed(() =>
-  batches.value.map((b) => ({
-    value: b.id,
-    label: `${b.batchNo} · ${b.productName || ''}`
-  }))
-)
+/** 两行 + 状态：只给批次号看不出是哪个地块的什么作物 */
+const batchOpts = computed(() => batches.value.map(toBatchOption))
 
 const resultOptions = [
   { value: 'PASS', label: '合格' },
@@ -231,10 +234,14 @@ const itemResultOptions = [
   { value: 'FAIL', label: '不合格' }
 ]
 
+/**
+ * 可录检测报告的批次：已采收或已合格（复检），且已通过村级核验、无异常。
+ * 每次开弹窗都重拉——别的端刚采收完，状态随时会变。
+ */
 async function loadBatches() {
-  if (batches.value.length) return
   try {
-    batches.value = (await batchOptions({ status: 'HARVESTED' })).data || []
+    batches.value =
+      (await batchOptions({ status: 'HARVESTED,QUALIFIED', usable: true })).data || []
   } catch (e) {
     batches.value = []
   }

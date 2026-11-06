@@ -1,12 +1,18 @@
 <template>
   <view class="form-page">
     <view class="group">
-      <batch-picker v-model="form.batchId" label="批次" required :status="''" />
+      <batch-picker
+        v-model="form.batchId"
+        label="批次"
+        required
+        status="PLANTING"
+        usable
+        @change="onBatchChange" />
 
       <view class="row">
         <text class="label required">农事类型</text>
         <picker mode="selector" :range="types" @change="onTypeChange">
-          <text class="value">{{ form.recordType || '请选择' }}</text>
+          <text class="value" :class="{ ph: !form.recordType }">{{ form.recordType ? plantingTypeLabel(form.recordType) : '请选择' }}</text>
         </picker>
         <text class="arrow">›</text>
       </view>
@@ -45,8 +51,8 @@
     <view class="group">
       <view class="col-item">
         <view class="between">
-          <text class="label">现场实证</text>
-          <text class="hint">图片 / 视频</text>
+          <text class="label required">现场实证</text>
+          <text class="hint">图片 / 视频，至少 1 个</text>
         </view>
         <view class="uploader-wrap">
           <evidence-uploader ref="uploader" v-model="images" :max="6" />
@@ -55,10 +61,13 @@
     </view>
 
     <view class="group">
-      <view class="row" @click="getGps">
-        <text class="label">作业地点</text>
-        <text class="value" :class="{ ph: !form.gps }">{{ form.gps || '点击获取当前位置' }}</text>
-        <text class="arrow">◎</text>
+      <view class="col-item">
+        <view class="between">
+          <text class="label">作业地点</text>
+          <text class="relocate" @click="autoLocate">{{ locating ? '定位中…' : '重新定位' }}</text>
+        </view>
+        <text class="loc-text" :class="{ ph: !form.location }">{{ form.location || (locating ? '正在获取当前位置…' : '请选择批次，自动带出地块') }}</text>
+        <text v-if="locNote" class="loc-note">{{ locNote }}</text>
       </view>
     </view>
 
@@ -79,7 +88,9 @@ import { createPlanting } from '@/api'
 import { useForm } from '@/composables/useForm'
 import { useCacheStore } from '@/store/cache'
 import { toast } from '@/utils/ui'
-import { PLANTING_TYPE_OPTIONS } from '@/config/constants'
+import { PLANTING_TYPE_OPTIONS, plantingTypeLabel } from '@/config/constants'
+import { batchPlace } from '@/utils/batch-label'
+import { locate, formatCoord, explainLocationError } from '@/utils/geo'
 import { back } from '@/utils/router'
 
 const cache = useCacheStore()
@@ -91,19 +102,60 @@ const types = typeOptions.map((t) => t.label)
 
 const form = reactive({
   batchId: '',
-  recordType: '',
+  recordType: 'SOIL',
   operationDate: today(),
   content: '',
   materialName: '',
   dosage: '',
   images: '',
-  gps: ''
+  gps: '',
+  location: ''
 })
+
+const batchInfo = ref(null)
+const locating = ref(false)
+const locNote = ref('')
 
 function today() {
   const d = new Date()
   const p = (n) => (n < 10 ? '0' + n : n)
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/** 作业地点 = 地块（村 + 农场）+ 自动定位坐标 */
+function composeLocation() {
+  const base = batchPlace(batchInfo.value)
+  if (!form.gps) {
+    form.location = base
+    return
+  }
+  form.location = base ? `${base}（${form.gps}）` : `已定位 ${form.gps}`
+}
+
+function onBatchChange(b) {
+  batchInfo.value = b
+  composeLocation()
+}
+
+/**
+ * 进页面就自动定位，不需要用户点"获取地址"。
+ * 失败不阻塞：地点退回农场档案里登记的村/农场，并在下方说明原因。
+ */
+async function autoLocate() {
+  if (locating.value) return
+  locating.value = true
+  locNote.value = '正在获取当前位置…'
+  try {
+    const pos = await locate({ timeout: 8000 })
+    form.gps = formatCoord(pos.lat, pos.lng)
+    locNote.value = `已自动定位${pos.accuracy ? `（精度约 ${pos.accuracy} 米）` : ''}`
+  } catch (e) {
+    form.gps = ''
+    locNote.value = explainLocationError(e)
+  } finally {
+    locating.value = false
+    composeLocation()
+  }
 }
 
 const { submitting, submit } = useForm(
@@ -119,6 +171,7 @@ const { submitting, submit } = useForm(
       if (!d.recordType) return '请选择农事类型'
       if (!d.operationDate) return '请选择作业日期'
       if (!d.content || d.content.trim().length < 2) return '请填写农事内容'
+      if (!images.value.length) return '请上传现场实证（图片或视频至少 1 个）'
       return ''
     },
     onSuccess: () => {
@@ -130,25 +183,15 @@ const { submitting, submit } = useForm(
 
 onLoad((opt) => {
   if (opt && opt.batchId) form.batchId = opt.batchId
+  autoLocate()
 })
 
 function onTypeChange(e) {
   form.recordType = typeOptions[e.detail.value].value
 }
 
-function getGps() {
-  uni.getLocation({
-    type: 'gcj02',
-    success: (res) => {
-      form.gps = `${res.latitude.toFixed(6)},${res.longitude.toFixed(6)}`
-      toast('位置已获取')
-    },
-    fail: () => toast('无法获取定位，请检查权限')
-  })
-}
-
 function onSubmit() {
-  if (uploader.value && uploader.value.isUploading()) return toast('照片仍在上传，请稍候')
+  if (uploader.value && uploader.value.isUploading()) return toast('照片/视频仍在上传，请稍候')
   submit(form)
 }
 </script>
@@ -235,6 +278,27 @@ function onSubmit() {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+}
+.relocate {
+  font-size: 22rpx;
+  color: $brand;
+}
+.loc-text {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 27rpx;
+  color: $text-1;
+  line-height: 1.5;
+}
+.loc-text.ph {
+  color: $text-4;
+}
+.loc-note {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 21rpx;
+  color: $text-4;
+  line-height: 1.5;
 }
 .actions {
   position: fixed;

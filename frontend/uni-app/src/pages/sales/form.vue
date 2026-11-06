@@ -1,7 +1,7 @@
 <template>
   <view class="form-page">
     <view class="group">
-      <batch-picker v-model="form.batchId" label="批次" required />
+      <batch-picker v-model="form.batchId" label="批次" required status="IN_TRANSIT,ON_SALE" usable />
 
       <view class="row">
         <text class="label required">销售市场</text>

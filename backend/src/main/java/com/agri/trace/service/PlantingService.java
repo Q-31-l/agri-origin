@@ -113,6 +113,7 @@ public class PlantingService {
         record.setOperatorName(user.getRealName());
         record.setImages(dto.getImages());
         record.setGps(dto.getGps());
+        record.setLocation(dto.getLocation());
         record.setAuditStatus(Constants.AUDIT_PENDING);
         record.setChainStatus(Constants.CHAIN_NONE);
         plantingMapper.insert(record);

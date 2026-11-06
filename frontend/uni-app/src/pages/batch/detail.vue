@@ -95,10 +95,11 @@
         </view>
         <view v-for="p in plantings" :key="p.id" class="rec">
           <view class="rec-head">
-            <text class="rec-type">{{ p.recordType }}</text>
+            <text class="rec-type">{{ plantingTypeLabel(p.recordType) }}</text>
             <text class="rec-date">{{ formatDate(p.operationDate) }}</text>
           </view>
           <text class="rec-content">{{ p.content }}</text>
+          <text v-if="p.location" class="rec-loc">作业地点：{{ p.location }}</text>
           <view class="rec-meta">
             <text v-if="p.materialName" class="rec-tag">用药：{{ p.materialName }} {{ p.dosage || '' }}</text>
             <status-tag v-if="p.auditStatus" :value="p.auditStatus" type="audit" />
@@ -160,6 +161,7 @@ import EmptyState from '@/components/common/empty-state.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { formatDate, formatDateTime, formatQty, shortHash } from '@/utils/format'
+import { plantingTypeLabel } from '@/config/constants'
 import { nav } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
 import { confirm, toast } from '@/utils/ui'
@@ -523,6 +525,13 @@ function toTrace() {
   color: $text-2;
   margin-top: 8rpx;
   line-height: 1.6;
+}
+.rec-loc {
+  display: block;
+  font-size: 21rpx;
+  color: $text-4;
+  margin-top: 6rpx;
+  line-height: 1.5;
 }
 .rec-meta {
   display: flex;

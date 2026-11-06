@@ -131,9 +131,43 @@ public class BatchService {
     }
 
     public List<BizBatch> listForSelect(String status) {
+        return listForSelect(status, null);
+    }
+
+    /**
+     * 批次下拉。
+     *
+     * <p>{@code usable=true} 用于「新增业务记录」：只给能真正录进去的批次
+     * （指定状态 + 已通过村级核验 + 无异常锁定）。以前这里不分用途，
+     * 下拉里混着"已关闭""待核验"的批次，农户选中后点提交才被后端拒绝，
+     * 属于典型的"能选不能存"。
+     *
+     * <p>{@code status} 支持逗号分隔多状态：复检要 HARVESTED+QUALIFIED，
+     * 物流中转要 QUALIFIED+IN_TRANSIT，分批销售要 IN_TRANSIT+ON_SALE，
+     * 只传单值时前端就会漏掉一半合法批次。
+     */
+    public List<BizBatch> listForSelect(String status, Boolean usable) {
         LoginUser user = UserContext.require();
-        LambdaQueryWrapper<BizBatch> wrapper = Wrappers.<BizBatch>lambdaQuery()
-                .eq(status != null && !status.isEmpty(), BizBatch::getStatus, status)
+        boolean onlyUsable = Boolean.TRUE.equals(usable);
+        LambdaQueryWrapper<BizBatch> wrapper = Wrappers.<BizBatch>lambdaQuery();
+        if (status != null && !status.trim().isEmpty()) {
+            List<String> codes = new ArrayList<>();
+            for (String s : status.split(",")) {
+                if (!s.trim().isEmpty()) {
+                    codes.add(s.trim());
+                }
+            }
+            if (codes.size() == 1) {
+                wrapper.eq(BizBatch::getStatus, codes.get(0));
+            } else if (codes.size() > 1) {
+                wrapper.in(BizBatch::getStatus, codes);
+            }
+        }
+        wrapper.eq(onlyUsable, BizBatch::getAuditStatus, Constants.AUDIT_APPROVED)
+                // abnormal_flag 可能是 NULL（历史数据），"<> 1" 会把 NULL 一起排除，
+                // 必须显式写成 (IS NULL OR = 0)
+                .and(onlyUsable, w -> w.isNull(BizBatch::getAbnormalFlag)
+                        .or().eq(BizBatch::getAbnormalFlag, 0))
                 .orderByDesc(BizBatch::getId)
                 .last("limit 200");
         applyScope(wrapper, user);

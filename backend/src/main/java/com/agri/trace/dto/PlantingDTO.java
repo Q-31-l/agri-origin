@@ -4,6 +4,7 @@ import lombok.Data;
 import java.util.List;
 
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDate;
 
@@ -28,6 +29,14 @@ public class PlantingDTO {
     private String images;
     private String gps;
 
-    /** 现场实证：图片/视频文件 id 列表，提交后证据哈希随业务摘要一并上链 */
+    /** 作业地点（自动定位/农场档案带出），展示用文本 */
+    private String location;
+
+    /**
+     * 现场实证：图片/视频文件 id 列表，提交后证据哈希随业务摘要一并上链。
+     * 必须至少一条——没有实拍凭证的农事记录，上链也只是把一段文字钉死，
+     * 对溯源没有证明力。前端拦一道，这里再拦一道，避免绕过页面直接调接口。
+     */
+    @NotEmpty(message = "请上传现场实证（图片或视频，至少 1 个）")
     private List<Long> evidenceIds;
 }

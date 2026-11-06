@@ -1,7 +1,7 @@
 <template>
   <view class="form-page">
     <view class="group">
-      <batch-picker v-model="form.batchId" label="批次" required status="HARVESTED" />
+      <batch-picker v-model="form.batchId" label="批次" required status="HARVESTED,QUALIFIED" usable />
 
       <view class="row">
         <text class="label required">报告编号</text>

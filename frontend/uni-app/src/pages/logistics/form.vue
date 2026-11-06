@@ -1,7 +1,7 @@
 <template>
   <view class="form-page">
     <view class="group">
-      <batch-picker v-model="form.batchId" label="批次" required status="QUALIFIED" />
+      <batch-picker v-model="form.batchId" label="批次" required status="QUALIFIED,IN_TRANSIT" usable />
 
       <view class="row">
         <text class="label required">运单号</text>

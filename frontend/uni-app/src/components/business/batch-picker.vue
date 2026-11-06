@@ -12,21 +12,27 @@
           <text class="sheet-title">选择批次</text>
           <text class="close" @click="show = false">×</text>
         </view>
+        <view v-if="list.length > 6" class="search">
+          <input v-model="keyword" class="search-input" placeholder="搜批次号 / 作物 / 农场" placeholder-class="ph" />
+        </view>
         <scroll-view scroll-y class="list">
           <view
-            v-for="b in list"
+            v-for="b in filtered"
             :key="b.id"
             class="item"
-            :class="{ active: modelValue === b.id }"
+            :class="{ active: String(modelValue) === String(b.id) }"
             @click="choose(b)"
           >
             <view class="col">
-              <text class="no mono">{{ b.batchNo }}</text>
-              <text class="pname">{{ b.productName }} · {{ b.farmName || '未关联农场' }}</text>
+              <view class="line1">
+                <text class="no mono">{{ b.batchNo }}</text>
+                <text class="crop">{{ b.productName }}{{ b.variety ? `（${b.variety}）` : '' }}</text>
+              </view>
+              <text class="pname">{{ batchDesc(b) || '未关联农场' }}</text>
             </view>
             <status-tag :value="b.status" />
           </view>
-          <empty-state v-if="!loading && !list.length" text="暂无可选批次" />
+          <empty-state v-if="!loading && !filtered.length" :text="keyword ? '没有匹配的批次' : '暂无可选批次'" />
           <view v-if="loading" class="loading">加载中…</view>
         </scroll-view>
       </view>
@@ -35,10 +41,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { batchOptions } from '@/api'
 import StatusTag from '@/components/common/status-tag.vue'
 import EmptyState from '@/components/common/empty-state.vue'
+import { batchDesc } from '@/utils/batch-label'
 
 const props = defineProps({
   modelValue: { type: [Number, String], default: '' },
@@ -46,7 +53,9 @@ const props = defineProps({
   placeholder: { type: String, default: '请选择批次' },
   required: { type: Boolean, default: false },
   /** 只列出指定状态的批次，如 'HARVESTED' */
-  status: { type: String, default: '' }
+  status: { type: String, default: '' },
+  /** 只列出能真正录入的批次（已通过村级核验 + 无异常锁定） */
+  usable: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
@@ -54,14 +63,32 @@ const show = ref(false)
 const loading = ref(false)
 const list = ref([])
 const selected = ref(null)
+const keyword = ref('')
+
+/** 批次多起来（上限 200 条）时，靠流水码翻列表不现实，给个搜索 */
+const filtered = computed(() => {
+  const kw = keyword.value.trim().toLowerCase()
+  if (!kw) return list.value
+  return list.value.filter((b) =>
+    [b.batchNo, b.productName, b.variety, b.farmName, b.villageName]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(kw))
+  )
+})
 
 async function load() {
   loading.value = true
   try {
-    const res = await batchOptions(props.status ? { status: props.status } : {})
+    const params = {}
+    if (props.status) params.status = props.status
+    if (props.usable) params.usable = true
+    const res = await batchOptions(params)
     list.value = res.data || []
     if (props.modelValue) {
       selected.value = list.value.find((x) => String(x.id) === String(props.modelValue)) || null
+      // 从批次详情页带着 batchId 跳进来时，父页面拿不到批次对象（不知道农场地块），
+      // 这里补一次 change，让"作业地点/天气"能按正确的地块带出来
+      if (selected.value) emit('change', selected.value)
     }
   } finally {
     loading.value = false
@@ -144,6 +171,36 @@ defineExpose({ load, selected })
   justify-content: space-between;
   padding: 28rpx;
   border-bottom: 1px solid $border;
+}
+.search {
+  padding: 16rpx 28rpx;
+  border-bottom: 1px solid #f2f5f8;
+}
+.search-input {
+  height: 68rpx;
+  background: #f6f8fa;
+  border-radius: 34rpx;
+  padding: 0 28rpx;
+  font-size: 26rpx;
+}
+.ph {
+  color: $text-4;
+}
+.line1 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.crop {
+  font-size: 24rpx;
+  color: $text-2;
+  margin-left: 12rpx;
 }
 .sheet-title {
   font-size: 30rpx;

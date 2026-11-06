@@ -4,6 +4,7 @@ import lombok.Data;
 import java.util.List;
 
 import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,5 +29,6 @@ public class HarvestDTO {
     private String remark;
 
     /** 现场实证：图片/视频文件 id 列表，提交后证据哈希随业务摘要一并上链 */
+    @NotEmpty(message = "请上传现场实证（图片或视频，至少 1 个）")
     private List<Long> evidenceIds;
 }
