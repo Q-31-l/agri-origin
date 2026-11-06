@@ -944,7 +944,48 @@ python3 scripts/front-verify.py
 # 回执: status=0x0 区块=151 gasUsed=54613
 ```
 
-### 11.4 链版本升级（2.9.0 → 2.9.1）
+### 11.4 HTTPS 站点下合约IDE 报「Solc版本加载失败」
+
+**现象**：控制台其它页面都正常，一进「合约管理 → 合约IDE」就弹
+`Solc版本加载失败，请检查/static/js目录中是否存在对应的合约版本`。
+
+**不是缺文件**。`v0.4.25.js` 等 6 个 solc 编译器文件都在，HTTP 访问时也一切正常。
+真正的原因是前端把编译器地址**写死成 `http://`**，再在 Web Worker 里 `importScripts()` 加载：
+
+```js
+url: "http://" + this.host + "/WeBASE-Front/static/js/v0.4.25.js"
+```
+
+页面一旦切到 HTTPS，浏览器按**混合内容**直接拦截，请求根本到不了 nginx，
+所以 nginx 日志里连一条 `v0.4.25.js` 的记录都没有——这也是定位该问题的关键特征。
+
+**修法**：把协议改成跟随页面（`location.protocol`），并把补丁文件放进
+`conf/static/static/js/`。启动 classpath 是 `conf/:apps/*:lib/*`，`conf/` 排在 jar 之前，
+所以能覆盖 jar 内同名资源，**厂商 jar 一个字节都不用动**。
+
+同一次修复还解决了第二个隐性缺陷：前端个别接口写死
+`headers:{Authorization:"Token "+localStorage.getItem("token")||!1}`，
+未登录时发出 `Authorization: Token null`，把 nginx 的 Basic 认证顶掉，
+导致「编译成功但保存/方法注册 401」。改成没有 token 就不带这个头即可。
+
+```bash
+bash ops/webase-front-https-fix.sh        # 幂等，自动备份、打补丁、重启、自检
+```
+
+验收（用无痕窗口，避免旧 chunk 缓存）：
+
+1. 打开 `/WeBASE-Front/#/contract`，不再弹错，版本下拉显示 `v0.4.25`；
+2. 左侧 `template` 展开 → 点开 `Evidence.sol` → 点「编译」，
+   下方出现 `contractName / abi / bytecodeBin` 结果面板；
+3. `POST /WeBASE-Front/contract/save`、`POST /WeBASE-Front/method/add` 均返回 200。
+
+回滚：`rm -f /opt/webase-front/webase-front/conf/static/static/js/*.js && systemctl restart webase-front`。
+
+> **「合约列表」显示暂无数据不是故障**：该页只查 `contractStatus=2`（已部署）的合约，
+> 只编译不部署不会出现在那里；本系统的合约由后端 SDK 部署，同样不进这张表。
+> 要看业务合约与存证，用「数据概览 / 区块与交易」或后端的 `/api/chain/record` 更直接。
+
+### 11.5 链版本升级（2.9.0 → 2.9.1）
 
 2.9.1 是 2.9.x 的补丁版本，数据与证书完全兼容，**原地换二进制**即可，不需要重建链：
 
