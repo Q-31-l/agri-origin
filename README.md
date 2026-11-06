@@ -7,7 +7,10 @@
 ![java](https://img.shields.io/badge/Java-8+-orange)
 ![springboot](https://img.shields.io/badge/SpringBoot-2.7.18-green)
 ![vue](https://img.shields.io/badge/Vue-3.4-42b883)
-![fisco](https://img.shields.io/badge/FISCO--BCOS-2.9.x-2f6feb)
+![uniapp](https://img.shields.io/badge/uni--app-3.0-2b9939)
+![fisco](https://img.shields.io/badge/FISCO--BCOS-2.9.1-2f6feb)
+![webase](https://img.shields.io/badge/WeBASE--Front-1.5.5-1f6feb)
+![mysql](https://img.shields.io/badge/MySQL-8.0-4479a1)
 
 ---
 
@@ -24,14 +27,15 @@
 
 | 层次 | 技术选型 |
 | --- | --- |
-| 前端 PC 管理端 | Vue 3 + Vite 5 + Element Plus + Pinia + Vue Router + ECharts + Axios |
-| 前端 移动端 H5 | Vue 3 + Vite 5 + Vant 4 + Pinia + `vue-qrcode-reader`（扫码） |
-| 前端 三端统一（已实现） | uni-app（Vue 3 + Vite 5 + Pinia）：**一套代码**产出 H5（PC + 移动自适应）/ 微信小程序 / Android·iOS App，共用同一后端与同一账号体系，方案与落地记录见 [docs/uni-app-migration.md](./docs/uni-app-migration.md) |
-| 后端 | Spring Boot 2.7.18 + MyBatis-Plus 3.5 + JWT + Knife4j + Hutool |
-| 数据库 | MySQL 8.0（utf8mb4） |
-| 区块链 | FISCO-BCOS **2.9.1**（Solidity 0.6.10，4 节点 PBFT）+ fisco-bcos-java-sdk 2.9.1 |
+| 前端 PC 管理端 | Vue 3.4 + Vite 5.2 + Element Plus 2.7 + Pinia 2.1 + Vue Router 4 + ECharts 5.5 + Axios 1.6 |
+| 前端 移动端 H5 | Vue 3.4 + Vite 5.2 + Vant 4.9 + Pinia 2.1 + `vue-qrcode-reader`（扫码） |
+| 前端 三端统一（当前线上形态） | uni-app 3.0（Vue 3.4 + Vite 5.2 + Pinia 2.1）：**一套代码**产出 H5（PC + 移动自适应）/ 微信小程序 / Android·iOS App，共用同一后端与同一账号体系，方案与落地记录见 [docs/uni-app-migration.md](./docs/uni-app-migration.md) |
+| 后端 | Spring Boot 2.7.18 + MyBatis-Plus 3.5.3 + JWT + Knife4j 4.4 + Hutool 5.8 |
+| 数据库 | MySQL 8.0（utf8mb4，逻辑删除 + 乐观锁 `@Version`） |
+| 区块链 | FISCO-BCOS **2.9.1**（Solidity 0.6.10，4 节点 PBFT 单群组）+ fisco-bcos-java-sdk 2.9.1 |
 | 链可视化 | WeBASE-Front 1.5.5（区块浏览器 / 交易回执 / 节点监控，nginx Basic 认证） |
 | 文件存储 | 本地磁盘（可切换 OSS/MinIO），文件 SHA-256 摘要上链 |
+| 部署与运维 | nginx 反代 + systemd（4 个链节点 / 后端 / WeBASE-Front 全部单元化）+ logrotate，链断连自愈无需重启 |
 
 ## 三、角色与权限
 
@@ -84,9 +88,14 @@
 
 ## 五、界面预览
 
-以下截图取自本工程实际启动后的运行状态（`chain.enabled=false` 演示模式，数据来自 `sql/data.sql`）。
+以下截图均来自实际运行，分两组环境：
 
-### 5.1 PC 管理端
+- **5.1 / 5.2**：独立 PC / H5 工程，`chain.enabled=false` 演示模式，链上存证如实标记为「未上链」；
+- **5.3**：当前线上环境，FISCO-BCOS 2.9.1 四节点单群组、**真实上链**（区块高度 `#177`、存证 165 条、成功率 100%）。
+
+数据均来自 `sql/data.sql` 的演示批次。
+
+### 5.1 PC 管理端（Vue 3 + Element Plus）
 
 **数据看板**：批次总量、异常批次、上链成功率、状态分布与近 7 日建档趋势。
 
@@ -104,24 +113,37 @@
 
 ![异常管控](docs/assets/screenshots/pc-06-abnormal.png)
 
-**链上存证**：全部上链流水与回执；演示模式下如实显示未上链，不伪造交易哈希。
+**链上存证**：全部上链流水与回执；该套工程截图为演示模式，如实显示「未上链」，不伪造交易哈希。
 
 ![链上存证](docs/assets/screenshots/pc-07-chain.png)
 
-### 5.2 移动端 H5
+**其余页面**
+
+| 登录 | 质量检测 |
+| --- | --- |
+| ![](docs/assets/screenshots/pc-01-login.png) | ![](docs/assets/screenshots/pc-05-quality.png) |
+| **溯源查询** | **用户与角色** |
+| ![](docs/assets/screenshots/pc-08-trace.png) | ![](docs/assets/screenshots/pc-09-system-user.png) |
+
+### 5.2 移动端 H5（Vue 3 + Vant）
 
 **消费者溯源**（免登录扫码）：产品档案、质检结论、链上存证校验、全流程时间轴。
 
 <img src="docs/assets/screenshots/h5-05-trace.png" width="320" alt="消费者溯源" />
 
-**农户工作台**：我的批次、农事记录、采收提交、扫码溯源四个入口。
+**登录与工作台**：账号登录、我的批次、农事记录、采收提交、扫码溯源入口。
 
-<img src="docs/assets/screenshots/h5-02-home.png" width="300" alt="农户工作台" />
-<img src="docs/assets/screenshots/h5-04-planting.png" width="300" alt="农事记录" />
+<img src="docs/assets/screenshots/h5-01-login.png" width="260" alt="H5 登录" />
+<img src="docs/assets/screenshots/h5-02-home.png" width="260" alt="农户工作台" />
+<img src="docs/assets/screenshots/h5-03-batches.png" width="260" alt="我的批次" />
 
-> 全部 14 张截图见 [docs/assets/screenshots/](docs/assets/screenshots/)，含 PC 登录/质量检测/溯源查询/系统用户与 H5 登录/批次列表。
+**农事记录**：按批次逐条登记农事操作，投入品与操作人一并留痕。
 
-### 5.3 三端统一工程（uni-app · 已落地）
+<img src="docs/assets/screenshots/h5-04-planting.png" width="320" alt="农事记录" />
+
+> 代表性截图见上；`docs/assets/screenshots/` 下共 62 张原图，覆盖三套前端的全部页面与关键交互态。
+
+### 5.3 三端统一工程（uni-app · 当前线上部署）
 
 `frontend/uni-app` 把上面两套独立前端收敛为**一套代码**，三个平台产物来自同一份 `src/`，共用同一后端接口与同一账号体系（同一账号在三端看到完全同步的数据）：
 
@@ -133,6 +155,10 @@
 
 H5 端**纯自动自适应**：手机设备（iPhone / Android 手机）永远进入移动工作台；桌面 / 平板按窗口宽度判定，≥ 768px 自动进入 PC 管理台（14 个页面），更窄自动进入移动工作台，随窗口缩放实时切换，无需任何手动操作。小程序与 App 只打包各自需要的页面（构建产物 28 页，PC 页面完全不进包）。
 
+**登录页**：左侧是品牌叙事（五环节上链、SHA-256 校验、可信度评分），右侧账号登录，演示账号可一键填入。
+
+![uni-app 登录页](docs/assets/screenshots/uni-pc/pc-login.png)
+
 **数据看板**（与后端实时联动，看板数据随任意端写入自动刷新）
 
 ![uni-app 数据看板](docs/assets/screenshots/uni-pc/pc-dashboard.png)
@@ -141,13 +167,33 @@ H5 端**纯自动自适应**：手机设备（iPhone / Android 手机）永远�
 
 ![uni-app 批次管理](docs/assets/screenshots/uni-pc/pc-batch-list.png)
 
-**批次详情**：档案信息、溯源二维码、全流程时间轴、链上存证与一致性校验。
+**批次详情**：档案信息、溯源二维码、AgriTrust-5D 可信度评分、全流程时间轴、链上存证与一致性校验。
 
 ![uni-app 批次详情](docs/assets/screenshots/uni-pc/pc-batch-detail.png)
 
-**链上存证**：链状态、区块高度、合约地址、存证流水与链上链下一致性校验。
+**链上存证**：链服务状态、区块高度、合约地址、存证流水与链上链下一致性校验。截图里是真实交易哈希与区块号，不是占位数据。
 
 ![uni-app 链上存证](docs/assets/screenshots/uni-pc/pc-chain.png)
+
+**全流程业务页面（12 页）**
+
+| 农事记录 | 采收登记 | 质量检测 |
+| --- | --- | --- |
+| <img src="docs/assets/screenshots/uni-pc/pc-planting.png" width="360" alt="农事记录"> | <img src="docs/assets/screenshots/uni-pc/pc-harvest.png" width="360" alt="采收登记"> | <img src="docs/assets/screenshots/uni-pc/pc-quality.png" width="360" alt="质量检测"> |
+| **物流运输** | **销售管理** | **异常管控** |
+| <img src="docs/assets/screenshots/uni-pc/pc-logistics.png" width="360" alt="物流运输"> | <img src="docs/assets/screenshots/uni-pc/pc-sales.png" width="360" alt="销售管理"> | <img src="docs/assets/screenshots/uni-pc/pc-abnormal.png" width="360" alt="异常管控"> |
+| **溯源查询** | **溯源结果（消费者视角）** | **用户与角色** |
+| <img src="docs/assets/screenshots/uni-pc/pc-trace.png" width="360" alt="溯源查询"> | <img src="docs/assets/screenshots/uni-pc/pc-trace-result.png" width="360" alt="溯源结果"> | <img src="docs/assets/screenshots/uni-pc/pc-sys-user.png" width="360" alt="用户与角色"> |
+| **农场档案** | **产品品类** | **操作日志** |
+| <img src="docs/assets/screenshots/uni-pc/pc-sys-farm.png" width="360" alt="农场档案"> | <img src="docs/assets/screenshots/uni-pc/pc-sys-product.png" width="360" alt="产品品类"> | <img src="docs/assets/screenshots/uni-pc/pc-sys-log.png" width="360" alt="操作日志"> |
+
+**移动端（同一份代码，390×844）**
+
+| 登录 | 工作台 | 批次列表 |
+| --- | --- | --- |
+| <img src="docs/assets/screenshots/uni/m-login.png" width="220" alt="移动端登录"> | <img src="docs/assets/screenshots/uni/m-home.png" width="220" alt="移动端工作台"> | <img src="docs/assets/screenshots/uni/m-batch-list.png" width="220" alt="移动端批次列表"> |
+| **批次详情** | **我的** | **消费者溯源** |
+| <img src="docs/assets/screenshots/uni/m-batch-detail.png" width="220" alt="移动端批次详情"> | <img src="docs/assets/screenshots/uni/m-mine.png" width="220" alt="移动端我的"> | <img src="docs/assets/screenshots/uni/m-trace-trust.png" width="220" alt="移动端溯源"> |
 
 **三端互通的五个支撑点**
 
@@ -165,9 +211,9 @@ H5 端**纯自动自适应**：手机设备（iPhone / Android 手机）永远�
 
 **导航选中态**：PC 侧栏选中项采用毛玻璃效果——半透明多层高光带 + `backdrop-filter` 背景模糊 + 1px 内描边 + 左侧发光指示条，切换时有一次扫光过渡。侧栏底色铺了三层径向光斑，为模糊提供可被"揉开"的内容，否则纯色背景上的 `backdrop-filter` 是看不出效果的。
 
-**角色差异**：菜单不是写死的，而是按登录用户的权限码实时裁剪，分组里一项不剩时连分组标题一起隐藏。同一套代码，系统管理员看到 14 项、农户 6 项、物流企业 4 项。
+**角色差异**：菜单不是写死的，而是按登录用户的权限码实时裁剪，分组里一项不剩时连分组标题一起隐藏。同一套代码，系统管理员看到 14 项、农户 6 项、物流企业 5 项。
 
-| 系统管理员（14 项） | 农户（6 项） | 物流企业（4 项） |
+| 系统管理员（14 项） | 农户（6 项） | 物流企业（5 项） |
 | --- | --- | --- |
 | ![](docs/assets/screenshots/uni-pc/role-admin.png) | ![](docs/assets/screenshots/uni-pc/role-farmer01.png) | ![](docs/assets/screenshots/uni-pc/role-logistics01.png) |
 
@@ -210,7 +256,7 @@ agri-origin/
 ### 1. 环境要求
 
 - JDK 8+、Maven 3.6+、Node.js 18+、MySQL 8.0+
-- FISCO-BCOS 2.9.x 节点（可用 `build_chain.sh` 一键搭 4 节点单群组）
+- FISCO-BCOS 2.9.1 节点（可用 `build_chain.sh` 一键搭 4 节点单群组）
 
 ### 2. 初始化数据库
 
@@ -267,7 +313,8 @@ cd frontend/mobile-h5 && npm install && npm run dev    # http://localhost:5174
 | --- | --- | --- |
 | admin | 123456 | 系统管理员 |
 | producer01 | 123456 | 生产主体 |
-| farmer01 | 123456 | 农户 |
+| farmer01 | 123456 | 农户（溪头村） |
+| farmer02 | 123456 | 农户（上寨村，用于验证村级数据隔离） |
 | village01 | 123456 | 村级管理员 |
 | inspector01 | 123456 | 检测机构 |
 | logistics01 | 123456 | 物流企业 |
@@ -304,7 +351,7 @@ python3 scripts/e2e-acceptance.py     # 8 角色登录 → 全流程真实上链
 
 | 入口 | 地址 | 说明 |
 | --- | --- | --- |
-| 业务系统（H5/PC 自适应） | <http://8.130.105.150/> | 8 个演示账号，密码统一 `123456` |
+| 业务系统（H5/PC 自适应） | <http://8.130.105.150/> | 9 个演示账号，密码统一 `123456` |
 | 免登录溯源页 | <http://8.130.105.150/pages/trace/index?code=TC20261105003> | 消费者扫码后的落地页 |
 | 链上控制台 | <http://8.130.105.150/WeBASE-Front/> | 账号 `webase` / `Agri@2026`；看区块、交易回执、节点状态 |
 
