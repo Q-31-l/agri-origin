@@ -398,8 +398,10 @@ section{position:relative}
 .ov-point h4{font-size:15px;font-weight:700;letter-spacing:.01em}
 .ov-point p{margin-top:6px;font-size:13px;line-height:1.8;color:var(--muted);font-weight:300}
 
+/* 右栏整体吸顶：引言卡与链上凭据一起跟随滚动 */
+.ov-aside{position:sticky;top:calc(var(--nav-h) + 28px);display:grid;gap:16px}
 .quote-card{
-  position:sticky;top:calc(var(--nav-h) + 28px);
+  position:relative;
   border-radius:var(--r-lg);padding:40px 36px;color:#fff;overflow:hidden;
   background:linear-gradient(155deg,#123528 0%,#0B1E17 58%,#08130F 100%);
   box-shadow:var(--shadow-lg);
@@ -419,6 +421,23 @@ section{position:relative}
 .quote-meta{display:flex;align-items:center;gap:12px;margin-top:30px;padding-top:22px;border-top:1px solid rgba(255,255,255,.10)}
 .quote-meta .dot{width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(69,224,166,.15)}
 .quote-meta span{font-size:12px;color:rgba(255,255,255,.55);letter-spacing:.06em}
+
+/* 链上凭据卡：把"可复核"落到具体版本与合约地址上 */
+.chain-slip{
+  border-radius:var(--r-md);padding:22px 24px;background:#fff;border:1px solid var(--line);
+  box-shadow:var(--shadow-sm);
+}
+.cs-head{font-size:10.5px;letter-spacing:.18em;color:var(--primary-2);font-weight:700;margin-bottom:12px}
+.chain-slip dl{display:grid;margin:0}
+.chain-slip dl > div{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:9px 0;border-bottom:1px dashed var(--line);
+}
+.chain-slip dl > div:last-child{border-bottom:0;padding-bottom:2px}
+.chain-slip dt{font-size:12px;color:var(--muted);white-space:nowrap}
+.chain-slip dd{margin:0;font-size:12.5px;color:var(--text);font-weight:600;text-align:right}
+.chain-slip dd.mono{font-family:var(--mono);font-size:11.5px;letter-spacing:.01em;font-weight:500}
+.chain-slip p{margin-top:12px;font-size:11.5px;line-height:1.8;color:var(--muted-2);font-weight:300}
 
 /* 运行快照 */
 .metrics{background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -676,7 +695,7 @@ section{position:relative}
   .hero-visual{max-width:520px}
   .code-card{transform:none}
   .ov-grid{grid-template-columns:1fr;gap:44px}
-  .quote-card{position:static}
+  .ov-aside{position:static;top:auto}
   .cap-grid{grid-template-columns:repeat(2,1fr)}
   .tech-grid{grid-template-columns:1fr;gap:36px}
   .foot-top{grid-template-columns:1fr 1fr;gap:36px}
@@ -924,18 +943,30 @@ section{position:relative}
         </div>
       </div>
 
-      <aside class="quote-card reveal" data-d="2">
-        <div class="quote-mark">“</div>
-        <blockquote>
-          我们不做"另一套台账"，<br>
-          而是给每一份记录<br>
-          盖上一枚<b>无法被单方面涂改</b>的时间戳。
-        </blockquote>
-        <div class="quote-meta">
-          <span class="dot"></span>
-          <span>设计原则 · 链上只存摘要，链下保存原件</span>
+      <div class="ov-aside">
+        <aside class="quote-card reveal" data-d="2">
+          <div class="quote-mark">“</div>
+          <blockquote>
+            我们不做"另一套台账"，<br>
+            而是给每一份记录<br>
+            盖上一枚<b>无法被单方面涂改</b>的时间戳。
+          </blockquote>
+          <div class="quote-meta">
+            <span class="dot"></span>
+            <span>设计原则 · 链上只存摘要，链下保存原件</span>
+          </div>
+        </aside>
+
+        <div class="chain-slip reveal" data-d="3">
+          <div class="cs-head">CHAIN PROOF · 链上凭据</div>
+          <dl>
+            <div><dt>区块链</dt><dd>FISCO BCOS 2.9.1</dd></div>
+            <div><dt>共识 / 群组</dt><dd>PBFT 四节点 · group 1</dd></div>
+            <div><dt>存证合约</dt><dd class="mono">0x0426e8fb…4bbedb</dd></div>
+          </dl>
+          <p>每一笔存证都可用交易哈希在链上独立复核，不必依赖平台单方说法。</p>
         </div>
-      </aside>
+      </div>
     </div>
   </div>
 </section>
