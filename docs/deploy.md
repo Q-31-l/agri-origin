@@ -1086,6 +1086,47 @@ SDK 部署的 `Traceability` 登记后是 `contractStatus=1`，在「合约IDE�
 
 ---
 
+### 11.7 官网总门户（项目门面 + 三端入口）
+
+`portal/index.html` 是整套项目的对外门面：平台介绍、核心能力、溯源流程、技术底座，
+以及**三种访问入口**——Web 业务系统（已开放）、微信小程序（预留位）、移动端 App（预留位）。
+单文件、零外部依赖（无 CDN 字体/图片），深绿+薄荷色系贴合"农业 + 联盟链"气质。
+
+**路径策略（关键）**：门户**只接管根路径 `/` 与 `/portal/`**，其余路径仍由 H5 处理：
+
+```nginx
+location = / {
+    root /opt/agri-origin/web/portal;
+    try_files /index.html =404;
+    add_header Cache-Control "no-cache" always;
+}
+location = /portal { return 301 /portal/; }
+location /portal/ {
+    alias /opt/agri-origin/web/portal/;
+    index index.html;
+    add_header Cache-Control "no-cache" always;
+}
+```
+
+为什么不把 H5 整体搬到 `/app/`：H5 的资源与路由都以 `/` 为基准，
+整体搬迁会连带影响 `/pages/trace/index?code=…` 这类溯源码链接与已生成的二维码。
+`location = /` 是精确匹配，只吃掉根路径一个 URI，`/pages/**` 完全不受影响。
+
+**部署**：
+
+```bash
+export AGRI_HOST=8.130.105.150 AGRI_PWD='***'
+python scripts/deploy-portal.py     # 上传页面 → 备份并替换 nginx → nginx -t → reload → 自检
+```
+
+自检应看到：`/` 返回门户、`/portal/` 返回门户、`/pages/launch/index` 仍返回 H5。
+
+**预留入口如何启用**：门户「访问入口」区的小程序 / App 卡片内各有一个
+`div.qr-slot`（虚线二维码占位），上线后把占位内容替换为真实二维码图片、并把
+`entry-btn disabled` 改为正常链接即可，版式无需改动。
+
+---
+
 ## 十二、附录：一键本地启动脚本
 
 `scripts/dev-start.sh`（可选自建）：
