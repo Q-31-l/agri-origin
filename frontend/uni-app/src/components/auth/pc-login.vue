@@ -234,6 +234,16 @@ function ok() {
   flex-direction: row;
   background: #f6f8f7;
   overflow: hidden;
+  /* 与启动页淡出衔接：整页先淡入，卡片随后再落位 */
+  animation: plIn 0.26s ease both;
+}
+@keyframes plIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ================= 左栏 ================= */

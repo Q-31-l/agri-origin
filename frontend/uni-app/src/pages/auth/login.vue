@@ -255,6 +255,18 @@ function toRegister() {
   background: $bg-page;
   display: flex;
   flex-direction: column;
+  /* 启动页淡出后接上登录页淡入，避免"啪"地一下换屏 */
+  animation: pageIn 0.26s ease both;
+}
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .hero {
   background: $brand-grad;
