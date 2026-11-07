@@ -27,6 +27,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns(
                         "/auth/login",
+                        // 自助注册：注册时还没有账号，必须匿名可达（内部按 IP 限流）
+                        "/auth/register",
                         // 续期接口必须免鉴权：调用它的时候 access token 往往已经过期了
                         "/auth/refresh",
                         "/auth/wx-login",

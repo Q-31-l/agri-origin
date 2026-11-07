@@ -18,12 +18,18 @@
       }
     },
     {
+      "path": "pages/auth/register",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "注册账号"
+      }
+    },
+    {
       "path": "pages/auth/wx-bind",
       "style": {
         "navigationBarTitleText": "绑定账号"
       }
-    },
-    {
+    },    {
       "path": "pages/auth/password",
       "style": {
         "navigationBarTitleText": "修改密码"

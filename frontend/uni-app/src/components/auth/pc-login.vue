@@ -151,6 +151,13 @@
           <text v-else>登录中…</text>
         </view>
 
+        <!-- 注册入口：与登录按钮同行级，不能只藏在演示账号下面 -->
+        <view class="signup" @click="$emit('register')">
+          <text class="signup-t">还没有账号？</text>
+          <text class="signup-l">立即注册</text>
+          <text class="signup-a">→</text>
+        </view>
+
         <view class="demo">
           <text class="dt">演示账号 · 点击填入（密码 123456）</text>
           <view class="dl">
@@ -186,7 +193,7 @@ const props = defineProps({
   accounts: { type: Array, default: () => [] },
   version: { type: String, default: '' }
 })
-const emit = defineEmits(['submit', 'trace'])
+const emit = defineEmits(['submit', 'trace', 'register'])
 
 const STEPS = ['种植', '采收', '质检', '物流', '销售']
 const KEY = 'last_user'
@@ -603,6 +610,36 @@ function ok() {
 .btn.dis {
   opacity: 0.62;
   cursor: default;
+}
+
+/* 注册入口：压在主按钮下方，用浅色弱化，不与"登录"抢注意力 */
+.signup {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+.signup-t {
+  font-size: 12px;
+  color: #8a9a92;
+}
+.signup-l {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f7a4d;
+}
+.signup-a {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #1f7a4d;
+  transition: transform 0.16s ease;
+}
+.signup:hover .signup-a {
+  transform: translateX(2px);
 }
 
 .demo {

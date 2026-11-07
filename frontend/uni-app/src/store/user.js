@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import {
   login as loginApi,
+  register as registerApi,
   getProfile,
   logout as logoutApi,
   wxLogin as wxLoginApi,
@@ -77,6 +78,16 @@ export const useUserStore = defineStore('user', {
 
     async login(form) {
       const res = await loginApi(form)
+      this.applyAuth(res.data)
+      return res.data
+    },
+
+    /**
+     * 自助注册：后端注册成功即签发 JWT，这里直接落凭证，
+     * 用户不用"注册完再输一遍账号密码"。
+     */
+    async register(form) {
+      const res = await registerApi(form)
       this.applyAuth(res.data)
       return res.data
     },

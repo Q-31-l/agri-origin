@@ -7,6 +7,7 @@
     :version="version"
     @submit="submit"
     @trace="toTrace"
+    @register="toRegister"
   />
   <!-- #endif -->
 
@@ -86,6 +87,13 @@
           <text class="wx-sub" @click="mode = 'account'">使用账号密码登录</text>
         </view>
         <!-- #endif -->
+
+        <!-- 注册入口：三端都在登录卡底部，位置固定，不随"账号/微信"切换而消失 -->
+        <view class="signup" @click="toRegister">
+          <text class="signup-t">还没有账号？</text>
+          <text class="signup-l">自助注册</text>
+          <text class="signup-a">›</text>
+        </view>
       </view>
 
       <view class="consumer" @click="toTrace">
@@ -232,6 +240,12 @@ async function submitWx() {
 
 function toTrace() {
   uni.navigateTo({ url: ROUTES.TRACE })
+}
+
+/** 带上 redirect：注册前想去哪一页，注册成功后直接落回那一页 */
+function toRegister() {
+  const q = redirect.value ? `?redirect=${encodeURIComponent(redirect.value)}` : ''
+  uni.navigateTo({ url: ROUTES.REGISTER + q })
 }
 </script>
 
@@ -434,6 +448,31 @@ function toTrace() {
   font-size: 24rpx;
   color: $brand;
 }
+/* 注册入口：用虚线分隔，视觉上是"登录之外的另一个动作"，不与主按钮抢焦点 */
+.signup {
+  margin-top: 32rpx;
+  padding-top: 26rpx;
+  border-top: 1px dashed $border;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.signup-t {
+  font-size: 24rpx;
+  color: $text-3;
+}
+.signup-l {
+  margin-left: 6rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: $brand;
+}
+.signup-a {
+  margin-left: 4rpx;
+  font-size: 26rpx;
+  color: $brand;
+}
 .consumer {
   margin-top: 28rpx;
   height: 92rpx;
@@ -590,6 +629,17 @@ function toTrace() {
     font-size: 11px;
     padding: 4px 9px;
     border-radius: 12px;
+  }
+  .signup {
+    margin-top: 16px;
+    padding-top: 13px;
+  }
+  .signup-t,
+  .signup-l {
+    font-size: 12.5px;
+  }
+  .signup-a {
+    font-size: 14px;
   }
   .consumer {
     height: 48px;

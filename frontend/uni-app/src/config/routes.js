@@ -2,6 +2,7 @@
 export const ROUTES = {
   LAUNCH: '/pages/launch/index',
   LOGIN: '/pages/auth/login',
+  REGISTER: '/pages/auth/register',
   WX_BIND: '/pages/auth/wx-bind',
   PASSWORD: '/pages/auth/password',
 

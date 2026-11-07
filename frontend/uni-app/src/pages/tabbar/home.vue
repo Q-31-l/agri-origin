@@ -7,7 +7,7 @@
           <text class="nav-title">工作台</text>
         </template>
         <template #right>
-          <view class="nav-action" @click="toTrace"><app-icon name="scan" color="#ffffff" :size="42" /></view>
+          <view class="nav-action" @click="toTrace"><app-icon name="scan" color="#1f7a4d" :size="42" /></view>
         </template>
       </app-navbar>
 
@@ -63,7 +63,14 @@
         <view v-if="loading" class="loading">加载中…</view>
         <block v-else>
           <batch-card v-for="b in recent" :key="b.id" :batch="b" />
-          <empty-state v-if="!recent.length" text="还没有批次数据" action-text="新建批次" @action="createBatch" />
+          <!-- 空状态按角色给不同引导：只有能建批次的角色才显示"新建批次"，
+               否则农户点进去只会撞上后端 403（仅生产主体可创建批次） -->
+          <empty-state
+            v-if="!recent.length"
+            :text="emptyText"
+            :action-text="canCreateBatch ? '新建批次' : ''"
+            @action="createBatch"
+          />
         </block>
       </view>
     </view>
@@ -111,6 +118,18 @@ const ALL_QUICKS = [
 ]
 
 const quicks = computed(() => ALL_QUICKS.filter((q) => !q.perm || store.hasPerm(q.perm)))
+
+const canCreateBatch = computed(() => store.hasPerm('batch:create'))
+
+/**
+ * 空状态的文案要区分两种"没有批次"：
+ * 自己没建过（生产主体），和还没被指派（农户）——后者不是"空"，是"等分配"。
+ */
+const emptyText = computed(() =>
+  canCreateBatch.value
+    ? '还没有批次数据，先建一个批次开始记录'
+    : '还没有被指派批次。村管或生产主体把批次分配给你后，这里会出现农事与采收任务'
+)
 
 function go(q) {
   if (q.tab) return uni.switchTab({ url: q.path })
@@ -177,10 +196,12 @@ onPullDownRefresh(() => load())
   width: 64rpx;
   height: 64rpx;
   border-radius: 20rpx;
-  background: rgba(255, 255, 255, 0.16);
+  /* 白底 + 墨绿图标：图标是 AI 生成的位图，只有固定几种颜色，
+     深色底上用白色图标需要额外导出一套，白底是更省的解法，对比度也够 */
+  background: rgba(255, 255, 255, 0.92);
 }
 .nav-action:active {
-  background: rgba(255, 255, 255, 0.26);
+  background: #ffffff;
 }
 .greet {
   display: flex;

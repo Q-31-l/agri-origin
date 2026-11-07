@@ -36,6 +36,8 @@ public class GlobalExceptionHandler {
             status = HttpStatus.NOT_FOUND;
         } else if (e.getCode() == ResultCode.CONFLICT) {
             status = HttpStatus.CONFLICT;
+        } else if (e.getCode() == ResultCode.TOO_MANY_REQUESTS) {
+            status = HttpStatus.TOO_MANY_REQUESTS;
         }
         return ResponseEntity.status(status).body(R.fail(e.getCode(), e.getMessage()));
     }

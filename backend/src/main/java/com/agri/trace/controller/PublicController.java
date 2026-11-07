@@ -1,8 +1,11 @@
 package com.agri.trace.controller;
 
 import com.agri.trace.common.R;
+import com.agri.trace.entity.BaseVillage;
+import com.agri.trace.mapper.BaseVillageMapper;
 import com.agri.trace.sdk.TraceContractService;
 import com.agri.trace.service.StatsService;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,6 +35,9 @@ public class PublicController {
     @Resource
     private TraceContractService contractService;
 
+    @Resource
+    private BaseVillageMapper villageMapper;
+
     @Operation(summary = "平台运行快照（免登录）")
     @GetMapping("/overview")
     public R<Map<String, Object>> overview() {
@@ -39,5 +48,28 @@ public class PublicController {
         data.put("nodeVersion", contractService.getNodeVersion());
         data.put("groupId", contractService.getGroupId());
         return R.ok(data);
+    }
+
+    /**
+     * 注册页的"所属村"下拉（免登录）。
+     *
+     * <p>只返回 id 与名称：注册发生在登录之前，调不了 {@code /system/village/list}；
+     * 而村名本身是公开行政区划信息，不涉及任何业务数据。地址、负责人等字段
+     * 一概不出这个接口，避免公开面被拿来枚举联系人。</p>
+     */
+    @Operation(summary = "行政村选项（免登录，注册页使用）")
+    @GetMapping("/villages")
+    public R<List<Map<String, Object>>> villages() {
+        List<BaseVillage> list = villageMapper.selectList(Wrappers.<BaseVillage>lambdaQuery()
+                .orderByAsc(BaseVillage::getId));
+        List<Map<String, Object>> options = new ArrayList<>(list.size());
+        for (BaseVillage v : list) {
+            Map<String, Object> m = new LinkedHashMap<>(4);
+            m.put("id", v.getId());
+            m.put("villageName", v.getVillageName());
+            m.put("regionName", v.getRegionName());
+            options.add(m);
+        }
+        return R.ok(options);
     }
 }

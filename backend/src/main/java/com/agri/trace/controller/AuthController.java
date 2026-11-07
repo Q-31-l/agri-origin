@@ -4,10 +4,14 @@ import com.agri.trace.common.R;
 import com.agri.trace.dto.LoginDTO;
 import com.agri.trace.dto.PasswordDTO;
 import com.agri.trace.dto.RefreshTokenDTO;
+import com.agri.trace.dto.RegisterDTO;
 import com.agri.trace.dto.WxBindDTO;
 import com.agri.trace.dto.WxLoginDTO;
+import com.agri.trace.entity.SysUser;
+import com.agri.trace.security.RegisterGuard;
 import com.agri.trace.security.UserContext;
 import com.agri.trace.service.AuthService;
+import com.agri.trace.service.UserService;
 import com.agri.trace.service.WxAuthService;
 import com.agri.trace.vo.LoginVO;
 import com.agri.trace.vo.UserVO;
@@ -22,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
 @Tag(name = "认证登录")
@@ -35,10 +40,34 @@ public class AuthController {
     @Resource
     private WxAuthService wxAuthService;
 
+    @Resource
+    private UserService userService;
+
+    @Resource
+    private RegisterGuard registerGuard;
+
     @Operation(summary = "账号密码登录，返回 JWT")
     @PostMapping("/login")
     public R<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         return R.ok("登录成功", authService.login(dto));
+    }
+
+    /**
+     * 自助注册：匿名可调用，注册成功直接签发 JWT，三端共用。
+     *
+     * <p>注册只放行"农户 / 销售商"两种身份——检测、物流、监管、村管、管理员
+     * 掌握的是他人数据的处置权，必须由管理员实名开通，不能自助注册。
+     * 具体校验在 {@link UserService#register(RegisterDTO)}，这里只负责
+     * 防刷 + 注册即登录，省掉用户"注册完还要再输一遍密码"的一步。</p>
+     */
+    @Operation(summary = "自助注册（农户 / 销售商），成功即登录")
+    @PostMapping("/register")
+    public R<LoginVO> register(@Valid @RequestBody RegisterDTO dto, HttpServletRequest request) {
+        String ip = registerGuard.check(request);
+        Long userId = userService.register(dto);
+        registerGuard.markSuccess(ip);
+        SysUser user = userService.getById(userId);
+        return R.ok("注册成功", authService.issueToken(user));
     }
 
     @Operation(summary = "刷新令牌：access token 过期后换发新的 token 对")

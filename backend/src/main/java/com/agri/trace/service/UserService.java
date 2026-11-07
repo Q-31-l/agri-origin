@@ -6,6 +6,7 @@ import com.agri.trace.common.Constants;
 import com.agri.trace.common.PageResult;
 import com.agri.trace.common.ResultCode;
 import com.agri.trace.dto.UserDTO;
+import com.agri.trace.dto.RegisterDTO;
 import com.agri.trace.entity.BaseFarm;
 import com.agri.trace.entity.BaseVillage;
 import com.agri.trace.entity.SysRole;
@@ -105,6 +106,67 @@ public class UserService {
             list.add(m);
         }
         return list;
+    }
+
+    /**
+     * 自助注册（匿名可调用）。
+     *
+     * 与 {@link #create(UserDTO)} 分开的原因：
+     * <ul>
+     *   <li>create 依赖 UserContext，而注册时没有登录态</li>
+     *   <li>create 允许任意角色，注册只放行"农户 / 销售商"两种身份，
+     *       检测、物流、监管、村管、管理员等必须由管理员创建</li>
+     *   <li>农户必须选村，否则登录后按数据范围看不到任何可操作的批次</li>
+     * </ul>
+     */
+    @Transactional
+    public Long register(RegisterDTO dto) {
+        String role = dto.getRoleCode();
+        if (!Constants.ROLE_FARMER.equals(role) && !Constants.ROLE_SELLER.equals(role)) {
+            throw BizException.forbidden("该身份不支持自助注册，请联系管理员开通");
+        }
+
+        // 农户：必须选一个真实存在的村
+        if (Constants.ROLE_FARMER.equals(role)) {
+            if (dto.getVillageId() == null) {
+                throw BizException.badRequest("请选择所属村");
+            }
+            BaseVillage village = villageMapper.selectById(dto.getVillageId());
+            if (village == null) {
+                throw BizException.badRequest("所选村不存在，请重新选择");
+            }
+        }
+
+        // 销售商：机构名是溯源展示的责任主体，不能为空
+        if (Constants.ROLE_SELLER.equals(role)
+                && (dto.getOrgName() == null || dto.getOrgName().isEmpty())) {
+            throw BizException.badRequest("请填写销售机构名称");
+        }
+
+        // 密码不能与账号相同，避免 admin/admin 这类弱口令
+        if (dto.getUsername().equals(dto.getPassword())) {
+            throw BizException.badRequest("密码不能与账号相同");
+        }
+
+        Long exists = userMapper.selectCount(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getUsername, dto.getUsername()));
+        if (exists != null && exists > 0) {
+            throw BizException.conflict("登录账号已被注册");
+        }
+
+        SysUser user = new SysUser();
+        user.setUsername(dto.getUsername());
+        user.setPassword(BCrypt.hashpw(dto.getPassword(), BCrypt.gensalt()));
+        user.setRealName(dto.getRealName());
+        user.setPhone(dto.getPhone());
+        user.setRoleCode(role);
+        user.setOrgName(dto.getOrgName());
+        user.setVillageId(Constants.ROLE_FARMER.equals(role) ? dto.getVillageId() : null);
+        // farmId 留空：农户的数据范围按 farmerId 隔离，不要求必须有农场才能登录。
+        // 首次建档时再选择或新建农场即可。
+        user.setStatus(1);
+        userMapper.insert(user);
+        return user.getId();
     }
 
     @Transactional
