@@ -50,23 +50,25 @@ export const ROUTES = {
 /** 所有 tabBar 页面，必须与 pages.json 的 tabBar.list 完全一致 */
 export const TAB_PAGES = [ROUTES.HOME, ROUTES.TAB_BATCH, ROUTES.TAB_TRACE, ROUTES.TAB_MINE]
 
-/** PC 侧边菜单（与 pages.json 中 pages-pc 的注册保持同步） */
+/** PC 侧边菜单（与 pages.json 中 pages-pc 的注册保持同步）
+ *  icon 是 config/icons.js 里的图标名，不再用 ▤ ❀ 这类字符（跨设备字形不一致）
+ */
 export const PC_MENUS = [
-  { path: ROUTES.PC_DASHBOARD, title: '数据看板', icon: '▤' },
+  { path: ROUTES.PC_DASHBOARD, title: '数据看板', icon: 'dashboard' },
   { group: '全流程管理' },
-  { path: ROUTES.PC_BATCH_LIST, title: '批次管理', icon: '▢', perm: 'batch:list' },
-  { path: ROUTES.PC_PLANTING, title: '农事记录', icon: '❀', perm: 'planting:list' },
-  { path: ROUTES.PC_HARVEST, title: '采收登记', icon: '✿', perm: 'harvest:list' },
-  { path: ROUTES.PC_QUALITY, title: '质量检测', icon: '✓', perm: 'quality:list' },
-  { path: ROUTES.PC_LOGISTICS, title: '物流运输', icon: '⇥', perm: 'logistics:list' },
-  { path: ROUTES.PC_SALES, title: '销售管理', icon: '¥', perm: 'sales:list' },
+  { path: ROUTES.PC_BATCH_LIST, title: '批次管理', icon: 'batch', perm: 'batch:list' },
+  { path: ROUTES.PC_PLANTING, title: '农事记录', icon: 'planting', perm: 'planting:list' },
+  { path: ROUTES.PC_HARVEST, title: '采收登记', icon: 'harvest', perm: 'harvest:list' },
+  { path: ROUTES.PC_QUALITY, title: '质量检测', icon: 'quality', perm: 'quality:list' },
+  { path: ROUTES.PC_LOGISTICS, title: '物流运输', icon: 'logistics', perm: 'logistics:list' },
+  { path: ROUTES.PC_SALES, title: '销售管理', icon: 'sales', perm: 'sales:list' },
   { group: '可信与监管' },
-  { path: ROUTES.PC_ABNORMAL, title: '异常管控', icon: '!', perm: 'abnormal:list' },
-  { path: ROUTES.PC_CHAIN, title: '链上存证', icon: '⛓', perm: 'chain:list' },
-  { path: ROUTES.PC_TRACE, title: '溯源查询', icon: '⌕' },
+  { path: ROUTES.PC_ABNORMAL, title: '异常管控', icon: 'abnormal', perm: 'abnormal:list' },
+  { path: ROUTES.PC_CHAIN, title: '链上存证', icon: 'chain', perm: 'chain:list' },
+  { path: ROUTES.PC_TRACE, title: '溯源查询', icon: 'trace' },
   { group: '系统' },
-  { path: ROUTES.PC_SYSTEM_USER, title: '用户与角色', icon: '☺', perm: 'user:list' },
-  { path: ROUTES.PC_SYSTEM_FARM, title: '农场档案', icon: '⌂', perm: 'farm:list' },
-  { path: ROUTES.PC_SYSTEM_PRODUCT, title: '产品品类', icon: '❖', perm: 'product:list' },
-  { path: ROUTES.PC_SYSTEM_LOG, title: '操作日志', icon: '≡', perm: 'log:list' }
+  { path: ROUTES.PC_SYSTEM_USER, title: '用户与角色', icon: 'user', perm: 'user:list' },
+  { path: ROUTES.PC_SYSTEM_FARM, title: '农场档案', icon: 'farm', perm: 'farm:list' },
+  { path: ROUTES.PC_SYSTEM_PRODUCT, title: '产品品类', icon: 'product', perm: 'product:list' },
+  { path: ROUTES.PC_SYSTEM_LOG, title: '操作日志', icon: 'log', perm: 'log:list' }
 ]

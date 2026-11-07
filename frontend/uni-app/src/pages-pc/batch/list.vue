@@ -452,11 +452,15 @@ useRealtime(() => {
 .abn-flag {
   display: inline-block;
   margin-left: 6px;
-  font-size: 10px;
-  color: #d93026;
+  font-size: 9.5px;
+  line-height: 16px;
+  color: #c0392b;
   background: #fdeceb;
-  border-radius: 3px;
-  padding: 0 4px;
+  border: 1px solid #f6d5d0;
+  border-radius: 4px;
+  padding: 0 5px;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 .picker-box {
   display: flex;

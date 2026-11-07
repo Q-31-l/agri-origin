@@ -17,66 +17,56 @@
           <text class="nv">{{ stats.totalBatches || 0 }}</text>
           <text class="nl">参与批次</text>
         </view>
-        <view class="num-item">
-          <text class="nv">{{ platformLabel }}</text>
-          <text class="nl">当前端</text>
+        <view class="num-item" @click="go(ROUTES.CHAIN)">
+          <text class="nv">{{ stats.chainSuccess || 0 }}</text>
+          <text class="nl">链上存证</text>
         </view>
         <view class="num-item">
-          <text class="nv">{{ permCount }}</text>
-          <text class="nl">权限点</text>
+          <text class="nv">{{ qualifiedText }}</text>
+          <text class="nl">质检合格率</text>
         </view>
       </view>
     </view>
 
     <view class="body">
-      <view class="menu">
-        <view class="menu-item" @click="go(ROUTES.BATCH_LIST)">
-          <text class="mi-icon">▢</text>
-          <text class="mi-title">批次管理</text>
-          <text class="mi-arrow">›</text>
-        </view>
-        <view class="menu-item" @click="go(ROUTES.PLANTING_LIST)">
-          <text class="mi-icon">❀</text>
-          <text class="mi-title">农事记录</text>
-          <text class="mi-arrow">›</text>
-        </view>
-        <view class="menu-item" @click="go(ROUTES.QUALITY_LIST)">
-          <text class="mi-icon">✓</text>
-          <text class="mi-title">质量检测</text>
-          <text class="mi-arrow">›</text>
-        </view>
-        <view class="menu-item" @click="go(ROUTES.CHAIN)">
-          <text class="mi-icon">⛓</text>
-          <text class="mi-title">链上存证</text>
+      <!--
+        菜单按权限裁剪：农户看不到"质量检测"，检测机构看不到"农事记录"，
+        与 PC 侧栏同一套 perm，避免"手机上点得进去、电脑上没这个入口"的错位。
+        某组过滤后为空就整组不渲染。
+      -->
+      <view v-for="(g, gi) in menuGroups" :key="gi" class="menu">
+        <view v-for="m in g" :key="m.title" class="menu-item" @click="go(m.path)">
+          <app-icon :name="m.icon" color="#374151" :size="40" class="mi-icon" />
+          <text class="mi-title">{{ m.title }}</text>
           <text class="mi-arrow">›</text>
         </view>
       </view>
 
       <view class="menu">
-        <view class="menu-item" @click="go(ROUTES.PASSWORD)">
-          <text class="mi-icon">⌘</text>
-          <text class="mi-title">修改密码</text>
-          <text class="mi-arrow">›</text>
-        </view>
-        <view class="menu-item" @click="go(ROUTES.SETTINGS)">
-          <text class="mi-icon">⚙</text>
-          <text class="mi-title">设置</text>
-          <text class="mi-arrow">›</text>
-        </view>
         <!-- #ifdef MP-WEIXIN -->
         <view class="menu-item" @click="go('/pages-mp/poster/index')">
-          <text class="mi-icon">▣</text>
+          <app-icon name="image" color="#374151" :size="40" class="mi-icon" />
           <text class="mi-title">分享海报</text>
           <text class="mi-arrow">›</text>
         </view>
         <!-- #endif -->
         <!-- #ifdef APP-PLUS -->
         <view class="menu-item" @click="go('/pages-app/update/index')">
-          <text class="mi-icon">↑</text>
+          <app-icon name="refresh" color="#374151" :size="40" class="mi-icon" />
           <text class="mi-title">检查更新</text>
           <text class="mi-arrow">›</text>
         </view>
         <!-- #endif -->
+        <view class="menu-item" @click="go(ROUTES.PASSWORD)">
+          <app-icon name="lock" color="#374151" :size="40" class="mi-icon" />
+          <text class="mi-title">修改密码</text>
+          <text class="mi-arrow">›</text>
+        </view>
+        <view class="menu-item" @click="go(ROUTES.SETTINGS)">
+          <app-icon name="settings" color="#374151" :size="40" class="mi-icon" />
+          <text class="mi-title">设置</text>
+          <text class="mi-arrow">›</text>
+        </view>
       </view>
 
       <view class="version">
@@ -93,6 +83,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import AppNavbar from '@/components/common/app-navbar.vue'
+import AppIcon from '@/components/common/app-icon.vue'
 import { useUserStore } from '@/store/user'
 import { statsOverview } from '@/api'
 import { nav, relaunch } from '@/utils/router'
@@ -105,10 +96,31 @@ const store = useUserStore()
 const stats = ref({})
 const appName = ENV.appName
 const version = ENV.version
-const platformLabel = platformName()
 
 const avatarText = computed(() => (store.displayName || 'U').slice(0, 1))
-const permCount = computed(() => store.permissions.length)
+
+/** 合格率：没有报告时显示占位符，而不是刺眼的 0% */
+const qualifiedText = computed(() => {
+  const v = stats.value.qualifiedRate
+  if (v === null || v === undefined) return '—'
+  return Number(v).toFixed(0) + '%'
+})
+
+/**
+ * 业务入口按权限裁剪，与 PC 侧栏共用同一批 perm 标识。
+ * 例如农户只有 planting/harvest 权限，就不该在"我的"里看到"质量检测"。
+ */
+const BUSINESS_MENUS = [
+  { title: '批次管理', icon: 'batch', path: ROUTES.BATCH_LIST, perm: 'batch:list' },
+  { title: '农事记录', icon: 'planting', path: ROUTES.PLANTING_LIST, perm: 'planting:list' },
+  { title: '质量检测', icon: 'quality', path: ROUTES.QUALITY_LIST, perm: 'quality:list' },
+  { title: '链上存证', icon: 'chain', path: ROUTES.CHAIN, perm: 'chain:list' }
+]
+
+const menuGroups = computed(() => {
+  const list = BUSINESS_MENUS.filter((m) => !m.perm || store.hasPerm(m.perm))
+  return list.length ? [list] : []
+})
 
 function go(path) {
   nav(path)
@@ -233,9 +245,7 @@ onShow(async () => {
   border-bottom: none;
 }
 .mi-icon {
-  width: 56rpx;
-  font-size: 30rpx;
-  color: $brand;
+  margin-right: 6rpx;
 }
 .mi-title {
   flex: 1;

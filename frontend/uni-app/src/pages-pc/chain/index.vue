@@ -36,7 +36,7 @@
             <text class="cc-label">上链成功</text>
           </view>
           <text class="cc-val green">{{ stat.success }}</text>
-          <text class="cc-hint">成功率 {{ stat.rate }}%</text>
+          <text class="cc-hint">{{ stat.ready ? '成功率 ' + stat.rate + '% · 全量口径' : '统计加载中' }}</text>
         </view>
         <view class="cc">
           <view class="cc-top">
@@ -44,8 +44,9 @@
           </view>
           <text class="cc-val red">{{ stat.failed }} <text class="slash">/</text> <text class="orange">{{ stat.skipped }}</text></text>
           <text class="cc-hint">
-            <text v-if="stat.failed" class="pc-link" @click="openFailed">查看失败明细</text>
-            <text v-else>无失败记录</text>
+            <text v-if="stat.ready && stat.failed > 0" class="pc-link" @click="openFailed">查看失败明细</text>
+            <text v-else-if="stat.ready">无失败记录</text>
+            <text v-else>统计加载中</text>
           </text>
         </view>
       </view>
@@ -215,17 +216,23 @@ const statusOptions = [
   { value: 'SKIPPED', label: '演示跳过' }
 ]
 
+/**
+ * 汇总口径是整张 chain_record 表（后端 /chain/status 返回 chainStat）。
+ * 早先按 list.value（当前页 10 条）统计，会出现"上链成功 10"与下方"共 208 条"打架，
+ * 而且翻页时这个数字还会变——统计不能依赖分页数据。
+ */
 const stat = computed(() => {
-  const total = list.value.length || 1
-  const success = list.value.filter((i) => i.status === 'SUCCESS').length
-  const failed = list.value.filter((i) => i.status === 'FAILED').length
-  const skipped = list.value.filter((i) => i.status === 'SKIPPED').length
-  return {
-    success,
-    failed,
-    skipped,
-    rate: ((success * 100) / total).toFixed(1)
+  const s = chain.value && chain.value.chainStat
+  if (s) {
+    return {
+      success: s.success,
+      failed: s.failed,
+      skipped: s.skipped,
+      rate: s.successRate,
+      ready: true
+    }
   }
+  return { success: '—', failed: '—', skipped: '—', rate: '—', ready: false }
 })
 
 function eventName(t) {

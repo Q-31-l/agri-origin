@@ -16,7 +16,7 @@
           <view v-if="m.group" class="group">{{ m.group }}</view>
           <view v-else class="menu-item" :class="{ on: current === m.path }" @click="go(m.path)">
             <view class="mi-glass"></view>
-            <text class="mi-icon">{{ m.icon }}</text>
+            <pc-icon :name="m.icon" :size="17" class="mi-icon" />
             <text class="mi-text">{{ m.title }}</text>
           </view>
         </block>
@@ -66,6 +66,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import BrandLogo from '@/components/common/brand-logo.vue'
+import PcIcon from '@/components/pc/pc-icon.vue'
 import { PC_MENUS } from '@/config/routes'
 import { useUserStore } from '@/store/user'
 import { chainStatus } from '@/api'
@@ -481,11 +482,13 @@ if (store.isLogin) {
 .mi-icon {
   position: relative;
   z-index: 2;
-  width: 20px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-right: 8px;
-  transition: color 0.2s ease;
+  margin-right: 9px;
+  color: rgba(255, 255, 255, 0.58);
+  transition: color 0.2s ease, transform 0.25s ease;
+}
+.menu-item:hover .mi-icon {
+  color: rgba(255, 255, 255, 0.85);
+  transform: translateX(1px);
 }
 .menu-item.on .mi-icon {
   color: #a9f0c6;

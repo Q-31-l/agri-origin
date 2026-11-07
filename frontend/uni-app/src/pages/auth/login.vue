@@ -71,7 +71,7 @@
 
         <!-- #ifdef MP-WEIXIN -->
         <view v-else class="wx-panel">
-          <view class="wx-icon">✆</view>
+          <view class="wx-icon"><app-icon name="wechat" color="#07c160" :size="80" /></view>
           <text class="wx-tip">使用微信一键登录，首次登录需绑定已有账号</text>
           <view class="btn" :class="{ disabled: loading }" @click="submitWx">微信一键登录</view>
           <text class="wx-sub" @click="mode = 'account'">使用账号密码登录</text>
@@ -80,7 +80,7 @@
 
         <!-- #ifdef APP-PLUS -->
         <view v-else class="wx-panel">
-          <view class="wx-icon">✆</view>
+          <view class="wx-icon"><app-icon name="wechat" color="#07c160" :size="80" /></view>
           <text class="wx-tip">使用微信一键登录 App，首次登录需绑定已有账号</text>
           <view class="btn" :class="{ disabled: loading }" @click="submitWx">微信一键登录</view>
           <text class="wx-sub" @click="mode = 'account'">使用账号密码登录</text>
@@ -89,7 +89,7 @@
       </view>
 
       <view class="consumer" @click="toTrace">
-        <text class="scan-icon">⌗</text>
+        <app-icon name="scan" color="#1f7a4d" :size="38" class="scan-icon" />
         <text class="consumer-text">消费者扫码溯源入口</text>
         <text class="arrow">›</text>
       </view>
@@ -109,6 +109,7 @@ import PcLogin from '@/components/auth/pc-login.vue'
 // #endif
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
+import AppIcon from '@/components/common/app-icon.vue'
 import { isPcWidth } from '@/config/platform'
 import { ENV } from '@/config/env'
 import { storage } from '@/utils/storage'
@@ -302,6 +303,9 @@ function toTrace() {
   /* hero 有 position:relative 会盖住负 margin 的卡片，这里必须提升层级 */
   position: relative;
   z-index: 2;
+  /* 让版本号贴到屏幕底部：否则卡片之后会剩一大片空白，页面显得头重脚轻 */
+  display: flex;
+  flex-direction: column;
 }
 .card {
   background: #fff;
@@ -394,9 +398,9 @@ function toTrace() {
   align-items: center;
 }
 .wx-icon {
-  font-size: 80rpx;
-  color: #22c55e;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .wx-tip {
   margin: 24rpx 0 8rpx;
@@ -424,8 +428,6 @@ function toTrace() {
   box-shadow: $shadow-card;
 }
 .scan-icon {
-  font-size: 34rpx;
-  color: $brand;
   margin-right: 16rpx;
 }
 .consumer-text {
@@ -440,7 +442,8 @@ function toTrace() {
 .footer {
   display: block;
   text-align: center;
-  margin-top: 48rpx;
+  margin-top: auto;
+  padding-top: 48rpx;
   font-size: 20rpx;
   color: $text-4;
 }

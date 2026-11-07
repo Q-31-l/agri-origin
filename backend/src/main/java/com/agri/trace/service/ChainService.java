@@ -300,6 +300,36 @@ public class ChainService {
                 .last("limit 20"));
     }
 
+    /**
+     * 全量存证状态汇总。
+     *
+     * <p>列表页只能拿到一页数据，按当前页算"上链成功 10 笔"会和下方"共 208 条"自相矛盾，
+     * 所以汇总必须走独立的 count 查询，口径是整张 chain_record 表。</p>
+     */
+    public java.util.Map<String, Object> statusSummary() {
+        long success = countByStatus(Constants.CHAIN_SUCCESS);
+        long failed = countByStatus(Constants.CHAIN_FAILED);
+        long skipped = countByStatus(Constants.CHAIN_SKIPPED);
+        long total = success + failed + skipped;
+
+        java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("success", success);
+        map.put("failed", failed);
+        map.put("skipped", skipped);
+        map.put("total", total);
+        // 成功率只按"真正尝试上链"的口径算（跳过的不算分母），和看板保持一致
+        long attempted = success + failed;
+        map.put("successRate", attempted == 0 ? 0
+                : Math.round(success * 1000.0 / attempted) / 10.0);
+        return map;
+    }
+
+    private long countByStatus(String status) {
+        Long n = chainRecordMapper.selectCount(Wrappers.<ChainRecord>lambdaQuery()
+                .eq(ChainRecord::getStatus, status));
+        return n == null ? 0L : n;
+    }
+
     private String labelOf(String bizType) {
         switch (bizType) {
             case Constants.EVENT_BATCH: return "批次登记";

@@ -28,7 +28,9 @@ export const BATCH_STATUS = {
   HARVESTED: { text: '已采收', color: '#0891b2', bg: '#e0f7fa' },
   QUALIFIED: { text: '检测合格', color: '#16a34a', bg: '#e8f7ee' },
   IN_TRANSIT: { text: '运输中', color: '#7c3aed', bg: '#f1eaff' },
-  ON_SALE: { text: '销售中', color: '#c2410c', bg: '#fff1e6' },
+  // 销售中原先取 #c2410c（橙红），和"异常管控"的红色在条形图里几乎分不出来，
+  // 改成青绿：既区别于"检测合格"的草绿，也不会被误读成警示色
+  ON_SALE: { text: '销售中', color: '#0f766e', bg: '#e3f4f1' },
   SOLD: { text: '已售罄', color: '#475569', bg: '#eef2f6' },
   ABNORMAL: { text: '异常管控', color: '#d93026', bg: '#fdeceb' },
   CLOSED: { text: '已关闭', color: '#6b7280', bg: '#f1f2f4' }

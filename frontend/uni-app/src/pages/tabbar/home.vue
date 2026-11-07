@@ -7,7 +7,7 @@
           <text class="nav-title">工作台</text>
         </template>
         <template #right>
-          <text class="nav-action" @click="toTrace">⌗</text>
+          <view class="nav-action" @click="toTrace"><app-icon name="scan" color="#ffffff" :size="42" /></view>
         </template>
       </app-navbar>
 
@@ -47,7 +47,9 @@
         </view>
         <view class="grid">
           <view v-for="q in quicks" :key="q.title" class="grid-item" @click="go(q)">
-            <view class="q-icon" :style="{ background: q.bg, color: q.color }">{{ q.icon }}</view>
+            <view class="q-icon" :style="{ background: q.bg }">
+              <app-icon :name="q.icon" :color="q.color" :size="44" />
+            </view>
             <text class="q-title">{{ q.title }}</text>
           </view>
         </view>
@@ -72,6 +74,7 @@
 import { computed, ref } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import AppNavbar from '@/components/common/app-navbar.vue'
+import AppIcon from '@/components/common/app-icon.vue'
 import BatchCard from '@/components/business/batch-card.vue'
 import EmptyState from '@/components/common/empty-state.vue'
 import { useUserStore } from '@/store/user'
@@ -97,14 +100,14 @@ const greeting = computed(() => {
 })
 
 const ALL_QUICKS = [
-  { title: '新建批次', icon: '＋', bg: '#e8f5ee', color: '#1f7a4d', path: ROUTES.BATCH_CREATE, perm: 'batch:create' },
-  { title: '农事记录', icon: '❀', bg: '#e8f0fe', color: '#2563eb', path: ROUTES.PLANTING_FORM, perm: 'planting:create' },
-  { title: '采收登记', icon: '✿', bg: '#fef6e0', color: '#b45309', path: ROUTES.HARVEST_FORM, perm: 'harvest:create' },
-  { title: '质检录入', icon: '✓', bg: '#f1eaff', color: '#7c3aed', path: ROUTES.QUALITY_FORM, perm: 'quality:create' },
-  { title: '物流登记', icon: '⇥', bg: '#e0f7fa', color: '#0891b2', path: ROUTES.LOGISTICS_FORM, perm: 'logistics:create' },
-  { title: '销售登记', icon: '¥', bg: '#fff1e6', color: '#c2410c', path: ROUTES.SALES_FORM, perm: 'sales:create' },
-  { title: '异常管控', icon: '!', bg: '#fdeceb', color: '#d93026', path: ROUTES.ABNORMAL, perm: 'abnormal:list' },
-  { title: '扫码溯源', icon: '⌗', bg: '#eaf1ff', color: '#3b82f6', path: ROUTES.TAB_TRACE, tab: true }
+  { title: '新建批次', icon: 'plus', bg: '#e8f5ee', color: '#1f7a4d', path: ROUTES.BATCH_CREATE, perm: 'batch:create' },
+  { title: '农事记录', icon: 'planting', bg: '#e8f0fe', color: '#2563eb', path: ROUTES.PLANTING_FORM, perm: 'planting:create' },
+  { title: '采收登记', icon: 'harvest', bg: '#fef6e0', color: '#b45309', path: ROUTES.HARVEST_FORM, perm: 'harvest:create' },
+  { title: '质检录入', icon: 'quality', bg: '#f1eaff', color: '#7c3aed', path: ROUTES.QUALITY_FORM, perm: 'quality:create' },
+  { title: '物流登记', icon: 'logistics', bg: '#e0f7fa', color: '#0891b2', path: ROUTES.LOGISTICS_FORM, perm: 'logistics:create' },
+  { title: '销售登记', icon: 'sales', bg: '#fff1e6', color: '#c2410c', path: ROUTES.SALES_FORM, perm: 'sales:create' },
+  { title: '异常管控', icon: 'abnormal', bg: '#fdeceb', color: '#d93026', path: ROUTES.ABNORMAL, perm: 'abnormal:list' },
+  { title: '扫码溯源', icon: 'scan', bg: '#eaf1ff', color: '#3b82f6', path: ROUTES.TAB_TRACE, tab: true }
 ]
 
 const quicks = computed(() => ALL_QUICKS.filter((q) => !q.perm || store.hasPerm(q.perm)))
@@ -168,8 +171,16 @@ onPullDownRefresh(() => load())
   color: #fff;
 }
 .nav-action {
-  font-size: 36rpx;
-  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.16);
+}
+.nav-action:active {
+  background: rgba(255, 255, 255, 0.26);
 }
 .greet {
   display: flex;

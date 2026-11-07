@@ -69,6 +69,8 @@ public class ChainController {
         // 节点二进制版本与群组号：答辩/运维时用来确认"连的是哪条链、哪个版本"
         map.put("nodeVersion", contractService.getNodeVersion());
         map.put("groupId", contractService.getGroupId());
+        // 全量存证汇总：列表分页拿不到总数，必须单独 count
+        map.put("chainStat", chainService.statusSummary());
         return R.ok(map);
     }
 
