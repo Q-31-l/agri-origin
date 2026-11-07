@@ -31,6 +31,9 @@ defineEmits(['action'])
   margin-top: 24rpx;
   font-size: 26rpx;
   color: $text-3;
+  line-height: 1.7;
+  text-align: center;
+  white-space: pre-line;
 }
 .action {
   margin-top: 32rpx;

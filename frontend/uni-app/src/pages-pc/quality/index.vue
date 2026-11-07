@@ -86,6 +86,8 @@
                 placeholder="请选择批次"
                 width="100%"
                 pop-width="360px"
+                empty-hint="暂无待检测的批次
+农户完成采收登记后，该批次才会进入这里供检测"
               />
             </view>
             <view class="pc-field">

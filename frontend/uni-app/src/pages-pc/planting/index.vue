@@ -82,6 +82,8 @@
                 placeholder="请选择批次"
                 width="100%"
                 pop-width="360px"
+                empty-hint="暂无可录入的批次
+农户的批次由本村生产主体建档并指派，经村管核验通过后才会出现在这里"
               />
             </view>
             <view class="pc-field">

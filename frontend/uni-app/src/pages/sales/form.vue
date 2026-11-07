@@ -1,7 +1,8 @@
 <template>
   <view class="form-page">
     <view class="group">
-      <batch-picker v-model="form.batchId" label="批次" required status="IN_TRANSIT,ON_SALE" usable />
+      <batch-picker v-model="form.batchId" label="批次" required status="IN_TRANSIT,ON_SALE" usable empty-hint="暂无可销售的批次
+批次完成物流交接后，才会进入这里供登记销售" />
 
       <view class="row">
         <text class="label required">销售市场</text>

@@ -32,7 +32,7 @@
             </view>
             <status-tag :value="b.status" />
           </view>
-          <empty-state v-if="!loading && !filtered.length" :text="keyword ? '没有匹配的批次' : '暂无可选批次'" />
+          <empty-state v-if="!loading && !filtered.length" :text="emptyText" />
           <view v-if="loading" class="loading">加载中…</view>
         </scroll-view>
       </view>
@@ -55,7 +55,9 @@ const props = defineProps({
   /** 只列出指定状态的批次，如 'HARVESTED' */
   status: { type: String, default: '' },
   /** 只列出能真正录入的批次（已通过村级核验 + 无异常锁定） */
-  usable: { type: Boolean, default: false }
+  usable: { type: Boolean, default: false },
+  /** 空态引导：批次为空时告诉用户"为什么没有、该怎么做"（支持 \n 换行） */
+  emptyHint: { type: String, default: '' }
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
@@ -64,6 +66,12 @@ const loading = ref(false)
 const list = ref([])
 const selected = ref(null)
 const keyword = ref('')
+
+/** 空态文案：搜索不到给"没有匹配"，列表为空给引导（能传 emptyHint 时优先用它） */
+const emptyText = computed(() => {
+  if (keyword.value.trim()) return '没有匹配的批次'
+  return props.emptyHint || '暂无可选批次'
+})
 
 /** 批次多起来（上限 200 条）时，靠流水码翻列表不现实，给个搜索 */
 const filtered = computed(() => {

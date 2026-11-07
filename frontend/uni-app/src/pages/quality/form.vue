@@ -1,7 +1,8 @@
 <template>
   <view class="form-page">
     <view class="group">
-      <batch-picker v-model="form.batchId" label="批次" required status="HARVESTED,QUALIFIED" usable />
+      <batch-picker v-model="form.batchId" label="批次" required status="HARVESTED,QUALIFIED" usable empty-hint="暂无待检测的批次
+农户完成采收登记后，该批次才会进入这里供检测" />
 
       <view class="row">
         <text class="label required">报告编号</text>

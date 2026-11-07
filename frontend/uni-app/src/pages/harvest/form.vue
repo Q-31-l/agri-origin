@@ -7,6 +7,8 @@
         required
         status="PLANTING"
         usable
+        empty-hint="暂无可采收的批次
+批次需经村管核验通过、且仍处于种植中，才会出现在这里"
         @change="onBatchChange" />
 
       <view class="row">

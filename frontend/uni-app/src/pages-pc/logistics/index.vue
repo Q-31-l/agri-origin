@@ -87,6 +87,8 @@
                 placeholder="请选择批次"
                 width="100%"
                 pop-width="360px"
+                empty-hint="暂无可运输的批次
+批次通过质量检测后，才会进入这里供登记运输"
               />
             </view>
             <view class="pc-field">

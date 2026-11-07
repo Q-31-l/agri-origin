@@ -1,7 +1,8 @@
 <template>
   <view class="form-page">
     <view class="group">
-      <batch-picker v-model="form.batchId" label="批次" required status="QUALIFIED,IN_TRANSIT" usable />
+      <batch-picker v-model="form.batchId" label="批次" required status="QUALIFIED,IN_TRANSIT" usable empty-hint="暂无可运输的批次
+批次通过质量检测后，才会进入这里供登记运输" />
 
       <view class="row">
         <text class="label required">运单号</text>

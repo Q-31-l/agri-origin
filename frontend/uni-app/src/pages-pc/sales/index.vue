@@ -84,6 +84,8 @@
                 placeholder="请选择批次"
                 width="100%"
                 pop-width="360px"
+                empty-hint="暂无可销售的批次
+批次完成物流交接后，才会进入这里供登记销售"
               />
             </view>
             <view class="pc-field">

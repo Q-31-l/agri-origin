@@ -82,6 +82,8 @@
                 placeholder="请选择批次"
                 width="100%"
                 pop-width="360px"
+                empty-hint="暂无可采收的批次
+批次需经村管核验通过、且仍处于种植中，才会出现在这里"
                 @change="onBatchChange"
               />
             </view>

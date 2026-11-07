@@ -21,7 +21,7 @@
         <text v-if="o.tag" class="pc-sel-tag">{{ o.tag }}</text>
         <text v-if="o.value === modelValue" class="pc-sel-check">✓</text>
       </view>
-      <view v-if="!options.length" class="pc-sel-empty">暂无可选项</view>
+      <view v-if="!options.length" class="pc-sel-empty">{{ emptyHint || '暂无可选项' }}</view>
     </view>
   </view>
 </template>
@@ -35,7 +35,9 @@ const props = defineProps({
   placeholder: { type: String, default: '请选择' },
   width: { type: String, default: '130px' },
   /** 下拉面板宽度。选项带 desc 时建议给宽一点，否则两行文字会挤成一条 */
-  popWidth: { type: String, default: '' }
+  popWidth: { type: String, default: '' },
+  /** 空态引导：选项为空时告诉用户"为什么没有、该怎么做"（支持 \n 换行） */
+  emptyHint: { type: String, default: '' }
 })
 const emit = defineEmits(['update:modelValue', 'change'])
 
@@ -156,10 +158,12 @@ function pick(o) {
   padding: 1px 6px;
 }
 .pc-sel-empty {
-  padding: 12px 10px;
+  padding: 14px 10px;
   font-size: 12px;
   color: #9aa6b2;
   text-align: center;
+  line-height: 1.6;
+  white-space: pre-line;
 }
 .pc-sel-item:hover {
   background: #f2f7f4;
