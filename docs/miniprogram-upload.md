@@ -183,11 +183,12 @@ https://8-147-61-0.sslip.io
 
 ## 三、代码侧要改的只有一处：AppID
 
-打开 `frontend/uni-app/src/manifest.json`，把 `mp-weixin.appid` 填上：
+已填入本项目的小程序 AppID：`wx72ad9e7bc512a0ee`。换机器或换号时，改
+`frontend/uni-app/src/manifest.json` 的 `mp-weixin.appid` 即可：
 
 ```json
 "mp-weixin": {
-  "appid": "wx1a2b3c4d5e6f7g8h",   // ← 换成你的 AppID
+  "appid": "wx72ad9e7bc512a0ee",
   "setting": {
     "urlCheck": false,             // 开发期不校验域名，保持 false
     ...
