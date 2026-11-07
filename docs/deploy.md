@@ -1164,6 +1164,85 @@ python scripts/deploy-portal.py     # 上传页面 → 备份并替换 nginx →
 
 ---
 
+### 11.8 发版后进页面报「连接服务器超时，点击屏幕重试」
+
+**现象**：部署新版本后，点开或直接访问某个页面，整块内容区显示
+「连接服务器超时，点击屏幕重试」，点一下（或手动刷新）又恢复正常。
+移动端与 PC 端都会出现，与具体页面无关，纯粹看"这次有没有赶上发版"。
+
+**这不是网络问题**，那行字是 uni-app 框架的 `AsyncError` 组件
+（i18n key 是 `uni.async.error`），只在**路由分包（懒加载 chunk）加载失败**时渲染。
+
+**故障链**：
+
+```
+发版前用户打开过页面 → 浏览器按 etag/last-modified 启发式缓存了 index.html
+                    ↓
+发版：构建产物文件名换新 hash，旧 chunk 被删
+                    ↓
+用户再进页面 → 用的是缓存的旧 index.html → import 已不存在的 chunk → 404
+                    ↓
+uni-app 渲染 AsyncError（"连接服务器超时"）
+                    ↓
+刷新 → 强制回源拿到新 index.html → 正常
+```
+
+关键点：`location /` 如果没写 `Cache-Control`，nginx 只给 `ETag` + `Last-Modified`，
+浏览器会自行推算一个缓存时长（通常是 `(Date - Last-Modified)` 的 10%，可能十几分钟），
+这段时间内一直用旧 index.html。
+
+**修复（两层）**：
+
+1. **服务端分档缓存**（`ops/nginx-agri-app.conf`）：
+
+```nginx
+# 文件名带内容 hash，一变就换名 → 长缓存
+location /assets/ {
+    try_files $uri =404;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    access_log off;
+}
+location /static/ {
+    try_files $uri =404;
+    expires 1d;
+    access_log off;
+}
+
+# 入口与所有前端路由 → 每次回源校验
+location / {
+    try_files $uri $uri/ /index.html;
+    add_header Cache-Control "no-cache" always;
+}
+```
+
+> 注意别在 `/assets/` 同时写 `expires` 和 `add_header Cache-Control`——
+> `expires` 会自动追加一条 `Cache-Control: max-age=…`，响应里会出现两个同名头。
+
+2. **客户端自动恢复**（`src/main.js`）：
+   即使某个用户手里还留着旧 index.html，也不让他手动刷新。
+   uni-app 在框架内部 catch 了 import 失败，`unhandledrejection` 监听不到，
+   所以改为用 `MutationObserver` 盯 `.uni-async-error` 这个占位元素出现——
+   结果导向，不依赖框架内部的错误传播方式。检测到就 `location.reload()` 一次，
+   并用 `sessionStorage` 加 10 分钟防循环（避免资源真的缺失时无限刷新）。
+
+**验证方法**（不依赖发版，直接模拟）：
+
+```js
+// Playwright：把某个路由 chunk 前两次请求打成 404
+let hits = 0
+await page.route('**/pages-pc-batch-list*.js', (route) => {
+  hits++
+  return hits <= 2 ? route.fulfill({ status: 404 }) : route.continue()
+})
+await page.click('text=批次管理')
+// 期望：hits 最终为 3，sessionStorage 里出现 __agri_async_reload_at，页面恢复正常
+```
+
+实测结果：前两次 404 → 自动重载 → 第三次 200 → 落在原路由且内容正常；
+正常场景下 21 个页面（PC 14 + 移动 7）零误触发。
+
+---
+
 ## 十二、附录：一键本地启动脚本
 
 `scripts/dev-start.sh`（可选自建）：
