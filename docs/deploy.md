@@ -567,17 +567,17 @@ certbot --nginx -d trace.example.com
 ```
 
 没有域名、只有公网 IP 时，用 `sslip.io` 的通配解析 + `acme.sh` 也能签出受信任证书
-（`8-130-105-150.sslip.io` 会自动解析到 `8.130.105.150`，无需买域名）：
+（`8-147-61-0.sslip.io` 会自动解析到 `8.147.61.0`，无需买域名）：
 
 ```bash
 # 1) 安装 acme.sh（若官方安装脚本报 cannot copy，手动落到 ~/.acme.sh 再 --install）
 curl -s https://get.acme.sh | sh -s email=you@example.com
 
 # 2) HTTP-01 签发：nginx 的 80 端口必须能从公网访问到 /.well-known/acme-challenge/
-~/.acme.sh/acme.sh --issue -d 8-130-105-150.sslip.io --webroot /var/www/html
+~/.acme.sh/acme.sh --issue -d 8-147-61-0.sslip.io --webroot /var/www/html
 
 # 3) 装到 nginx 读的位置，并让 acme.sh 在续期后自动 reload
-~/.acme.sh/acme.sh --install-cert -d 8-130-105-150.sslip.io \
+~/.acme.sh/acme.sh --install-cert -d 8-147-61-0.sslip.io \
   --key-file       /etc/nginx/ssl/agri.key \
   --fullchain-file /etc/nginx/ssl/agri.crt \
   --reloadcmd      "systemctl reload nginx"
@@ -596,7 +596,7 @@ nginx 侧把 80/443 的公共 location 抽到 snippet 里复用（80 只做 ACME
 
 ```nginx
 # 裸 IP 没有证书，先映射成同 IP 的 sslip.io 域名再跳，
-# 否则用户输 8.130.105.150 会被跳到 https://8.130.105.150 然后证书报错
+# 否则用户输 8.147.61.0 会被跳到 https://8.147.61.0 然后证书报错
 map $host $agri_canonical_host {
     default                                                          $host;
     "~^(?<a>\d{1,3})\.(?<b>\d{1,3})\.(?<c>\d{1,3})\.(?<d>\d{1,3})$"  "$a-$b-$c-$d.sslip.io";
@@ -611,7 +611,7 @@ server {
 }
 server {
     listen 443 ssl http2 default_server;
-    server_name 8-130-105-150.sslip.io;
+    server_name 8-147-61-0.sslip.io;
     ssl_certificate     /etc/nginx/ssl/agri.crt;
     ssl_certificate_key /etc/nginx/ssl/agri.key;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -632,7 +632,7 @@ server {
 
 ```bash
 # /etc/systemd/system/agri-backend.service
-Environment="TRACE_URL_PREFIX=https://8-130-105-150.sslip.io/pages/trace/index?code="
+Environment="TRACE_URL_PREFIX=https://8-147-61-0.sslip.io/pages/trace/index?code="
 ```
 
 ### 7.4 部署检查清单
@@ -810,7 +810,7 @@ location = /api/ws {
 curl -s -o /dev/null -w '%{http_code}\n' \
   -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
-  "http://8.130.105.150/api/ws?token=$TOKEN"     # 期望 101
+  "http://8.147.61.0/api/ws?token=$TOKEN"     # 期望 101
 ```
 
 无 token 或 token 非法时应返回 **401**（而不是 200）。
@@ -916,7 +916,7 @@ chmod 640 /etc/nginx/.htpasswd_webase && chown root:www-data /etc/nginx/.htpassw
 nginx -t && systemctl reload nginx
 ```
 
-访问：`http://8.130.105.150/WeBASE-Front/`（演示账号 `webase` / `Agri@2026`）。
+访问：`http://8.147.61.0/WeBASE-Front/`（演示账号 `webase` / `Agri@2026`）。
 
 验收要看到三件事，缺一不可：
 
@@ -1115,7 +1115,7 @@ location /portal/ {
 **部署**：
 
 ```bash
-export AGRI_HOST=8.130.105.150 AGRI_PWD='***'
+export AGRI_HOST=8.147.61.0 AGRI_PWD='***'
 python scripts/deploy-portal.py     # 上传页面 → 备份并替换 nginx → nginx -t → reload → 自检
 ```
 

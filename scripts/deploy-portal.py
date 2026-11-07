@@ -88,7 +88,7 @@ def main():
         ]:
             code, out = run(
                 "curl -sk -o /tmp/p.html -w '%%{http_code}' https://127.0.0.1%s "
-                "-H 'Host: 8-130-105-150.sslip.io' && grep -c '%s' /tmp/p.html" % (path, expect))
+                "-H 'Host: 8-147-61-0.sslip.io' && grep -c '%s' /tmp/p.html" % (path, expect))
             print("  %-16s -> %s" % (name, out.replace("\n", " ")))
 
         return 0

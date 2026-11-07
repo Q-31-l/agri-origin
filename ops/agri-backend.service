@@ -13,8 +13,8 @@ WorkingDirectory=/opt/agri-origin/app
 # 文件缺失时 systemd 直接报错退出，避免"用了空私钥还静默跑起来"
 EnvironmentFile=/opt/agri-origin/app/backend.env
 ExecStartPre=/bin/sh -c 'test -n "$CHAIN_PRIVATE_KEY" || { echo "CHAIN_PRIVATE_KEY 未配置，见 ops/backend.env.example" >&2; exit 1; }'
-# 溯源二维码指向的前端页面
-Environment=TRACE_URL_PREFIX=http://8.130.105.150/pages/trace/index?code=
+# 溯源二维码指向的前端页面（统一走 HTTPS 域名，避免扫码后多一次 301 跳转）
+Environment=TRACE_URL_PREFIX=https://8-147-61-0.sslip.io/pages/trace/index?code=
 # chain.abi-path 走 classpath（资源已打进 jar，读取用的是 getInputStream，jar 内可用），
 # 不再依赖外部绝对路径
 ExecStart=/usr/bin/java -Xms512m -Xmx1024m -jar /opt/agri-origin/app/agri-trace-backend.jar \

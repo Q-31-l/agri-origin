@@ -159,7 +159,7 @@ export function isSecureOrigin() {
 
 /**
  * 推导同站点的 HTTPS 地址
- * 裸 IP 没有证书，用 sslip.io 的通配解析（8.130.105.150 → 8-130-105-150.sslip.io）；
+ * 裸 IP 没有证书，用 sslip.io 的通配解析（8.147.61.0 → 8-147-61-0.sslip.io）；
  * 已经是域名时只换协议，不擅改主机名。
  */
 export function toHttpsUrl() {
