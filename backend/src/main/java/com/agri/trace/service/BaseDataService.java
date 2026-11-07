@@ -90,6 +90,9 @@ public class BaseDataService {
                 .orderByAsc(BaseFarm::getId);
         if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())) {
             wrapper.eq(BaseFarm::getVillageId, user.getVillageId());
+        } else if (Constants.ROLE_PRODUCER.equals(user.getRoleCode())) {
+            // 生产主体只能看本村地块：建批次选地块不能跨村，与选农户同口径
+            wrapper.eq(BaseFarm::getVillageId, user.getVillageId());
         } else if (villageId != null) {
             wrapper.eq(BaseFarm::getVillageId, villageId);
         }

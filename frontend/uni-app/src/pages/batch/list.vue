@@ -37,7 +37,7 @@
 
     <view class="list">
       <batch-card v-for="b in list" :key="b.id" :batch="b" />
-      <empty-state v-if="!loading && !list.length" text="没有符合条件的批次" />
+      <empty-state v-if="!loading && !list.length" :text="emptyText" />
       <load-more v-if="list.length" :status="status" @retry="reload" />
     </view>
   </view>
@@ -53,7 +53,9 @@ import LoadMore from '@/components/common/load-more.vue'
 import { useList } from '@/composables/useList'
 import { useRealtime } from '@/composables/useRealtime'
 import { batchPage } from '@/api'
+import { useUserStore } from '@/store/user'
 
+const store = useUserStore()
 const keyword = ref('')
 const status = ref('')
 const startDate = ref('')
@@ -73,6 +75,14 @@ const STATUS_OPTIONS = [
 ]
 const statusLabels = STATUS_OPTIONS.map((s) => s.label)
 const statusLabel = computed(() => (STATUS_OPTIONS.find((s) => s.value === status.value) || STATUS_OPTIONS[0]).label)
+
+/** 空态文案：农户的批次由生产主体/村管建档时指派，不能自己新建，空列表要给一句能照着做的话 */
+const emptyText = computed(() => {
+  if (store.roleCode === 'FARMER' && !keyword.value && !status.value && !startDate.value && !endDate.value) {
+    return '还没有被指派给你的批次，请联系本村生产主体或村管建档时分配'
+  }
+  return '没有符合条件的批次'
+})
 
 const dateLabel = computed(() => {
   if (!startDate.value && !endDate.value) return '全部时间'

@@ -92,6 +92,16 @@ public class UserService {
      * 所以单独开一个最小字段集的接口，权限挂在 farm:list 上（能管农场才需要选人）。
      */
     public List<Map<String, Object>> options(String roleCode, Long villageId) {
+        LoginUser current = UserContext.require();
+        // 生产主体与村管只能看到本村的人：选负责人/承包农户不能跨村，
+        // 否则会把批次指派到别的村管辖区。管理员不受限。
+        if (Constants.ROLE_PRODUCER.equals(current.getRoleCode())
+                || Constants.ROLE_VILLAGE.equals(current.getRoleCode())) {
+            villageId = current.getVillageId();
+            if (villageId == null) {
+                return new ArrayList<>();
+            }
+        }
         List<SysUser> users = userMapper.selectList(Wrappers.<SysUser>lambdaQuery()
                 .eq(SysUser::getRoleCode, roleCode)
                 .eq(villageId != null, SysUser::getVillageId, villageId)
@@ -140,16 +150,12 @@ public class UserService {
             throw BizException.forbidden("该身份不支持自助注册，请联系管理员开通");
         }
 
-        // 农户：必须选一个真实存在的村——数据范围按 farmer_id 收窄，但村的归属决定
-        // 后续批次能落到哪个村管辖区；生产主体同理，建地块时要选村。
+        // 农户/生产主体都必须落到一个真实存在的村：村决定后续批次落在哪个村管辖区，
+        // 农户没村登录后看不到任何批次。支持两种给村方式：从列表选（villageId），
+        // 或定位/列表都拿不到时自填村名（villageName，同名复用、无则新建）。
+        Long villageId = null;
         if (farmer || producer) {
-            if (dto.getVillageId() == null) {
-                throw BizException.badRequest("请选择所属村");
-            }
-            BaseVillage village = villageMapper.selectById(dto.getVillageId());
-            if (village == null) {
-                throw BizException.badRequest("所选村不存在，请重新选择");
-            }
+            villageId = resolveVillage(dto);
         }
 
         // 机构类：机构名是溯源展示的责任主体，不能为空
@@ -175,12 +181,46 @@ public class UserService {
         user.setPhone(dto.getPhone());
         user.setRoleCode(role);
         user.setOrgName(orgRole ? dto.getOrgName() : null);
-        user.setVillageId(farmer || producer ? dto.getVillageId() : null);
+        user.setVillageId(villageId);
         // farmId 留空：农户的数据范围按 farmerId 隔离，不要求必须有农场才能登录。
         // 首次建档时再选择或新建农场即可；生产主体注册后在"农场档案"里建自己的地块。
         user.setStatus(1);
         userMapper.insert(user);
         return user.getId();
+    }
+
+    /**
+     * 解析注册时给的村：优先用已存在村的 id，定位/列表都拿不到时允许自填村名。
+     *
+     * <p>自填走"同名复用、无则新建"：行政村是行政区划基础数据，同名大概率是同一个村，
+     * 直接复用避免重复建档；新建的村暂无村管，该村批次需管理员后续配村管才能核验。</p>
+     */
+    private Long resolveVillage(RegisterDTO dto) {
+        if (dto.getVillageId() != null) {
+            BaseVillage village = villageMapper.selectById(dto.getVillageId());
+            if (village == null) {
+                throw BizException.badRequest("所选村不存在，请重新选择");
+            }
+            return village.getId();
+        }
+        String name = dto.getVillageName();
+        if (name == null || name.isEmpty()) {
+            throw BizException.badRequest("请选择所属村，或手动填写所在村");
+        }
+        if (name.length() > 30) {
+            throw BizException.badRequest("村名过长，请精简后填写");
+        }
+        BaseVillage existing = villageMapper.selectOne(Wrappers.<BaseVillage>lambdaQuery()
+                .eq(BaseVillage::getVillageName, name).last("limit 1"));
+        if (existing != null) {
+            return existing.getId();
+        }
+        BaseVillage v = new BaseVillage();
+        v.setVillageCode("SELF" + (System.currentTimeMillis() % 1000000));
+        v.setVillageName(name);
+        v.setRegionName(dto.getRegionName());
+        villageMapper.insert(v);
+        return v.getId();
     }
 
     /** 机构名的提示词：不同角色叫法不一样，报错要说得具体 */

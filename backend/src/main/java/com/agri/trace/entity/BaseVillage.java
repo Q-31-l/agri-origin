@@ -20,6 +20,9 @@ public class BaseVillage {
     private String regionCode;
     private String regionName;
     private String address;
+    /** 村部/村委会所在地经纬度（GCJ02），用于注册时"按定位推荐最近村庄" */
+    private Double lat;
+    private Double lng;
     private Long managerId;
     private String managerName;
     private String remark;

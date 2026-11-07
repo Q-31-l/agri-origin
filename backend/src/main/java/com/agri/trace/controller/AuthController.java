@@ -55,12 +55,12 @@ public class AuthController {
     /**
      * 自助注册：匿名可调用，注册成功直接签发 JWT，三端共用。
      *
-     * <p>注册只放行"农户 / 销售商"两种身份——检测、物流、监管、村管、管理员
-     * 掌握的是他人数据的处置权，必须由管理员实名开通，不能自助注册。
-     * 具体校验在 {@link UserService#register(RegisterDTO)}，这里只负责
-     * 防刷 + 注册即登录，省掉用户"注册完还要再输一遍密码"的一步。</p>
+     * <p>注册只放行"真正参与溯源流程"的五种身份——农户、生产主体、检测机构、
+     * 物流企业、销售商。村管、监管、管理员掌握他人数据的处置权，必须由管理员
+     * 实名开通，不能自助注册。具体校验在 {@link UserService#register(RegisterDTO)}，
+     * 这里只负责防刷 + 注册即登录，省掉"注册完还要再输一遍密码"的一步。</p>
      */
-    @Operation(summary = "自助注册（农户 / 销售商），成功即登录")
+    @Operation(summary = "自助注册（农户/生产主体/检测/物流/销售），成功即登录")
     @PostMapping("/register")
     public R<LoginVO> register(@Valid @RequestBody RegisterDTO dto, HttpServletRequest request) {
         String ip = registerGuard.check(request);

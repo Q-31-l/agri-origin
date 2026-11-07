@@ -64,10 +64,14 @@ public class PublicController {
                 .orderByAsc(BaseVillage::getId));
         List<Map<String, Object>> options = new ArrayList<>(list.size());
         for (BaseVillage v : list) {
-            Map<String, Object> m = new LinkedHashMap<>(4);
+            Map<String, Object> m = new LinkedHashMap<>(6);
             m.put("id", v.getId());
             m.put("villageName", v.getVillageName());
             m.put("regionName", v.getRegionName());
+            // 经纬度是公开行政区划信息，注册页用它做"最近村庄"推荐；
+            // 不涉及任何业务数据，不会扩大联系人等敏感信息的暴露面
+            m.put("lat", v.getLat());
+            m.put("lng", v.getLng());
             options.add(m);
         }
         return R.ok(options);

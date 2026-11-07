@@ -135,13 +135,22 @@
             </view>
 
             <!-- 农户与生产主体都要落到村：农户决定能看到哪些批次，
-                 生产主体决定能在哪个村登记地块、建批次 -->
-            <view v-if="needVillage" class="field" :class="{ on: !!selectedVillage }" @click="openVillage">
+                 生产主体决定能在哪个村登记地块、建批次。
+                 优先用设备定位匹配最近村，定位不到再手动选或自填 -->
+            <view v-if="needVillage" class="field" :class="{ on: !!selectedVillage || !!form.villageName }" @click="openVillage">
               <text class="label">所属村</text>
-              <text class="input pick" :class="{ empty: !selectedVillage }">
-                {{ selectedVillage ? selectedVillage.villageName : '请选择所在行政村' }}
+              <text class="input pick" :class="{ empty: !villageText }">
+                {{ locating ? '正在按定位匹配…' : villageText || '请选择或填写所在行政村' }}
               </text>
               <app-icon name="chevronRight" :size="wide ? '14px' : 28" color="#b6bec9" />
+            </view>
+            <view v-if="needVillage && autoLocated" class="village-hint">
+              <app-icon name="check" :size="wide ? '12px' : 24" color="#1f7a4d" />
+              <text class="village-hint-t">已按当前位置推荐：{{ selectedVillage ? selectedVillage.villageName : '' }}，点上方可改</text>
+            </view>
+            <view v-else-if="needVillage && locateTip" class="village-hint warn">
+              <app-icon name="chain" :size="wide ? '12px' : 24" color="#b7791f" />
+              <text class="village-hint-t">{{ locateTip }}，点上方手动选择或填写</text>
             </view>
 
             <!-- 机构类身份：机构名会印在溯源页的责任主体上 -->
@@ -259,6 +268,52 @@
             <text class="v-empty-a" @click="loadVillages">点此重新加载</text>
           </view>
         </scroll-view>
+
+        <!-- 面板底部：定位兜底 + 自填兜底，保证"必填的村"总能填上 -->
+        <view class="sheet-foot">
+          <view class="sheet-foot-btn" @click="relocate">
+            <text>{{ locating ? '定位中…' : '用定位自动匹配最近村' }}</text>
+          </view>
+          <view class="sheet-foot-btn ghost" @click="openCustom">
+            <text>没有我的村？手动填写</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 自填村面板：定位/列表都拿不到时，允许手填村名（同名复用、无则新建） -->
+    <view v-if="showCustom" class="mask" @click="showCustom = false">
+      <view class="sheet" @click.stop>
+        <view class="sheet-head">
+          <text class="sheet-title">手动填写所在村</text>
+          <text class="sheet-close" @click="showCustom = false">关闭</text>
+        </view>
+        <view class="custom-body">
+          <view class="custom-field">
+            <text class="custom-label">村名 <text class="req">*</text></text>
+            <input
+              v-model="custom.name"
+              class="custom-input"
+              placeholder="如：后垅村"
+              placeholder-class="ph"
+              maxlength="30"
+            />
+          </view>
+          <view class="custom-field">
+            <text class="custom-label">乡镇 / 县</text>
+            <input
+              v-model="custom.region"
+              class="custom-input"
+              placeholder="选填，如：白沙镇"
+              placeholder-class="ph"
+              maxlength="30"
+            />
+          </view>
+          <text class="custom-tip">列表里没有你的村时可以这样填，系统会按村名自动建档或复用。</text>
+          <view class="custom-btn" :class="{ dis: !custom.name.trim() }" @click="confirmCustom">
+            <text>确定使用此村</text>
+          </view>
+        </view>
       </view>
     </view>
   </view>
@@ -271,6 +326,7 @@ import BrandLogo from '@/components/common/brand-logo.vue'
 import AppIcon from '@/components/common/app-icon.vue'
 import { useUserStore } from '@/store/user'
 import { publicVillages } from '@/api'
+import { locate, explainLocationError } from '@/utils/geo'
 import { isPcWidth } from '@/config/platform'
 import { ROUTES } from '@/config/routes'
 import { toast } from '@/utils/ui'
@@ -336,6 +392,8 @@ const form = reactive({
   realName: '',
   phone: '',
   villageId: null,
+  villageName: '',
+  regionName: '',
   orgName: '',
   username: '',
   password: '',
@@ -371,12 +429,26 @@ const redirect = ref('')
 /* ---------------- 村庄选项 ---------------- */
 const villages = ref([])
 const sheetOpen = ref(false)
+const showCustom = ref(false)
+const locating = ref(false)
+const autoLocated = ref(false)
+const locateTip = ref('')
+const custom = reactive({ name: '', region: '' })
+
 const selectedVillage = computed(() => {
   if (!form.villageId) return null
   return villages.value.find((v) => v.id === form.villageId) || null
 })
-// 农户必须先选到村：没有村的农户登录后查不到任何批次，属于"注册成功却没法用"
-const villageReady = computed(() => !isFarmer.value || !!form.villageId)
+/** 显示在"所属村"字段上的文本：优先自填村，其次列表选的村 */
+const villageText = computed(() => {
+  if (form.villageName) return form.villageName + '（手动填写）'
+  if (selectedVillage.value) return selectedVillage.value.villageName
+  return ''
+})
+// 农户/生产主体必须先有村：没有村的农户登录后查不到任何批次，属于"注册成功却没法用"
+const villageReady = computed(
+  () => !needVillage.value || !!form.villageId || !!form.villageName.trim()
+)
 
 async function loadVillages() {
   try {
@@ -385,6 +457,55 @@ async function loadVillages() {
   } catch (e) {
     /* 网络异常已由 request 提示；面板里留"重新加载"入口 */
   }
+}
+
+/** 用设备定位匹配最近村并自动填入；失败只提示，绝不阻塞注册 */
+async function tryAutoLocate() {
+  if (!needVillage.value) return
+  if (!villages.value.length) await loadVillages()
+  locating.value = true
+  try {
+    const pos = await locate()
+    const nearest = nearestVillage(pos.lat, pos.lng)
+    if (nearest) {
+      form.villageId = nearest.id
+      form.villageName = ''
+      autoLocated.value = true
+      locateTip.value = ''
+    } else {
+      locateTip.value = '未匹配到附近村庄'
+    }
+  } catch (e) {
+    autoLocated.value = false
+    locateTip.value = explainLocationError(e)
+  } finally {
+    locating.value = false
+  }
+}
+
+function nearestVillage(lat, lng) {
+  let best = null
+  let bestD = Infinity
+  for (const v of villages.value) {
+    if (v.lat == null || v.lng == null) continue
+    const d = distanceM(lat, lng, Number(v.lat), Number(v.lng))
+    if (d < bestD) {
+      bestD = d
+      best = v
+    }
+  }
+  return best
+}
+
+/** 球面距离（米），用于算"最近村庄" */
+function distanceM(lat1, lng1, lat2, lng2) {
+  const R = 6371000
+  const rad = (d) => (d * Math.PI) / 180
+  const dLat = rad(lat2 - lat1)
+  const dLng = rad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
 }
 
 function pickRole(r) {
@@ -402,7 +523,34 @@ function openVillage() {
 
 function chooseVillage(v) {
   form.villageId = v.id
+  form.villageName = ''
+  autoLocated.value = false
+  locateTip.value = ''
   sheetOpen.value = false
+}
+
+/** 面板里的"定位匹配"：关面板重新定位，结果回到表单 */
+function relocate() {
+  sheetOpen.value = false
+  tryAutoLocate()
+}
+
+function openCustom() {
+  sheetOpen.value = false
+  custom.name = ''
+  custom.region = ''
+  showCustom.value = true
+}
+
+function confirmCustom() {
+  const name = custom.name.trim()
+  if (!name) return
+  form.villageId = null
+  form.villageName = name
+  form.regionName = custom.region.trim()
+  autoLocated.value = false
+  locateTip.value = ''
+  showCustom.value = false
 }
 
 /* ---------------- 宽屏判定（仅 H5 生效） ---------------- */
@@ -423,14 +571,15 @@ onUnmounted(() => {
 
 onLoad((opt) => {
   redirect.value = opt && opt.redirect ? decodeURIComponent(opt.redirect) : ''
-  loadVillages()
+  // 先拿到村庄列表，再尝试用定位匹配最近村自动填入
+  loadVillages().then(() => tryAutoLocate())
 })
 
 /* ---------------- 提交 ---------------- */
 function validate() {
   if (!form.realName.trim()) return '请填写真实姓名'
   if (form.phone && !/^1[3-9]\d{9}$/.test(form.phone)) return '手机号格式不正确'
-  if (needVillage.value && !form.villageId) return '请选择所属村'
+  if (needVillage.value && !form.villageId && !form.villageName.trim()) return '请选择或填写所属村'
   if (needOrg.value && !form.orgName.trim()) return '请填写' + (ORG_LABEL[form.roleCode] || '机构') + '名称'
   if (!/^[A-Za-z0-9_]{4,20}$/.test(form.username)) return '账号需为 4–20 位字母、数字或下划线'
   if (form.password.length < 6) return '密码至少 6 位'
@@ -461,6 +610,8 @@ async function submit() {
       realName: form.realName.trim(),
       phone: form.phone.trim(),
       villageId: needVillage.value ? form.villageId : null,
+      villageName: needVillage.value ? form.villageName : '',
+      regionName: needVillage.value ? form.regionName : '',
       orgName: needOrg.value ? form.orgName.trim() : '',
       username: form.username.trim(),
       password: form.password
@@ -715,6 +866,31 @@ function toTrace() {
   color: $brand;
   padding-left: 16rpx;
 }
+/* 定位/自填提示：跟在"所属村"字段下方的一行小字 */
+.village-hint {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin: 12rpx 4rpx 0;
+  padding: 12rpx 16rpx;
+  border-radius: 12rpx;
+  background: #f3f9f5;
+  border: 1px solid rgba(31, 122, 77, 0.12);
+}
+.village-hint.warn {
+  background: #fdf6ec;
+  border-color: rgba(183, 121, 31, 0.18);
+}
+.village-hint-t {
+  flex: 1;
+  margin-left: 8rpx;
+  font-size: 21rpx;
+  line-height: 1.6;
+  color: $text-2;
+}
+.village-hint.warn .village-hint-t {
+  color: #8a5a00;
+}
 
 .notice {
   display: block;
@@ -845,6 +1021,75 @@ function toTrace() {
   margin-top: 18rpx;
   font-size: 24rpx;
   color: $brand;
+}
+/* 面板底部操作区：定位匹配 + 自填，保证村永远能填上 */
+.sheet-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  border-top: 1px solid $border;
+  background: #fff;
+}
+.sheet-foot-btn {
+  height: 76rpx;
+  border-radius: 38rpx;
+  background: $brand-grad;
+  color: #fff;
+  font-size: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet-foot-btn.ghost {
+  background: #f2f6f4;
+  color: $brand;
+  border: 1px solid rgba(31, 122, 77, 0.18);
+}
+/* 自填村面板 */
+.custom-body {
+  padding: 12rpx 32rpx 32rpx;
+}
+.custom-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 92rpx;
+  border-bottom: 1px solid $border;
+}
+.custom-label {
+  width: 150rpx;
+  font-size: 26rpx;
+  color: $text-2;
+}
+.custom-label .req {
+  color: $danger;
+}
+.custom-input {
+  flex: 1;
+  font-size: 27rpx;
+  color: $text-1;
+}
+.custom-tip {
+  display: block;
+  margin: 18rpx 0 0;
+  font-size: 21rpx;
+  line-height: 1.6;
+  color: $text-4;
+}
+.custom-btn {
+  margin-top: 24rpx;
+  height: 88rpx;
+  border-radius: 44rpx;
+  background: $brand-grad;
+  color: #fff;
+  font-size: 29rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.custom-btn.dis {
+  opacity: 0.6;
 }
 @keyframes sheetUp {
   from {
@@ -994,6 +1239,47 @@ function toTrace() {
   }
   .v-region {
     font-size: 11px;
+  }
+  .village-hint {
+    margin: 6px 2px 0;
+    padding: 7px 9px;
+    border-radius: 7px;
+  }
+  .village-hint-t {
+    margin-left: 5px;
+    font-size: 10.5px;
+  }
+  .sheet-foot {
+    gap: 8px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  .sheet-foot-btn {
+    height: 38px;
+    border-radius: 19px;
+    font-size: 13px;
+  }
+  .custom-body {
+    padding: 6px 16px 16px;
+  }
+  .custom-field {
+    min-height: 46px;
+  }
+  .custom-label {
+    width: 80px;
+    font-size: 13px;
+  }
+  .custom-input {
+    font-size: 13.5px;
+  }
+  .custom-tip {
+    margin: 9px 0 0;
+    font-size: 10.5px;
+  }
+  .custom-btn {
+    margin-top: 12px;
+    height: 44px;
+    border-radius: 22px;
+    font-size: 14px;
   }
 }
 
@@ -1372,6 +1658,49 @@ function toTrace() {
   .v-empty-a {
     margin-top: 9px;
     font-size: 12px;
+    cursor: pointer;
+  }
+  .village-hint {
+    margin: 8px 2px 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+  }
+  .village-hint-t {
+    margin-left: 6px;
+    font-size: 11px;
+  }
+  .sheet-foot {
+    gap: 8px;
+    padding: 12px 20px 16px;
+  }
+  .sheet-foot-btn {
+    height: 40px;
+    border-radius: 9px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .custom-body {
+    padding: 8px 20px 20px;
+  }
+  .custom-field {
+    min-height: 44px;
+  }
+  .custom-label {
+    width: 76px;
+    font-size: 12.5px;
+  }
+  .custom-input {
+    font-size: 13.5px;
+  }
+  .custom-tip {
+    margin: 10px 0 0;
+    font-size: 11px;
+  }
+  .custom-btn {
+    margin-top: 14px;
+    height: 44px;
+    border-radius: 9px;
+    font-size: 14px;
     cursor: pointer;
   }
 }

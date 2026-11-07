@@ -7,8 +7,9 @@ import javax.validation.constraints.Size;
 /**
  * 自助注册入参。
  *
- * <p>与 {@link UserDTO} 分开：注册只允许"农户 / 销售商"两种身份，
- * 字段范围更窄，避免把管理员创建用户的接口直接暴露给匿名请求。</p>
+ * <p>与 {@link UserDTO} 分开：注册只允许溯源链上的五种身份（农户、生产主体、
+ * 检测机构、物流企业、销售商），字段范围更窄，避免把管理员创建用户的接口
+ * 直接暴露给匿名请求。</p>
  */
 public class RegisterDTO {
 
@@ -31,8 +32,17 @@ public class RegisterDTO {
     @NotBlank(message = "请选择身份")
     private String roleCode;
 
-    /** 农户必填：所属村 */
+    /** 农户/生产主体必填：所属村（已存在村的 id）。定位/列表选不到时，可用 villageName 自填 */
     private Long villageId;
+
+    /**
+     * 自填村名（villageId 为空时使用）：注册页定位不到、列表里也没有的村，
+     * 允许农户手动填写，服务端按"同名复用、无则新建"落到 base_village。
+     */
+    private String villageName;
+
+    /** 自填村所属乡镇/县（选填，展示用） */
+    private String regionName;
 
     /** 销售商必填：机构名称 */
     private String orgName;
@@ -83,6 +93,22 @@ public class RegisterDTO {
 
     public void setVillageId(Long villageId) {
         this.villageId = villageId;
+    }
+
+    public String getVillageName() {
+        return villageName;
+    }
+
+    public void setVillageName(String villageName) {
+        this.villageName = villageName == null ? null : villageName.trim();
+    }
+
+    public String getRegionName() {
+        return regionName;
+    }
+
+    public void setRegionName(String regionName) {
+        this.regionName = regionName == null ? null : regionName.trim();
     }
 
     public String getOrgName() {
