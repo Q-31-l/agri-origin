@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>农安链 · 农产品质量安全溯源平台</title>
+<title>农安链溯源 · 农产品质量安全溯源平台</title>
 <meta name="description" content="农安链是基于 FISCO BCOS 联盟链的农产品质量安全溯源平台：以批次为主线，种植、采收、质检、物流、销售五大环节逐一上链存证，一物一码，扫码可查来源、流向与责任主体。">
 <meta name="theme-color" content="#08130F">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1E17'/%3E%3Cpath d='M16 6c4.6 2.1 7.6 5.9 7.6 10.7 0 4.4-2.9 8.1-7.6 12.2-4.7-4.1-7.6-7.8-7.6-12.2C8.4 11.9 11.4 8.1 16 6Z' fill='none' stroke='%2345E0A6' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M16 11v11M16 15.4l3.4-2.2M16 18.6l-3.4-2.2' stroke='%2345E0A6' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E">
-<meta property="og:title" content="农安链 · 农产品质量安全溯源平台">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%2218%25%22%20y1%3D%220%25%22%20x2%3D%2282%25%22%20y2%3D%22100%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%233fae74%22%2F%3E%3Cstop%20offset%3D%2246%25%22%20stop-color%3D%22%231a7c48%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23093a22%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2219%22%20fill%3D%22url(%23g)%22%2F%3E%3Cpath%20d%3D%22M0%2064V54Q32%2046%2064%2054v10Z%22%20fill%3D%22%23093a22%22%20opacity%3D%22.9%22%2F%3E%3Cpath%20d%3D%22M0%2054Q32%2046%2064%2054%22%20fill%3D%22none%22%20stroke%3D%22%23b7f7d2%22%20stroke-opacity%3D%22.3%22%20stroke-width%3D%22.7%22%2F%3E%3Crect%20x%3D%2230.9%22%20y%3D%2236.6%22%20width%3D%222.2%22%20height%3D%2215.4%22%20rx%3D%221.1%22%20fill%3D%22%23eafff3%22%2F%3E%3Cpath%20d%3D%22M32.3%2039.4Q29.4%2024.6%2015.2%2025.9Q19%2041.3%2032.3%2039.4Z%22%20fill%3D%22%23ffffff%22%2F%3E%3Cpath%20d%3D%22M31.7%2039.4Q34.6%2024.6%2048.8%2025.9Q45%2041.3%2031.7%2039.4Z%22%20fill%3D%22%23f0fff7%22%2F%3E%3Ccircle%20cx%3D%2250.2%22%20cy%3D%2215.4%22%20r%3D%223.7%22%20fill%3D%22none%22%20stroke%3D%22%23e6fff0%22%20stroke-opacity%3D%22.85%22%20stroke-width%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%2250.2%22%20cy%3D%2215.4%22%20r%3D%221.2%22%20fill%3D%22%23e6fff0%22%2F%3E%3C%2Fsvg%3E">
+<meta property="og:title" content="农安链溯源 · 农产品质量安全溯源平台">
 <meta property="og:description" content="一物一码，全链可溯，链上可信。">
 <meta property="og:type" content="website">
 <style>
@@ -100,16 +100,19 @@ h1,h2,h3,h4,p{margin:0}
   backdrop-filter:blur(18px) saturate(140%);
 }
 .nav .wrap{display:flex;align-items:center;justify-content:space-between;gap:18px}
-.brand{display:flex;align-items:center;gap:12px;color:#fff;min-width:0}
+.brand{display:flex;align-items:center;gap:11px;color:#fff;min-width:0;text-decoration:none}
 .brand-mark{
-  width:38px;height:38px;border-radius:12px;flex:0 0 auto;
-  background:linear-gradient(145deg,#1FBE7E,#0B7A4E);
-  display:grid;place-items:center;box-shadow:0 8px 24px rgba(22,160,106,.35),inset 0 1px 0 rgba(255,255,255,.25);
+  width:40px;height:40px;border-radius:12px;flex:0 0 auto;overflow:hidden;
+  box-shadow:0 8px 22px rgba(6,42,26,.5),inset 0 0 0 1px rgba(255,255,255,.1);
+  transition:transform .45s var(--ease),box-shadow .45s var(--ease);
 }
-.brand-mark svg{width:21px;height:21px}
+.brand-mark svg{width:100%;height:100%;display:block}
+.brand:hover .brand-mark{transform:translateY(-1px) scale(1.05);box-shadow:0 12px 30px rgba(31,190,126,.34),inset 0 0 0 1px rgba(255,255,255,.18)}
 .brand-text{display:flex;flex-direction:column;line-height:1.15;min-width:0}
-.brand-name{font-size:17px;font-weight:700;letter-spacing:.10em}
-.brand-sub{font-size:10.5px;color:rgba(255,255,255,.52);letter-spacing:.18em;margin-top:3px;white-space:nowrap}
+.brand-title{display:flex;align-items:baseline;white-space:nowrap}
+.brand-name{font-size:17.5px;font-weight:800;letter-spacing:.06em}
+.brand-suffix{font-size:17.5px;font-weight:400;letter-spacing:.06em;color:rgba(255,255,255,.62)}
+.brand-sub{font-size:9.5px;color:rgba(255,255,255,.4);letter-spacing:.2em;margin-top:4px;white-space:nowrap;font-weight:500}
 
 .nav-links{display:flex;align-items:center;gap:30px}
 .nav-links a{
@@ -234,15 +237,21 @@ h1,h2,h3,h4,p{margin:0}
 /* Hero 视觉卡 */
 .hero-visual{position:relative}
 .code-card{
+  display:block;text-decoration:none;color:inherit;
   position:relative;border-radius:var(--r-xl);padding:26px;
   background:linear-gradient(160deg,rgba(255,255,255,.10),rgba(255,255,255,.03) 45%,rgba(255,255,255,.06));
   border:1px solid rgba(255,255,255,.14);
   box-shadow:0 40px 90px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.18);
   -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
   transform:perspective(1200px) rotateY(-7deg) rotateX(3deg);
-  transition:transform .7s var(--ease);
+  transition:transform .7s var(--ease),border-color .5s,box-shadow .5s;
 }
-.code-card:hover{transform:perspective(1200px) rotateY(-3deg) rotateX(1deg) translateY(-4px)}
+.code-card:hover{
+  transform:perspective(1200px) rotateY(-3deg) rotateX(1deg) translateY(-4px);
+  border-color:rgba(69,224,166,.34);
+  box-shadow:0 46px 100px rgba(0,0,0,.55),0 0 0 1px rgba(69,224,166,.14),inset 0 1px 0 rgba(255,255,255,.2);
+}
+.code-card:focus-visible{outline:2px solid var(--mint);outline-offset:4px}
 .code-card .scan{
   position:absolute;left:0;right:0;top:0;height:1px;
   background:linear-gradient(90deg,transparent,rgba(69,224,166,.9),transparent);
@@ -271,8 +280,24 @@ h1,h2,h3,h4,p{margin:0}
 .tag-ok{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:#8BF5CC}
 .tag-ok svg{width:13px;height:13px}
 
-.cc-chain{margin-top:20px}
-.cc-chain .lab{font-size:11px;color:rgba(255,255,255,.35);letter-spacing:.12em;margin-bottom:10px}
+.cc-chain{margin-top:18px}
+.cc-chain .lab{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:11px;color:rgba(255,255,255,.35);letter-spacing:.12em;margin-bottom:10px;
+}
+.cc-live{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10px;letter-spacing:.04em;color:rgba(155,240,206,.8);
+}
+.cc-live::before{
+  content:"";width:4px;height:4px;border-radius:50%;background:#45E0A6;
+  box-shadow:0 0 0 0 rgba(69,224,166,.6);animation:livePulse 2.4s infinite;
+}
+@keyframes livePulse{
+  0%{box-shadow:0 0 0 0 rgba(69,224,166,.55)}
+  70%{box-shadow:0 0 0 6px rgba(69,224,166,0)}
+  100%{box-shadow:0 0 0 0 rgba(69,224,166,0)}
+}
 .blocks{display:flex;align-items:center;gap:7px}
 .blk{
   flex:1;height:34px;border-radius:8px;position:relative;
@@ -283,6 +308,36 @@ h1,h2,h3,h4,p{margin:0}
 .blk::after{content:"";position:absolute;right:-7px;top:50%;width:7px;height:1px;background:rgba(69,224,166,.4)}
 .blk:last-child::after{display:none}
 .blk.hot{background:linear-gradient(180deg,rgba(69,224,166,.34),rgba(69,224,166,.14));border-color:rgba(69,224,166,.5);box-shadow:0 0 22px rgba(69,224,166,.28)}
+
+/* 可信度评分（数据取自溯源接口 trust 字段） */
+.cc-trust{
+  margin-top:16px;padding:13px 15px;border-radius:13px;
+  background:linear-gradient(135deg,rgba(69,224,166,.11),rgba(69,224,166,.03));
+  border:1px solid rgba(69,224,166,.18);
+}
+.cc-trust-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.cc-trust-top span{font-size:11.5px;color:rgba(255,255,255,.5);letter-spacing:.06em}
+.cc-trust-top b{font-family:var(--mono);font-size:21px;color:#8BF5CC;font-weight:700;line-height:1}
+.cc-trust-top b i{font-style:normal;font-size:10.5px;color:rgba(255,255,255,.3);font-weight:400;margin-left:2px}
+.cc-bar{margin-top:9px;height:4px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden}
+.cc-bar span{
+  display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,#1FBE7E,#8BF5CC);
+  box-shadow:0 0 12px rgba(69,224,166,.55);
+  transform-origin:left;animation:barIn 1.5s var(--ease) .35s both;
+}
+@keyframes barIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.cc-trust-note{margin-top:8px;font-size:11px;color:rgba(255,255,255,.4);line-height:1.5}
+
+/* 卡片底部的"查看真实溯源"入口 */
+.cc-foot{
+  margin-top:15px;padding-top:13px;border-top:1px solid rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:12px;letter-spacing:.02em;color:rgba(255,255,255,.52);transition:color .3s;
+}
+.cc-foot svg{width:15px;height:15px;flex:0 0 auto;transition:transform .38s var(--ease)}
+.code-card:hover .cc-foot{color:#8BF5CC}
+.code-card:hover .cc-foot svg{transform:translateX(3px)}
 
 .float-badge{
   position:relative;margin:16px 8px 0 auto;width:max-content;max-width:100%;
@@ -367,17 +422,29 @@ section{position:relative}
 
 /* 运行快照 */
 .metrics{background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.metrics .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding-top:44px;padding-bottom:44px}
+.metrics .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding-top:44px;padding-bottom:32px}
 .metric{padding:0 26px;border-left:1px solid var(--line)}
 .metric:first-child{border-left:0;padding-left:0}
-.metric b{display:block;font-size:clamp(30px,3.6vw,44px);font-weight:800;letter-spacing:-.02em;color:var(--deep);line-height:1}
+.metric b{display:block;font-size:clamp(30px,3.6vw,44px);font-weight:800;letter-spacing:-.02em;color:var(--deep);line-height:1;font-variant-numeric:tabular-nums}
 .metric b i{font-style:normal;font-size:.42em;font-weight:600;color:var(--primary-2);margin-left:4px;letter-spacing:0}
 .metric span{display:block;margin-top:10px;font-size:12.5px;color:var(--muted);letter-spacing:.05em}
-.metric small{display:block;margin-top:6px;font-size:10.5px;color:var(--muted-2);letter-spacing:.04em}
+.metric small{display:block;margin-top:6px;font-size:10.5px;color:var(--muted-2);letter-spacing:.04em;min-height:15px}
+
+/* 快照数据来源标注：明确写出"实时取链上/库内"，而不是让读者以为是静态文案 */
+.metrics .wrap.snap-line{
+  display:flex;align-items:center;justify-content:flex-end;gap:7px;
+  padding-top:0;padding-bottom:24px;margin-top:-12px;
+  font-size:10.5px;letter-spacing:.04em;color:var(--muted-2);
+}
+.metrics .wrap.snap-line .dot{
+  width:5px;height:5px;border-radius:50%;background:var(--primary);flex:0 0 auto;
+  box-shadow:0 0 0 0 rgba(22,160,106,.5);animation:livePulse 2.6s infinite;
+}
+.metrics .wrap.snap-line.stale .dot{background:#C98A2E;animation:none;box-shadow:none}
 
 /* 核心能力 */
 .caps{background:var(--paper)}
-.cap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:56px}
+.cap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:56px;grid-auto-rows:1fr}
 .cap{
   position:relative;border-radius:var(--r-md);padding:32px 28px 30px;
   background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-sm);
@@ -398,7 +465,7 @@ section{position:relative}
 .cap .ic svg{width:23px;height:23px}
 .cap h3{font-size:16.5px;font-weight:700;letter-spacing:.01em}
 .cap p{margin-top:10px;font-size:13.5px;line-height:1.9;color:var(--muted);font-weight:300}
-.cap .idx{position:absolute;right:24px;top:26px;font-family:var(--mono);font-size:11px;color:rgba(18,53,40,.22);letter-spacing:.1em}
+.cap .idx{position:absolute;right:24px;top:26px;font-family:var(--mono);font-size:11.5px;font-weight:600;color:rgba(18,53,40,.3);letter-spacing:.1em}
 
 /* 溯源流程 */
 .flow{background:linear-gradient(180deg,#0B1E17 0%,#08130F 100%);color:#fff;overflow:hidden}
@@ -417,7 +484,7 @@ section{position:relative}
   content:"";position:absolute;left:43px;right:calc(20% - 43px);top:29px;height:1px;
   background:linear-gradient(90deg,rgba(69,224,166,0),rgba(69,224,166,.55) 10%,rgba(69,224,166,.55) 90%,rgba(69,224,166,0));
 }
-.step{position:relative;padding:0 14px;text-align:left}
+.step{position:relative;padding:0 14px;text-align:left;display:flex;flex-direction:column}
 .step .num{
   position:relative;z-index:1;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;
   background:rgba(8,19,15,.9);border:1px solid rgba(69,224,166,.35);
@@ -427,11 +494,12 @@ section{position:relative}
 }
 .step:hover .num{transform:translateY(-4px);border-color:rgba(69,224,166,.8);box-shadow:0 0 0 6px rgba(8,19,15,.9),0 0 30px rgba(69,224,166,.35)}
 .step h3{margin-top:22px;font-size:16px;font-weight:700}
-.step p{margin-top:9px;font-size:12.5px;line-height:1.85;color:rgba(255,255,255,.48);font-weight:300}
+.step p{margin-top:9px;font-size:12.5px;line-height:1.85;color:rgba(255,255,255,.48);font-weight:300;flex:1}
 .step .ev{
   display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:5px 9px;border-radius:7px;
   font-family:var(--mono);font-size:10px;color:rgba(155,240,206,.72);
   background:rgba(69,224,166,.07);border:1px solid rgba(69,224,166,.16);
+  align-self:flex-start;
 }
 
 /* 技术底座 */
@@ -473,8 +541,21 @@ section{position:relative}
 }
 .entry-card .ic svg{width:22px;height:22px}
 .entry-card h3{margin-top:22px;font-size:18px;font-weight:750;letter-spacing:.01em}
-.entry-card p{margin-top:10px;font-size:13px;line-height:1.9;color:var(--muted);font-weight:300;flex:1}
-.entry-card .foot{margin-top:24px}
+.entry-card p{margin-top:10px;font-size:13px;line-height:1.9;color:var(--muted);font-weight:300}
+.entry-card .foot{margin-top:auto;padding-top:24px}
+
+/* Web 卡的功能标签：既不显得空，也让"能做什么"一眼可读 */
+.entry-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:16px}
+.entry-chips span{
+  font-size:11px;letter-spacing:.02em;padding:5px 4px;border-radius:7px;text-align:center;
+  color:var(--primary-2);background:rgba(22,160,106,.08);border:1px solid rgba(22,160,106,.16);
+  transition:background .3s,border-color .3s;white-space:nowrap;
+}
+.entry-card:hover .entry-chips span{background:rgba(22,160,106,.12);border-color:rgba(22,160,106,.26)}
+.entry-extra{
+  margin-top:14px;padding-top:13px;border-top:1px dashed rgba(18,53,40,.14);
+  font-size:12px;line-height:1.8;color:var(--muted-2);font-weight:300;
+}
 .entry-btn{
   display:flex;align-items:center;justify-content:center;gap:9px;height:46px;border-radius:11px;
   font-size:13.5px;font-weight:600;background:var(--deep);color:#fff;
@@ -494,6 +575,34 @@ section{position:relative}
   font-size:10.5px;letter-spacing:.08em;padding:5px 9px;border-radius:999px;white-space:nowrap;
   color:#0E7A50;background:rgba(22,160,106,.10);border:1px solid rgba(22,160,106,.28);
 }
+
+/* 演示账号：访客进得去，也得知道怎么登录 */
+.demo-card{
+  margin-top:24px;border-radius:var(--r-lg);padding:22px 26px;
+  background:linear-gradient(135deg,rgba(22,160,106,.09),rgba(22,160,106,.03));
+  border:1px solid rgba(22,160,106,.22);
+  display:flex;align-items:center;justify-content:space-between;gap:26px;flex-wrap:wrap;
+}
+.demo-left{display:flex;align-items:flex-start;gap:13px;min-width:0;flex:1 1 460px;max-width:640px}
+.demo-left .ic{
+  width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:grid;place-items:center;
+  background:linear-gradient(150deg,#123528,#0B1E17);color:var(--mint);
+}
+.demo-left .ic svg{width:18px;height:18px}
+.demo-left b{display:block;font-size:14px;font-weight:700;letter-spacing:.01em}
+.demo-left p{margin-top:5px;font-size:12.5px;line-height:1.7;color:var(--muted);font-weight:300}
+.demo-left code{
+  font-family:var(--mono);font-size:12px;padding:1.5px 6px;border-radius:5px;
+  background:rgba(18,53,40,.07);color:var(--deep);font-weight:600;
+}
+.demo-accounts{display:flex;flex-wrap:wrap;gap:7px;flex:0 1 auto}
+.demo-accounts span{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;
+  background:#fff;border:1px solid var(--line);font-size:11px;color:var(--muted);white-space:nowrap;
+  transition:border-color .3s,transform .3s,box-shadow .3s;
+}
+.demo-accounts span:hover{border-color:rgba(22,160,106,.42);transform:translateY(-1px);box-shadow:0 4px 12px rgba(18,53,40,.07)}
+.demo-accounts i{font-family:var(--mono);font-style:normal;font-size:11px;color:var(--deep);font-weight:600}
 .qr-slot{
   margin-top:22px;height:132px;border-radius:14px;border:1.5px dashed rgba(18,53,40,.22);
   display:grid;place-items:center;text-align:center;background:
@@ -508,11 +617,13 @@ section{position:relative}
    4.5 设备自适应：推荐态 + 底部提示条
    ============================================================ */
 .entry-card.recommended{border-color:rgba(22,160,106,.5);box-shadow:0 18px 46px rgba(22,160,106,.16)}
+/* "推荐"做成骑在卡片顶边的丝带：居中摆放，避开右上角的"已开放"徽章 */
 .entry-card.recommended::before{
-  content:"推荐";position:absolute;top:-10px;right:18px;padding:3px 9px;border-radius:999px;
-  font-size:10px;letter-spacing:.08em;color:#04140D;font-weight:600;
+  content:"推荐使用";position:absolute;top:0;left:50%;transform:translate(-50%,-50%);
+  padding:4px 12px;border-radius:999px;white-space:nowrap;
+  font-size:10.5px;letter-spacing:.1em;color:#04140D;font-weight:700;
   background:linear-gradient(135deg,#8BF5CC,#2CCB8E);
-  box-shadow:0 6px 16px rgba(22,160,106,.35);
+  box-shadow:0 6px 18px rgba(22,160,106,.4),0 0 0 4px var(--paper-2);
 }
 .device-tip{
   position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:200;
@@ -608,19 +719,76 @@ section{position:relative}
 <body>
 <a class="skip" href="#main">跳到主要内容</a>
 
+<!-- ============================================================
+     品牌徽章：与业务系统 frontend/uni-app/src/static/logo/mark.svg 同源
+     （圆角徽章 + 草坡 + 破土双叶 + 一枚链上节点）
+     这里用 symbol 定义一次、多处 use 引用，保证门户与业务端是同一个标识
+     ============================================================ -->
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="brandMark" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="bmBg" x1="18%" y1="0%" x2="82%" y2="100%">
+        <stop offset="0%" stop-color="#3fae74"/>
+        <stop offset="46%" stop-color="#1a7c48"/>
+        <stop offset="100%" stop-color="#093a22"/>
+      </linearGradient>
+      <radialGradient id="bmGlow" cx="26%" cy="12%" r="72%">
+        <stop offset="0%" stop-color="#b9ffd6" stop-opacity="0.55"/>
+        <stop offset="58%" stop-color="#b9ffd6" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="#b9ffd6" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="bmSoil" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#9df0be" stop-opacity="0.38"/>
+        <stop offset="46%" stop-color="#0b4a2b" stop-opacity="0.92"/>
+        <stop offset="100%" stop-color="#031a0e"/>
+      </linearGradient>
+      <linearGradient id="bmLeafL" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#8fe4b2"/>
+        <stop offset="55%" stop-color="#d6fbe6"/>
+        <stop offset="100%" stop-color="#ffffff"/>
+      </linearGradient>
+      <linearGradient id="bmLeafR" x1="100%" y1="100%" x2="0%" y2="0%">
+        <stop offset="0%" stop-color="#8fe4b2"/>
+        <stop offset="55%" stop-color="#d6fbe6"/>
+        <stop offset="100%" stop-color="#ffffff"/>
+      </linearGradient>
+      <linearGradient id="bmStem" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#ffffff"/>
+        <stop offset="100%" stop-color="#c2f4d8"/>
+      </linearGradient>
+      <clipPath id="bmRound">
+        <rect x="0" y="0" width="512" height="512" rx="150" ry="150"/>
+      </clipPath>
+    </defs>
+    <g clip-path="url(#bmRound)">
+      <rect width="512" height="512" fill="url(#bmBg)"/>
+      <rect width="512" height="512" fill="url(#bmGlow)"/>
+      <ellipse cx="120" cy="40" rx="250" ry="200" fill="#ffffff" opacity="0.10"/>
+      <path d="M-60 512 L-60 432 Q256 366 572 432 L572 512 Z" fill="url(#bmSoil)"/>
+      <path d="M-60 432 Q256 366 572 432" fill="none" stroke="#b7f7d2" stroke-opacity="0.28" stroke-width="4"/>
+      <rect x="247" y="296" width="18" height="118" rx="9" fill="url(#bmStem)"/>
+      <path d="M256 296 q9 0 9 9 v100 q0 9 -9 9 q-9 0 -9 -9 v-100 q0 -9 9 -9 z" fill="#ffffff" opacity="0.35"/>
+      <path d="M258 314 Q236 196 122 206 Q150 330 258 314 Z" fill="url(#bmLeafL)"/>
+      <path d="M254 314 Q276 196 390 206 Q362 330 254 314 Z" fill="url(#bmLeafR)"/>
+      <path d="M252 310 Q212 262 140 214" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/>
+      <path d="M260 310 Q300 262 372 214" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="402" cy="126" r="30" fill="none" stroke="#e6fff0" stroke-opacity="0.62" stroke-width="6"/>
+      <circle cx="402" cy="126" r="10" fill="#e6fff0" fill-opacity="0.92"/>
+      <rect x="3" y="3" width="506" height="506" rx="148" ry="148" fill="none" stroke="#ffffff" stroke-opacity="0.20" stroke-width="6"/>
+    </g>
+  </symbol>
+</svg>
+
 <!-- ================= 导航 ================= -->
 <header class="nav" id="nav">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="农安链首页">
+    <a class="brand" href="#top" aria-label="农安链溯源首页">
       <span class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 3c3.6 1.6 6 4.6 6 8.4 0 3.5-2.3 6.4-6 9.6-3.7-3.2-6-6.1-6-9.6C6 7.6 8.4 4.6 12 3Z" stroke="#04140D" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M12 7.5v8.2M12 11.2l2.6-1.7M12 13.6l-2.6-1.7" stroke="#04140D" stroke-width="1.4" stroke-linecap="round"/>
-        </svg>
+        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#brandMark" xlink:href="#brandMark"></use></svg>
       </span>
       <span class="brand-text">
-        <span class="brand-name">农安链</span>
-        <span class="brand-sub">AGRI&nbsp;SAFE&nbsp;CHAIN</span>
+        <span class="brand-title"><span class="brand-name">农安</span><span class="brand-suffix">链溯源</span></span>
+        <span class="brand-sub">AGRI-ORIGIN</span>
       </span>
     </a>
 
@@ -682,30 +850,35 @@ section{position:relative}
       </div>
 
       <div class="hero-visual">
-        <div class="code-card" role="img" aria-label="溯源码卡片示意：批次 TC20261106013，状态已售出，链上已存证">
-          <span class="scan"></span>
+        <a class="code-card" href="/pages/trace/index?code=TC20261106013"
+           aria-label="真实溯源档案样本：批次 TC20261106013 红颜草莓，链上已存证，点击查看完整溯源页">
+          <span class="scan" aria-hidden="true"></span>
           <div class="cc-head">
-            <span class="cc-title">批次溯源档案</span>
+            <span class="cc-title">批次溯源档案 · 真实样本</span>
             <span class="cc-pill"><i></i>链上已存证</span>
           </div>
           <div class="cc-code">TC20261106013 <em>TRACE CODE</em></div>
           <dl class="cc-rows">
-            <div class="cc-row"><dt>产品名称</dt><dd>溪头小白菜</dd></div>
-            <div class="cc-row"><dt>生产产地</dt><dd>溪头村 · 蔬菜基地</dd></div>
-            <div class="cc-row"><dt>质检结论</dt><dd><span class="tag-ok"><svg viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>合格 · A 级</span></dd></div>
-            <div class="cc-row"><dt>存证状态</dt><dd>全程 5 个环节 · 全部上链</dd></div>
+            <div class="cc-row"><dt>产品名称</dt><dd>红颜草莓</dd></div>
+            <div class="cc-row"><dt>生产产地</dt><dd>溪头村 · 一号草莓大棚</dd></div>
+            <div class="cc-row"><dt>质检结论</dt><dd><span class="tag-ok"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>合格 · PASS</span></dd></div>
           </dl>
+          <div class="cc-trust">
+            <div class="cc-trust-top"><span>溯源可信度</span><b>98<i>/100 · A 级</i></b></div>
+            <div class="cc-bar"><span style="width:98%"></span></div>
+            <div class="cc-trust-note">5/5 环节齐全 · 链上存证完整 · 1 次数据更正，已留痕</div>
+          </div>
           <div class="cc-chain">
-            <div class="lab">BLOCK HEIGHT · 链上凭证</div>
-            <div class="blocks">
-              <span class="blk">208</span>
-              <span class="blk">209</span>
-              <span class="blk">210</span>
-              <span class="blk">211</span>
-              <span class="blk hot">212</span>
+            <div class="lab">BLOCK HEIGHT · 链上凭证<span class="cc-live" id="ccLive">读取中</span></div>
+            <div class="blocks" id="ccBlocks">
+              <span class="blk">···</span>
             </div>
           </div>
-        </div>
+          <div class="cc-foot">
+            <span>查看这份真实溯源档案</span>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
         <div class="float-badge">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div>
@@ -770,10 +943,14 @@ section{position:relative}
 <!-- ================= 运行快照 ================= -->
 <section class="metrics" aria-label="平台运行快照">
   <div class="wrap">
-    <div class="metric reveal"><b data-count="44">44</b><span>累计建档批次</span><small>含 2 个检测异常批次</small></div>
-    <div class="metric reveal" data-d="1"><b data-count="195">195</b><span>链上存证笔数</span><small>成功率 195 / 195</small></div>
-    <div class="metric reveal" data-d="2"><b data-count="211">211</b><span>当前区块高度</span><small>四节点共识持续出块</small></div>
-    <div class="metric reveal" data-d="3"><b data-count="5">5</b><span>覆盖业务环节</span><small>种植 · 采收 · 质检 · 物流 · 销售</small></div>
+    <div class="metric reveal"><b data-live="batchCount">—</b><span>累计建档批次</span><small data-live-note="abnormal">读取中…</small></div>
+    <div class="metric reveal" data-d="1"><b data-live="chainRecordCount">—</b><span>链上存证笔数</span><small data-live-note="chainRate">读取中…</small></div>
+    <div class="metric reveal" data-d="2"><b data-live="blockNumber">—</b><span>当前区块高度</span><small data-live-note="chainState">读取中…</small></div>
+    <div class="metric reveal" data-d="3"><b>5</b><span>覆盖业务环节</span><small>种植 · 采收 · 质检 · 物流 · 销售</small></div>
+  </div>
+  <div class="wrap snap-line" id="snapLine">
+    <span class="dot" aria-hidden="true"></span>
+    <span id="snapNote">正在读取链上与数据库的最新数据…</span>
   </div>
 </section>
 
@@ -844,7 +1021,7 @@ section{position:relative}
       <div class="step reveal">
         <span class="num">01</span>
         <h3>种植</h3>
-        <p>农户记录农事操作、投入品用量与现场照片，自动获取作业地点与当日天气。</p>
+        <p>记录农事操作、投入品与现场照片，自动获取作业地点和当日天气。</p>
         <span class="ev">PLANTING</span>
       </div>
       <div class="step reveal" data-d="1">
@@ -943,6 +1120,15 @@ section{position:relative}
         </div>
         <h3 id="webCardTitle">Web 业务系统</h3>
         <p>完整功能端：批次建档与审核、农事与采收登记、质检上传、物流交接、销售登记、异常处置、监管复核。手机浏览器同样可用。</p>
+        <div class="entry-chips">
+          <span>批次建档</span>
+          <span>农事采收</span>
+          <span>质检物流</span>
+          <span>销售登记</span>
+          <span>异常处置</span>
+          <span>监管复核</span>
+        </div>
+        <p class="entry-extra">另有免登录的扫码溯源页：消费者扫一物一码，即可查看该批次的完整履历与链上凭证。</p>
         <div class="foot">
           <a class="entry-btn" href="/pages/launch/index">
             立即进入
@@ -995,6 +1181,26 @@ section{position:relative}
         </div>
       </article>
     </div>
+
+    <div class="demo-card reveal">
+      <div class="demo-left">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="1.7"/><path d="M4.6 20c.8-3.6 3.6-5.6 7.4-5.6s6.6 2 7.4 5.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+        <div>
+          <b>在线演示账号</b>
+          <p>9 个账号覆盖 8 类角色，密码统一 <code>123456</code>。换一个角色登录，能看到的数据范围随之变化。</p>
+        </div>
+      </div>
+      <div class="demo-accounts">
+        <span><i>farmer01</i>农户</span>
+        <span><i>village01</i>村管</span>
+        <span><i>producer01</i>生产主体</span>
+        <span><i>inspector01</i>检测</span>
+        <span><i>logistics01</i>物流</span>
+        <span><i>seller01</i>销售</span>
+        <span><i>regulator01</i>监管</span>
+        <span><i>admin</i>管理员</span>
+      </div>
+    </div>
   </div>
 </section>
 </main>
@@ -1006,14 +1212,11 @@ section{position:relative}
       <div class="foot-brand">
         <a class="brand" href="#top" aria-label="返回顶部">
           <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 3c3.6 1.6 6 4.6 6 8.4 0 3.5-2.3 6.4-6 9.6-3.7-3.2-6-6.1-6-9.6C6 7.6 8.4 4.6 12 3Z" stroke="#04140D" stroke-width="1.5" stroke-linejoin="round"/>
-              <path d="M12 7.5v8.2M12 11.2l2.6-1.7M12 13.6l-2.6-1.7" stroke="#04140D" stroke-width="1.4" stroke-linecap="round"/>
-            </svg>
+            <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#brandMark" xlink:href="#brandMark"></use></svg>
           </span>
           <span class="brand-text">
-            <span class="brand-name">农安链</span>
-            <span class="brand-sub">AGRI&nbsp;SAFE&nbsp;CHAIN</span>
+            <span class="brand-title"><span class="brand-name">农安</span><span class="brand-suffix">链溯源</span></span>
+            <span class="brand-sub">AGRI-ORIGIN</span>
           </span>
         </a>
         <p>基于 FISCO BCOS 联盟链的农产品质量安全溯源平台。以批次为主线记录生产与流通过程，用链上存证为每一份记录提供可复核的时间凭证。</p>
@@ -1030,7 +1233,7 @@ section{position:relative}
       <div class="foot-col">
         <h5>访问</h5>
         <a href="/pages/launch/index">Web 业务系统</a>
-        <a href="/pages/trace/index">扫码溯源查询</a>
+        <a href="/pages/trace/index?code=TC20261106013">示例溯源查询</a>
         <span>微信小程序（预留）</span>
         <span>移动端 App（预留）</span>
       </div>
@@ -1110,11 +1313,11 @@ section{position:relative}
   }
 
   /* ---------- 数字滚动 ---------- */
-  function animateNumber(el) {
-    var target = parseInt(el.getAttribute("data-count"), 10);
-    if (isNaN(target)) return;
+  function countUp(el, target, dur) {
+    if (target == null || isNaN(target)) return;
     if (reduced) { el.textContent = target; return; }
-    var start = null, dur = 1100;
+    dur = dur || 1100;
+    var start = null;
     function step(ts) {
       if (start === null) start = ts;
       var p = Math.min((ts - start) / dur, 1);
@@ -1124,11 +1327,17 @@ section{position:relative}
     }
     requestAnimationFrame(step);
   }
+  // 供实时数据复用（本段是 IIFE，挂到 window 上给下一段脚本调用）
+  window.__agriCountUp = countUp;
+
   var nums = document.querySelectorAll("[data-count]");
   if ("IntersectionObserver" in window) {
     var io2 = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
-        if (e.isIntersecting) { animateNumber(e.target); io2.unobserve(e.target); }
+        if (e.isIntersecting) {
+          countUp(e.target, parseInt(e.target.getAttribute("data-count"), 10));
+          io2.unobserve(e.target);
+        }
       });
     }, { threshold: 0.6 });
     nums.forEach(function (n) { io2.observe(n); });
@@ -1329,6 +1538,114 @@ section{position:relative}
   if (stay) stay.addEventListener("click", close);
   if (go) go.addEventListener("click", function () {
     try { sessionStorage.setItem(KEY, "1"); } catch (e) {}
+  });
+})();
+</script>
+
+<script>
+/* ============================================================
+   运行快照：从 /api/public/overview 读取真实数据
+   - 不写死数字：页面上任何一个统计值都来自接口
+   - 接口不可用时明确显示"暂不可用"，不用假数据充数
+   ============================================================ */
+(function () {
+  "use strict";
+  var API = "/api/public/overview";
+  var REFRESH_MS = 5 * 60 * 1000;
+
+  var snapNote = document.getElementById("snapNote");
+  var snapLine = document.getElementById("snapLine");
+  var liveTag = document.getElementById("ccLive");
+  var lastAt = 0;
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function clock() {
+    var d = new Date();
+    return pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  function setText(sel, text) {
+    var el = document.querySelector(sel);
+    if (el) el.textContent = text;
+  }
+
+  // 数字滚动：元素进入视口时再跑，避免用户还没滚到就播完了
+  function paint(el, value) {
+    if (!el) return;
+    if (value == null) { el.textContent = "—"; return; }
+    var up = window.__agriCountUp;
+    if (!up || !("IntersectionObserver" in window)) {
+      el.textContent = value;
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { up(el, value); io.unobserve(el); }
+      });
+    }, { threshold: 0.3 });
+    io.observe(el);
+  }
+
+  // 区块条：显示最新 5 个真实块高，最后一个高亮
+  function paintBlocks(latest) {
+    var box = document.getElementById("ccBlocks");
+    if (!box || !latest) return;
+    var html = "";
+    for (var i = 4; i >= 0; i--) {
+      var n = latest - i;
+      if (n < 1) continue;
+      html += '<span class="blk' + (i === 0 ? " hot" : "") + '">' + n + "</span>";
+    }
+    box.innerHTML = html;
+  }
+
+  function degrade() {
+    if (snapLine) snapLine.className = "wrap snap-line stale";
+    if (snapNote) snapNote.textContent = "暂时无法连接后端服务，数据未加载（不是静态示例数字，刷新可重试）";
+    if (liveTag) liveTag.textContent = "暂不可用";
+    setText('[data-live-note="abnormal"]', "数据暂不可用");
+    setText('[data-live-note="chainRate"]', "数据暂不可用");
+    setText('[data-live-note="chainState"]', "数据暂不可用");
+  }
+
+  function load() {
+    lastAt = Date.now();
+    fetch(API, { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (res) {
+        var d = (res && res.data) || {};
+        paint(document.querySelector('[data-live="batchCount"]'), d.batchCount);
+        paint(document.querySelector('[data-live="chainRecordCount"]'), d.chainRecordCount);
+        paint(document.querySelector('[data-live="blockNumber"]'), d.blockNumber);
+
+        setText('[data-live-note="abnormal"]', "含 " + (d.abnormalCount || 0) + " 个检测异常批次");
+        setText('[data-live-note="chainRate"]',
+          "成功率 " + (d.chainSuccess || 0) + " / " + (d.chainRecordCount || 0) +
+          "（" + (d.chainSuccessRate || 0) + "%）");
+        setText('[data-live-note="chainState"]',
+          d.chainReady ? "四节点共识持续出块" : "链服务未就绪");
+
+        if (liveTag) liveTag.textContent = d.chainReady ? "实时" : "未连接";
+        paintBlocks(d.blockNumber);
+
+        if (snapLine) snapLine.className = "wrap snap-line";
+        if (snapNote) {
+          snapNote.textContent =
+            "数据实时读取自链上合约与业务库 · 更新于 " + clock() +
+            (d.nodeVersion ? " · FISCO BCOS " + d.nodeVersion : "");
+        }
+      })
+      .catch(degrade);
+  }
+
+  load();
+
+  // 页面重新可见时，超过刷新周期就再拉一次（避免长时间挂着显示旧值）
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && Date.now() - lastAt > REFRESH_MS) load();
   });
 })();
 </script>

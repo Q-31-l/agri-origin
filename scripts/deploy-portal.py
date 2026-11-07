@@ -81,17 +81,26 @@ def main():
 
         time.sleep(1)
         print("\n=== 自检 ===")
+        failed = []
         for name, path, expect in [
             ("门户 /", "/", "农安链"),
             ("门户 /portal/", "/portal/", "农安链"),
             ("业务系统 H5", "/pages/launch/index", "html"),
         ]:
             code, out = run(
-                "curl -sk -o /tmp/p.html -w '%%{http_code}' https://127.0.0.1%s "
+                "curl -sk -o /tmp/p.html -w '%%{http_code}\\n' https://127.0.0.1%s "
                 "-H 'Host: 8-147-61-0.sslip.io' && grep -c '%s' /tmp/p.html" % (path, expect))
-            print("  %-16s -> %s" % (name, out.replace("\n", " ")))
+            parts = out.split()
+            status = parts[0] if parts else "?"
+            hits = parts[1] if len(parts) > 1 else "0"
+            # 两个条件都要成立：HTTP 200 且页面里确实命中了期望内容，
+            # 只看到 200 不算通过（可能 200 但返回的是别的页面）
+            ok = status == "200" and hits.isdigit() and int(hits) > 0
+            if not ok:
+                failed.append(name)
+            print("  %-16s -> %s %s (命中 %s)" % (name, status, "OK" if ok else "FAIL", hits))
 
-        return 0
+        return 1 if failed else 0
     finally:
         cli.close()
 

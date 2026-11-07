@@ -34,6 +34,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/auth/wx-bind",
                         "/ws",
                         "/trace/**",
+                        // 官网首页的运行快照：只返回平台级聚合数字，可匿名读
+                        "/public/**",
                         "/file/download/**",
                         "/doc.html",
                         "/webjars/**",

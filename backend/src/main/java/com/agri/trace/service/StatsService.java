@@ -132,6 +132,34 @@ public class StatsService {
     }
 
     /**
+     * 官网首页用的公开概览：免登录可读。
+     *
+     * <p>只返回全平台聚合数字，不含任何批次明细、用户姓名、联系方式等敏感字段，
+     * 因此可以安全地对匿名访问者开放。数据范围固定为"全量"，不随登录用户变化。</p>
+     */
+    public java.util.Map<String, Object> publicOverview() {
+        java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("batchCount", batchMapper.selectCount(Wrappers.emptyWrapper()));
+        map.put("abnormalCount", batchMapper.selectCount(Wrappers.<BizBatch>lambdaQuery()
+                .eq(BizBatch::getStatus, Constants.BATCH_ABNORMAL)));
+        map.put("villageCount", villageMapper.selectCount(Wrappers.emptyWrapper()));
+        map.put("farmerCount", userMapper.selectCount(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getRoleCode, Constants.ROLE_FARMER)));
+
+        long total = chainCount(null, null);
+        long success = chainCount(null, Constants.CHAIN_SUCCESS);
+        map.put("chainRecordCount", total);
+        map.put("chainSuccess", success);
+        map.put("chainSuccessRate", total == 0 ? 0 : round(success * 100.0 / total));
+
+        // 生产端统计的"最近一次存证时间"，比浏览器当前时间更能说明环境仍在运行
+        ChainRecord latest = chainRecordMapper.selectOne(Wrappers.<ChainRecord>lambdaQuery()
+                .orderByDesc(ChainRecord::getId).last("limit 1"));
+        map.put("lastChainTime", latest == null ? null : latest.getCreateTime());
+        return map;
+    }
+
+    /**
      * 数据范围：农户看自己，村级管理员看本村，生产主体看本人建档，其余全量。
      * 必须与 BatchService.applyScope 保持完全一致，否则会出现"看板 15 条、列表 12 条"的错位。
      */
