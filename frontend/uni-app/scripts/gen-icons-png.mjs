@@ -62,6 +62,9 @@ const JOBS = [
   ['chevronRight', '#9ca3af'],
   ['empty', '#c7cdd6'],
   // 登录页微信一键登录
+  ['chain', '#1f7a4d'],
+  ['abnormal', '#1f7a4d'],
+  ['harvest', '#1f7a4d'],
   ['wechat', '#07c160'],
   ['scan', '#1f7a4d'],
   ['scan', '#ffffff']

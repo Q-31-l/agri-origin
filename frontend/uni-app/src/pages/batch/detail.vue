@@ -51,7 +51,7 @@
       <!-- 操作 -->
       <view v-if="actions.length" class="actions">
         <view v-for="a in actions" :key="a.key" class="act" @click="a.handler">
-          <text class="act-icon" :style="{ color: a.color }">{{ a.icon }}</text>
+          <view class="act-icon"><app-icon :name="a.icon" :color="a.color" :size="40" /></view>
           <text class="act-title">{{ a.title }}</text>
         </view>
       </view>
@@ -153,6 +153,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { batchDetail, verifyBatch, auditBatch, closeBatch } from '@/api'
 import StatusTag from '@/components/common/status-tag.vue'
+import AppIcon from '@/components/common/app-icon.vue'
 import ChainBadge from '@/components/common/chain-badge.vue'
 import TraceTimeline from '@/components/business/trace-timeline.vue'
 import QualityReport from '@/components/business/quality-report.vue'
@@ -191,10 +192,10 @@ const actions = computed(() => {
     list.push({ key: 'audit', title: '审核', icon: '✓', color: '#1f7a4d', handler: () => (showAudit.value = true) })
   }
   if (['PLANTING', 'HARVESTED'].includes(b.status) && store.hasPerm('planting:create')) {
-    list.push({ key: 'planting', title: '农事', icon: '❀', color: '#2563eb', handler: () => nav(ROUTES.PLANTING_FORM, { batchId: b.id }) })
+    list.push({ key: 'planting', title: '农事', icon: 'planting', color: '#2563eb', handler: () => nav(ROUTES.PLANTING_FORM, { batchId: b.id }) })
   }
   if (b.status === 'PLANTING' && store.hasPerm('harvest:create')) {
-    list.push({ key: 'harvest', title: '采收', icon: '✿', color: '#b45309', handler: () => nav(ROUTES.HARVEST_FORM, { batchId: b.id }) })
+    list.push({ key: 'harvest', title: '采收', icon: 'harvest', color: '#b45309', handler: () => nav(ROUTES.HARVEST_FORM, { batchId: b.id }) })
   }
   if (b.status === 'HARVESTED' && store.hasPerm('quality:create')) {
     list.push({ key: 'quality', title: '质检', icon: '✓', color: '#7c3aed', handler: () => nav(ROUTES.QUALITY_FORM, { batchId: b.id }) })
@@ -429,8 +430,9 @@ function toTrace() {
   align-items: center;
 }
 .act-icon {
-  font-size: 38rpx;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .act-title {
   font-size: 22rpx;

@@ -1,6 +1,6 @@
 <template>
   <view class="search">
-    <text class="icon">⌕</text>
+    <app-icon name="search" color="#9ca3af" :size="36" class="icon" />
     <input
       class="input"
       :value="modelValue"
@@ -15,6 +15,8 @@
 </template>
 
 <script setup>
+import AppIcon from '@/components/common/app-icon.vue'
+
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: '搜索' }

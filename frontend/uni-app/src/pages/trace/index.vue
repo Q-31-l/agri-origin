@@ -3,7 +3,7 @@
     <!-- 搜索区 -->
     <view class="search-zone">
       <view class="search-box">
-        <text class="icon">⌕</text>
+        <app-icon name="search" color="#9ca3af" :size="36" class="icon" />
         <input
           v-model="code"
           class="input"
@@ -16,7 +16,7 @@
         <text v-if="code" class="clear" @click="code = ''">×</text>
       </view>
       <view class="scan-btn" @click="onScan">
-        <text class="scan-ico">⌗</text>
+        <view class="scan-ico"><app-icon name="scan" color="#1f7a4d" :size="40" /></view>
         <text class="scan-txt">扫码</text>
       </view>
     </view>
@@ -92,7 +92,7 @@
             <text class="chain-title">区块链存证</text>
             <chain-badge :status="result.chainStatus" :block-number="result.blockNumber" />
           </view>
-          <text class="verify" @click="verify">一致性校验 ›</text>
+          <view class="verify" @click="verify"><text>一致性校验</text><app-icon name="chevronRight" color="#1f7a4d" :size="26" /></view>
         </view>
         <view v-if="result.chainTxHash" class="chain-row">
           <text class="ck">交易哈希</text>
@@ -138,6 +138,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { traceQuery, traceVerify, traceSamples } from '@/api'
 import StatusTag from '@/components/common/status-tag.vue'
 import ChainBadge from '@/components/common/chain-badge.vue'
+import AppIcon from '@/components/common/app-icon.vue'
 import TraceTimeline from '@/components/business/trace-timeline.vue'
 import TrustScore from '@/components/business/trust-score.vue'
 import EmptyState from '@/components/common/empty-state.vue'

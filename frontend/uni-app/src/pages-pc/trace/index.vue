@@ -154,7 +154,7 @@
       <view v-else class="pc-card">
         <view class="pc-card-body">
           <view class="empty-hero">
-            <text class="eh-icon">⌕</text>
+            <view class="eh-icon"><pc-icon name="search" :size="34" /></view>
             <text class="eh-text">输入溯源码开始查询</text>
             <text class="eh-sub">溯源数据对所有消费者公开，无需登录</text>
           </view>
@@ -168,6 +168,7 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import PcShell from '@/layouts/pc-shell.vue'
+import PcIcon from '@/components/pc/pc-icon.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcQr from '@/components/pc/pc-qr.vue'
 import PcTimeline from '@/components/pc/pc-timeline.vue'
@@ -498,7 +499,9 @@ onLoad((opt) => {
   align-items: center;
 }
 .eh-icon {
-  font-size: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #cbd5e1;
 }
 .eh-text {

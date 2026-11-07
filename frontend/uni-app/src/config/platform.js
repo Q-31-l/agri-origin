@@ -54,7 +54,8 @@ export function sys() {
  * 导致"电脑上打开只有手机预览"。降到 768（标准平板断点）后，
  * 只要窗口宽度达到平板级别就进入 PC 管理台。
  */
-export const PC_MIN_WIDTH = 768
+/** 侧栏布局能舒服容纳表格的最小宽度（仅作样式断点参考，判断逻辑见 isPcWidth） */
+export const PC_MIN_WIDTH = 900
 
 /**
  * 是否手机设备（H5）：靠 UA 区分「手机」与「桌面 / 平板」。
@@ -76,17 +77,49 @@ function isTouchPhone() {
 }
 
 /**
- * H5 宽屏判定 —— 纯自动自适应，无任何手动覆盖：
- * 1. 手机设备（iPhone / Android 手机）→ 永远移动版；
- * 2. 其余（桌面 / 平板）→ 按窗口宽度，≥768px 视为 PC 布局。
+ * 是否平板设备（H5）。
  *
- * 效果：手机上打开就是手机版，电脑上打开就是电脑版，
- * 桌面浏览器拖宽 / 拖窄窗口还会实时在两端之间自动切换。
+ * 平板和手机的区别不在于"能不能触摸"，而在于**竖屏下够不够放侧栏 + 表格**：
+ * iPad 竖屏只有 768px，塞进 216px 侧栏后剩 552px，批次表格会挤成一团。
+ * 所以平板单独判断：竖屏走移动版，横屏（≥1024）才进管理台。
+ */
+function isTablet() {
+  // #ifdef H5
+  try {
+    const ua = navigator.userAgent || ''
+    if (/iPad/i.test(ua)) return true
+    // iPadOS 13+ 的 UA 伪装成桌面 Safari（Macintosh），靠触点数兜底
+    if (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1) return true
+    // 安卓平板：UA 带 Android 但不带 Mobile
+    if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return true
+    return false
+  } catch (e) {
+    return false
+  }
+  // #endif
+  // #ifndef H5
+  return false
+  // #endif
+}
+
+/**
+ * H5 宽屏判定 —— 按「设备类型 + 窗口宽度」双重判断，不做一刀切：
+ *
+ * | 设备            | 判定                                   |
+ * |-----------------|----------------------------------------|
+ * | 手机            | 永远移动版（哪怕横屏 900px）            |
+ * | 平板            | 竖屏移动版，横屏 ≥1024 才进管理台       |
+ * | 桌面浏览器      | ≥900 进管理台，再窄走移动版（窄窗更好用）|
+ *
+ * 这样 iPad 竖屏拿到的是为触屏设计的卡片流，而不是被压扁的表格；
+ * 手机上无论怎么转屏都不会突然变成电脑界面。
  */
 export function isPcWidth() {
   // #ifdef H5
   if (isTouchPhone()) return false
-  return (window.innerWidth || sys().windowWidth) >= PC_MIN_WIDTH
+  const w = window.innerWidth || sys().windowWidth
+  if (isTablet()) return w >= 1024
+  return w >= 900
   // #endif
   // #ifndef H5
   return false

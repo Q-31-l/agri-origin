@@ -94,6 +94,24 @@
         <text class="arrow">›</text>
       </view>
 
+      <!-- 三条平台特性：既是信任背书，也把卡片下方的大片留白填实 -->
+      <view class="trust-row">
+        <view class="trust-item">
+          <app-icon name="chain" color="#1f7a4d" :size="30" />
+          <text>链上存证</text>
+        </view>
+        <view class="trust-dot"></view>
+        <view class="trust-item">
+          <app-icon name="harvest" color="#1f7a4d" :size="30" />
+          <text>一物一码</text>
+        </view>
+        <view class="trust-dot"></view>
+        <view class="trust-item">
+          <app-icon name="abnormal" color="#1f7a4d" :size="30" />
+          <text>异常可追</text>
+        </view>
+      </view>
+
       <text class="footer">FISCO-BCOS 联盟链 · 全流程上链存证</text>
     </view>
   </view>
@@ -446,6 +464,34 @@ function toTrace() {
   padding-top: 48rpx;
   font-size: 20rpx;
   color: $text-4;
+}
+
+/* 平台特性：横排三点，字号压到最小，只做背书不抢焦点 */
+.trust-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  margin-top: 40rpx;
+}
+.trust-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.trust-item text {
+  margin-left: 8rpx;
+  font-size: 21rpx;
+  color: $text-3;
+  letter-spacing: 0.5rpx;
+}
+.trust-dot {
+  width: 6rpx;
+  height: 6rpx;
+  border-radius: 50%;
+  background: $text-4;
+  margin: 0 24rpx;
+  opacity: 0.6;
 }
 
 /* 平板竖屏（600–899px）：rpx 在 768 宽会被放大一倍，这里改用 px 把版式压回手机比例，
