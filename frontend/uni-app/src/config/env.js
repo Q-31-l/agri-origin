@@ -23,10 +23,24 @@ function mpEnvVersion() {
   // #endif
 }
 
+/**
+ * 小程序端按「开发版 / 体验版 / 正式版」修正接口地址。
+ *
+ * 这里曾经写死了 staging.agri-origin.com / api.agri-origin.com 两个并不存在的域名，
+ * 小程序打包后所有请求都会打到空气里（H5 因为走同域 /api 察觉不到）。
+ *
+ * 现在改成：默认就用 VITE_API_BASE（构建时注入，见 .env.production），
+ * 只有当显式配置了 VITE_API_BASE_TRIAL / VITE_API_BASE_RELEASE 时，才按版本切换。
+ * 这样"一套环境"只配一个变量，"前后端分离多环境"也不会被写死。
+ */
 function resolveApiBase() {
   const v = mpEnvVersion()
-  if (v === 'trial') return 'https://staging.agri-origin.com'
-  if (v === 'release') return 'https://api.agri-origin.com'
+  if (v === 'trial' && import.meta.env.VITE_API_BASE_TRIAL) {
+    return import.meta.env.VITE_API_BASE_TRIAL
+  }
+  if (v === 'release' && import.meta.env.VITE_API_BASE_RELEASE) {
+    return import.meta.env.VITE_API_BASE_RELEASE
+  }
   return RAW.apiBase
 }
 
