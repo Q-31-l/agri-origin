@@ -155,7 +155,7 @@ h1,h2,h3,h4,p{margin:0}
    3. HERO
    ============================================================ */
 .hero{
-  position:relative;min-height:100svh;padding:calc(var(--nav-h) + 54px) 0 76px;
+  position:relative;min-height:100vh;min-height:100svh;padding:calc(var(--nav-h) + 54px) 0 76px;
   display:flex;align-items:center;overflow:hidden;
   background:
     radial-gradient(1100px 620px at 78% 8%,rgba(22,160,106,.24),transparent 62%),
@@ -504,6 +504,47 @@ section{position:relative}
 .qr-slot svg{width:30px;height:30px;color:rgba(18,53,40,.28)}
 .qr-slot span{font-size:11px;color:var(--muted-2);letter-spacing:.06em}
 
+/* ============================================================
+   4.5 设备自适应：推荐态 + 底部提示条
+   ============================================================ */
+.entry-card.recommended{border-color:rgba(22,160,106,.5);box-shadow:0 18px 46px rgba(22,160,106,.16)}
+.entry-card.recommended::before{
+  content:"推荐";position:absolute;top:-10px;right:18px;padding:3px 9px;border-radius:999px;
+  font-size:10px;letter-spacing:.08em;color:#04140D;font-weight:600;
+  background:linear-gradient(135deg,#8BF5CC,#2CCB8E);
+  box-shadow:0 6px 16px rgba(22,160,106,.35);
+}
+.device-tip{
+  position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:200;
+  transform:translate(-50%,150%);opacity:0;pointer-events:none;
+  width:min(580px,calc(100vw - 28px));padding:16px 18px;border-radius:18px;
+  display:flex;align-items:center;gap:14px;
+  background:rgba(9,25,18,.96);border:1px solid rgba(69,224,166,.28);
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  transition:transform .5s var(--ease),opacity .35s;
+}
+.device-tip.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.device-tip .ic{width:40px;height:40px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;background:rgba(69,224,166,.12);color:var(--mint)}
+.device-tip .ic svg{width:20px;height:20px}
+.device-tip .tx{flex:1;min-width:0}
+.device-tip b{display:block;font-size:13.5px;color:#fff;letter-spacing:.01em}
+.device-tip p{margin-top:4px;font-size:11.5px;line-height:1.6;color:rgba(255,255,255,.52);font-weight:300}
+.device-tip .acts{display:flex;gap:8px;flex:0 0 auto}
+.device-tip .acts a,.device-tip .acts button{
+  height:36px;padding:0 14px;border-radius:9px;font-size:12px;display:inline-flex;align-items:center;
+  justify-content:center;white-space:nowrap;transition:transform .25s,background .25s;
+}
+.device-tip .go{background:linear-gradient(135deg,#8BF5CC,#2CCB8E);color:#04140D;font-weight:600}
+.device-tip .go:active{transform:scale(.97)}
+.device-tip .stay{color:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.18)}
+.device-tip .stay:active{background:rgba(255,255,255,.08)}
+@media (max-width:560px){
+  .device-tip{flex-wrap:wrap;gap:12px;padding:14px 15px}
+  .device-tip .acts{width:100%}
+  .device-tip .acts a,.device-tip .acts button{flex:1}
+}
+
 /* 页脚 */
 .footer{background:#061009;color:rgba(255,255,255,.55);padding:64px 0 34px}
 .foot-top{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:48px;padding-bottom:42px;border-bottom:1px solid rgba(255,255,255,.08)}
@@ -627,7 +668,7 @@ section{position:relative}
         </p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="/pages/launch/index">
-            进入 Web 业务系统
+            <span id="heroCtaText">进入 Web 业务系统</span>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
           <a class="btn btn-ghost" href="#flow">了解溯源流程</a>
@@ -895,12 +936,12 @@ section{position:relative}
 
     <div class="entry-grid">
       <!-- Web -->
-      <article class="entry-card live reveal">
+      <article class="entry-card live reveal" data-entry="web">
         <div class="head">
           <span class="ic"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 20h8M12 16.5V20" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
           <span class="badge-live">已开放</span>
         </div>
-        <h3>Web 业务系统</h3>
+        <h3 id="webCardTitle">Web 业务系统</h3>
         <p>完整功能端：批次建档与审核、农事与采收登记、质检上传、物流交接、销售登记、异常处置、监管复核。手机浏览器同样可用。</p>
         <div class="foot">
           <a class="entry-btn" href="/pages/launch/index">
@@ -911,7 +952,7 @@ section{position:relative}
       </article>
 
       <!-- 小程序（预留） -->
-      <article class="entry-card reveal" data-d="1">
+      <article class="entry-card reveal" data-d="1" data-entry="mp">
         <div class="head">
           <span class="ic"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="9" r="5.2" stroke="currentColor" stroke-width="1.7"/><circle cx="16.4" cy="15.4" r="4.2" stroke="currentColor" stroke-width="1.7"/><circle cx="8.4" cy="8.6" r=".9" fill="currentColor"/><circle cx="10.6" cy="10.4" r=".9" fill="currentColor"/></svg></span>
           <span class="badge-soon">预留位</span>
@@ -933,7 +974,7 @@ section{position:relative}
       </article>
 
       <!-- App（预留） -->
-      <article class="entry-card reveal" data-d="2">
+      <article class="entry-card reveal" data-d="2" data-entry="app">
         <div class="head">
           <span class="ic"><svg viewBox="0 0 24 24" fill="none"><rect x="6.5" y="2.5" width="11" height="19" rx="2.4" stroke="currentColor" stroke-width="1.7"/><path d="M10.5 5.5h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="18.4" r=".9" fill="currentColor"/></svg></span>
           <span class="badge-soon">预留位</span>
@@ -1006,6 +1047,21 @@ section{position:relative}
     </div>
   </div>
 </footer>
+
+<!-- ================= 设备自适应提示条 ================= -->
+<div class="device-tip" id="deviceTip" role="dialog" aria-live="polite" aria-label="设备提示">
+  <span class="ic">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.4" stroke="currentColor" stroke-width="1.7"/><path d="M10.5 5.5h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="18.4" r=".9" fill="currentColor"/></svg>
+  </span>
+  <div class="tx">
+    <b id="tipTitle">检测到移动设备</b>
+    <p id="tipDesc">移动端已适配，建议使用移动端访问。</p>
+  </div>
+  <div class="acts">
+    <button class="stay" id="tipStay" type="button">留在官网</button>
+    <a class="go" id="tipGo" href="/pages/launch/index">前往移动端</a>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -1189,6 +1245,91 @@ section{position:relative}
       else if (!raf) { frame(); }
     });
   }
+})();
+</script>
+
+<script>
+/* ============================================================
+   设备自适应：识别 桌面 / 手机 / 微信 / 小程序，给出对应入口
+   ============================================================ */
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  var ua = (navigator.userAgent || "").toLowerCase();
+
+  var isWeChat = ua.indexOf("micromessenger") >= 0;
+  var isMini = ua.indexOf("miniprogram") >= 0 || window.__wxjs_environment === "miniprogram";
+  var uaMobile = /android|iphone|ipod|mobile|harmonyos|blackberry|windows phone/.test(ua);
+  // iPadOS 13+ 的 UA 伪装成桌面 Safari：用「粗指针 + 触点数 + 屏幕尺寸」三者同时成立才判为平板
+  // 注意：部分桌面环境（如无头浏览器）会误报 maxTouchPoints，必须叠加 pointer:coarse 才不会误判
+  var coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  var touchPad = coarse && (navigator.maxTouchPoints || 0) > 1 && Math.min(screen.width, screen.height) >= 700;
+  var isMobile = uaMobile || touchPad;
+
+  var device = isMini ? "miniprogram" : (isWeChat ? "wechat" : (isMobile ? "mobile" : "desktop"));
+  root.setAttribute("data-device", device);
+
+  var handheld = device === "mobile" || device === "wechat" || device === "miniprogram";
+
+  /* 首屏主按钮文案随端变化 */
+  var ctaText = document.getElementById("heroCtaText");
+  if (ctaText && handheld) ctaText.textContent = "进入移动端";
+
+  /* 入口卡：手机/微信下把第一张卡改写为「移动端 H5」（同一套响应式页面） */
+  if (handheld) {
+    var webTitle = document.getElementById("webCardTitle");
+    if (webTitle) webTitle.textContent = "移动端 H5";
+    var webBtn = document.querySelector('[data-entry="web"] .entry-btn');
+    if (webBtn) {
+      webBtn.innerHTML = '立即进入' +
+        '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12h13M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+  }
+
+  /* 推荐态：小程序内推小程序；微信与普通手机都推「移动端」（小程序尚未上线，推占位卡会点不动） */
+  var rec = document.querySelector('[data-entry="web"]');
+  if (device === "miniprogram") {
+    rec = document.querySelector('[data-entry="mp"]');
+  }
+  if (rec) rec.className += " recommended";
+
+  /* 底部提示条只对移动侧展示 */
+  var tip = document.getElementById("deviceTip");
+  if (!tip || !handheld) return;
+
+  var title = document.getElementById("tipTitle");
+  var desc = document.getElementById("tipDesc");
+  var go = document.getElementById("tipGo");
+  var stay = document.getElementById("tipStay");
+
+  if (device === "wechat") {
+    if (title) title.textContent = "微信内访问提示";
+    if (desc) desc.textContent = "小程序入口即将上线，可先使用移动端页面；如需完整体验，点右上角 ··· 选择「在浏览器打开」。";
+    if (go) go.textContent = "进入移动端";
+    if (stay) stay.textContent = "知道了";
+  } else if (device === "mobile") {
+    if (title) title.textContent = "检测到移动设备";
+    if (desc) desc.textContent = "已适配移动端页面，可直接进入业务系统，拍照与扫码体验更佳。";
+    if (go) go.textContent = "前往移动端";
+    if (stay) stay.textContent = "留在官网";
+  }
+
+  /* 同一会话内不重复打扰 */
+  var KEY = "agri_portal_tip_dismissed";
+  var dismissed = false;
+  try { dismissed = sessionStorage.getItem(KEY) === "1"; } catch (e) {}
+  if (dismissed) return;
+
+  setTimeout(function () { tip.className += " show"; }, 1400);
+
+  function close() {
+    tip.className = tip.className.replace(/\s*show/g, "");
+    try { sessionStorage.setItem(KEY, "1"); } catch (e) {}
+  }
+  if (stay) stay.addEventListener("click", close);
+  if (go) go.addEventListener("click", function () {
+    try { sessionStorage.setItem(KEY, "1"); } catch (e) {}
+  });
 })();
 </script>
 </body>
