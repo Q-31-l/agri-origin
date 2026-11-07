@@ -13,6 +13,16 @@
         </view>
       </view>
 
+      <!-- 新账号引导：四项指标全是 0 的时候，看板本身不提供任何下一步 -->
+      <view v-if="showOnboard" class="pc-onboard">
+        <view class="ob-bar"></view>
+        <view class="ob-body">
+          <text class="ob-title">{{ onboard.title }}</text>
+          <text class="ob-desc">{{ onboard.desc }}</text>
+        </view>
+        <view v-if="onboard.path" class="pc-btn" @click="goOnboard">{{ onboard.action }}</view>
+      </view>
+
       <!-- 核心指标 -->
       <view class="pc-stats">
         <view class="pc-stat">
@@ -169,6 +179,8 @@ import PcShell from '@/layouts/pc-shell.vue'
 import { statsOverview } from '@/api'
 import { useUserStore } from '@/store/user'
 import { BATCH_STATUS, ROLE_NAME } from '@/config/constants'
+import { ROUTES } from '@/config/routes'
+import { nav } from '@/utils/router'
 import { toast } from '@/utils/ui'
 
 const store = useUserStore()
@@ -202,8 +214,65 @@ const scopeText = computed(() => {
   const role = store.roleCode
   if (role === 'FARMER') return '仅本人农户批次'
   if (role === 'VILLAGE_ADMIN') return '本行政村范围'
+  // 生产主体的批次列表按 create_by 收窄，说"全平台"会让人以为看到了别人的数据
+  if (role === 'PRODUCER') return '本人创建的批次'
   return '全平台数据'
 })
+
+/**
+ * 空看板引导：新注册的账号四项指标全是 0，页面本身不告诉人下一步点哪。
+ * 按角色给一句具体的话和一个按钮，比留一片 0 更有用。
+ */
+const onboard = computed(() => {
+  const role = store.roleCode
+  if (role === 'PRODUCER') {
+    return {
+      title: '还没有批次，先建一个',
+      desc: '在「农场档案」登记地块后，到「批次管理」新建批次；建档后需村管核验，农户才能开始录农事。',
+      action: '去批次管理',
+      path: ROUTES.PC_BATCH_LIST
+    }
+  }
+  if (role === 'FARMER') {
+    return {
+      title: '还没有被指派批次',
+      desc: '村管或生产主体把批次分配给你之后，这里会出现农事与采收任务，手机上也能填。',
+      action: '',
+      path: ''
+    }
+  }
+  if (role === 'INSPECTOR') {
+    return {
+      title: '还没有质检记录',
+      desc: '批次完成采收后即可上传质检报告；「质量检测」里能看到当前可检测的批次。',
+      action: '去质量检测',
+      path: ROUTES.PC_QUALITY
+    }
+  }
+  if (role === 'LOGISTICS') {
+    return {
+      title: '还没有运输记录',
+      desc: '质检合格的批次可以登记运输交接，冷链温度会一并上链。',
+      action: '去物流运输',
+      path: ROUTES.PC_LOGISTICS
+    }
+  }
+  if (role === 'SELLER') {
+    return {
+      title: '还没有销售记录',
+      desc: '完成物流交接的批次可以登记销售，售出即完成溯源闭环。',
+      action: '去销售管理',
+      path: ROUTES.PC_SALES
+    }
+  }
+  return null
+})
+
+const showOnboard = computed(() => s.value.totalBatches === 0 && !!onboard.value)
+
+function goOnboard() {
+  if (onboard.value && onboard.value.path) nav(onboard.value.path)
+}
 
 const stages = [
   { key: 'plantingBatches', label: '种植中', color: '#2563eb' },
@@ -273,6 +342,43 @@ useRealtime(load, { types: ['batch', 'abnormal'] })
 </script>
 
 <style lang="scss" scoped>
+/* 空看板引导条：左侧一条品牌色竖线，视觉上比卡片轻，不抢指标的位置 */
+.pc-onboard {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f2faf5 0%, #fbfdfc 70%);
+  border: 1px solid rgba(31, 122, 77, 0.14);
+}
+.ob-bar {
+  width: 3px;
+  height: 30px;
+  border-radius: 2px;
+  background: #1f7a4d;
+  flex: 0 0 auto;
+}
+.ob-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ob-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #14532d;
+}
+.ob-desc {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #64748b;
+}
+
 .col {
   display: flex;
   flex-direction: column;

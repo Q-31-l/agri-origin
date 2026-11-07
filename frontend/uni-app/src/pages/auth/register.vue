@@ -60,7 +60,7 @@
       </view>
       <view class="topbar-t">
         <text class="topbar-title">创建账号</text>
-        <text class="topbar-sub">注册后即可登录使用，无需等待审核</text>
+        <text class="topbar-sub">农户 / 生产 / 检测 / 物流 / 销售，注册即可用</text>
       </view>
       <view class="back-holder"></view>
     </view>
@@ -71,28 +71,35 @@
           <text class="card-sub">选择身份并填写信息，注册成功直接进入系统</text>
         </view>
 
-        <!-- 身份：只开放农户 / 销售商，其余角色必须管理员开通 -->
+        <!-- 身份：溯源链上每一环的录入方都能自助注册；治理类角色必须管理员开通 -->
         <view class="block">
           <text class="block-label">我的身份</text>
           <view class="roles">
             <view
               v-for="r in ROLES"
-              :key="r.code"
+              :key="r.code || 'locked'"
               class="role"
-              :class="{ on: form.roleCode === r.code }"
-              @click="pickRole(r.code)"
+              :class="{ on: !!r.code && form.roleCode === r.code, off: r.locked }"
+              @click="pickRole(r)"
             >
-              <view class="role-ic" :class="{ on: form.roleCode === r.code }">
-                <app-icon :name="r.icon" :size="wide ? '18px' : 40" :color="form.roleCode === r.code ? '#1f7a4d' : '#8a94a6'" />
+              <view class="role-ic" :class="{ on: !!r.code && form.roleCode === r.code }">
+                <app-icon
+                  :name="r.icon"
+                  :size="wide ? '17px' : 34"
+                  :color="form.roleCode === r.code ? '#1f7a4d' : '#8a94a6'"
+                />
               </view>
-              <view class="role-body">
-                <text class="role-n">{{ r.name }}</text>
-                <text class="role-d">{{ r.desc }}</text>
-              </view>
-              <view class="radio" :class="{ on: form.roleCode === r.code }">
-                <view v-if="form.roleCode === r.code" class="radio-dot"></view>
+              <text class="role-n">{{ r.name }}</text>
+              <view v-if="!!r.code && form.roleCode === r.code" class="role-tick">
+                <app-icon name="check" :size="wide ? '12px' : 24" color="#1f7a4d" />
               </view>
             </view>
+          </view>
+
+          <!-- 选中的身份能做什么：比在每块卡片里塞小字更清楚，也不用挤成两行 -->
+          <view v-if="currentRole.hint" class="role-hint">
+            <app-icon name="chain" :size="wide ? '13px' : 26" color="#1f7a4d" />
+            <text class="role-hint-t">{{ currentRole.hint }}</text>
           </view>
         </view>
 
@@ -127,9 +134,9 @@
               />
             </view>
 
-            <!-- 农户：选村（决定登录后能看到哪个村的批次）。
-                 没用 uni 的 picker：三端弹出的样式各不相同，也显示不了"所属乡镇" -->
-            <view v-if="isFarmer" class="field" :class="{ on: !!selectedVillage }" @click="openVillage">
+            <!-- 农户与生产主体都要落到村：农户决定能看到哪些批次，
+                 生产主体决定能在哪个村登记地块、建批次 -->
+            <view v-if="needVillage" class="field" :class="{ on: !!selectedVillage }" @click="openVillage">
               <text class="label">所属村</text>
               <text class="input pick" :class="{ empty: !selectedVillage }">
                 {{ selectedVillage ? selectedVillage.villageName : '请选择所在行政村' }}
@@ -137,13 +144,13 @@
               <app-icon name="chevronRight" :size="wide ? '14px' : 28" color="#b6bec9" />
             </view>
 
-            <!-- 销售商：机构名会印在溯源页的责任主体上 -->
-            <view v-if="!isFarmer" class="field" :class="{ on: focus === 'org' }">
+            <!-- 机构类身份：机构名会印在溯源页的责任主体上 -->
+            <view v-if="needOrg" class="field" :class="{ on: focus === 'org' }">
               <text class="label">机构</text>
               <input
                 v-model="form.orgName"
                 class="input"
-                placeholder="店铺或企业全称"
+                :placeholder="orgPlaceholder"
                 placeholder-class="ph"
                 maxlength="40"
                 @focus="focus = 'org'"
@@ -268,10 +275,49 @@ import { isPcWidth } from '@/config/platform'
 import { ROUTES } from '@/config/routes'
 import { toast } from '@/utils/ui'
 
+/**
+ * 可自助注册的五个身份，顺序按溯源链走：
+ * 农户先记农事 → 生产主体建批次 → 检测 → 物流 → 销售。
+ * 最后一块是"治理身份"占位，只做说明、不能选——避免用户以为漏做了。
+ */
 const ROLES = [
-  // 简介压到 6 个字：窄屏两张卡并排，长句子会被挤成两行还断在词中间
-  { code: 'FARMER', name: '农户', desc: '农事 · 采收', icon: 'planting' },
-  { code: 'SELLER', name: '销售商', desc: '销售 · 核销', icon: 'sales' }
+  {
+    code: 'FARMER',
+    name: '农户',
+    icon: 'planting',
+    hint: '填报农事与采收，只能看到被指派给自己的批次'
+  },
+  {
+    code: 'PRODUCER',
+    name: '生产主体',
+    icon: 'farm',
+    hint: '登记地块、建立批次，把农户和产品组织起来；需填合作社或家庭农场名称'
+  },
+  {
+    code: 'INSPECTOR',
+    name: '检测机构',
+    icon: 'quality',
+    hint: '上传质检报告并给出结论，决定批次能否流入市场；需填机构名称'
+  },
+  {
+    code: 'LOGISTICS',
+    name: '物流企业',
+    icon: 'logistics',
+    hint: '登记运输交接与冷链温度，运输环节逐条上链；需填企业名称'
+  },
+  {
+    code: 'SELLER',
+    name: '销售商',
+    icon: 'sales',
+    hint: '登记销售与批次核销，售出即完成溯源闭环；需填门店或企业名称'
+  },
+  {
+    code: '',
+    name: '村管/监管',
+    icon: 'lock',
+    locked: true,
+    hint: ''
+  }
 ]
 
 const BENEFITS = [
@@ -284,7 +330,6 @@ const BENEFITS = [
 const FLOW = ['注册账号', '加入批次', '记录农事', '链上存证']
 
 const store = useUserStore()
-const isFarmer = computed(() => form.roleCode === 'FARMER')
 
 const form = reactive({
   roleCode: 'FARMER',
@@ -296,6 +341,27 @@ const form = reactive({
   password: '',
   confirm: ''
 })
+
+const isFarmer = computed(() => form.roleCode === 'FARMER')
+const isProducer = computed(() => form.roleCode === 'PRODUCER')
+/** 村：农户与生产主体必填 */
+const needVillage = computed(() => isFarmer.value || isProducer.value)
+/** 机构名：除农户外的四种身份必填 */
+const needOrg = computed(() => !isFarmer.value)
+const ORG_PLACEHOLDER = {
+  PRODUCER: '合作社 / 家庭农场全称',
+  INSPECTOR: '检测机构全称',
+  LOGISTICS: '物流企业全称',
+  SELLER: '门店或企业全称'
+}
+const ORG_LABEL = {
+  PRODUCER: '合作社 / 家庭农场',
+  INSPECTOR: '检测机构',
+  LOGISTICS: '物流企业',
+  SELLER: '销售机构'
+}
+const orgPlaceholder = computed(() => ORG_PLACEHOLDER[form.roleCode] || '机构全称')
+const currentRole = computed(() => ROLES.find((r) => r.code === form.roleCode) || ROLES[0])
 
 const focus = ref('')
 const showPwd = ref(false)
@@ -321,8 +387,12 @@ async function loadVillages() {
   }
 }
 
-function pickRole(code) {
-  form.roleCode = code
+function pickRole(r) {
+  if (r.locked) {
+    toast('村管、监管、管理员涉及他人数据处置权，需联系管理员实名开通')
+    return
+  }
+  form.roleCode = r.code
 }
 
 function openVillage() {
@@ -360,8 +430,8 @@ onLoad((opt) => {
 function validate() {
   if (!form.realName.trim()) return '请填写真实姓名'
   if (form.phone && !/^1[3-9]\d{9}$/.test(form.phone)) return '手机号格式不正确'
-  if (isFarmer.value && !form.villageId) return '请选择所属村'
-  if (!isFarmer.value && !form.orgName.trim()) return '请填写销售机构名称'
+  if (needVillage.value && !form.villageId) return '请选择所属村'
+  if (needOrg.value && !form.orgName.trim()) return '请填写' + (ORG_LABEL[form.roleCode] || '机构') + '名称'
   if (!/^[A-Za-z0-9_]{4,20}$/.test(form.username)) return '账号需为 4–20 位字母、数字或下划线'
   if (form.password.length < 6) return '密码至少 6 位'
   if (form.password === form.username) return '密码不能与账号相同'
@@ -390,8 +460,8 @@ async function submit() {
       roleCode: form.roleCode,
       realName: form.realName.trim(),
       phone: form.phone.trim(),
-      villageId: isFarmer.value ? form.villageId : null,
-      orgName: isFarmer.value ? '' : form.orgName.trim(),
+      villageId: needVillage.value ? form.villageId : null,
+      orgName: needOrg.value ? form.orgName.trim() : '',
       username: form.username.trim(),
       password: form.password
     })
@@ -512,21 +582,22 @@ function toTrace() {
   margin-bottom: 16rpx;
 }
 
-/* 身份卡 */
+/* 身份卡：六个格子（五个可注册 + 一个治理身份说明），两列刚好三行 */
 .roles {
   display: flex;
   flex-direction: row;
-  gap: 20rpx;
+  flex-wrap: wrap;
+  gap: 16rpx;
 }
 .role {
-  flex: 1;
-  /* flex 默认 min-width:auto，简介那行 nowrap 会把卡片撑出屏幕，必须显式压回 0 */
-  min-width: 0;
+  position: relative;
+  width: calc(50% - 8rpx);
+  box-sizing: border-box;
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 22rpx 20rpx;
-  border-radius: 18rpx;
+  padding: 18rpx 16rpx;
+  border-radius: 16rpx;
   border: 1px solid $border;
   background: #fafbfc;
 }
@@ -534,56 +605,66 @@ function toTrace() {
   border-color: rgba(31, 122, 77, 0.55);
   background: $brand-light;
 }
+.role.off {
+  border-style: dashed;
+  background: #fcfdfc;
+}
+.role.off .role-n {
+  color: $text-4;
+  font-weight: 500;
+}
 .role-ic {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 16rpx;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 14rpx;
   background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid $border;
+  flex: 0 0 auto;
 }
 .role-ic.on {
   border-color: rgba(31, 122, 77, 0.35);
 }
-.role-body {
-  flex: 1;
-  margin-left: 16rpx;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
 .role-n {
-  font-size: 28rpx;
+  flex: 1;
+  min-width: 0;
+  margin-left: 12rpx;
+  font-size: 25rpx;
   font-weight: 600;
   color: $text-1;
+  /* 名字必须一行放得下：换行会把格子撑高、三列对不齐 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.role-d {
-  margin-top: 4rpx;
-  font-size: 20rpx;
-  line-height: 1.4;
-  color: $text-3;
-  /* 窄屏两行显示完整文案，比省略号更好懂 */
-  white-space: normal;
-}
-.radio {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 50%;
-  border: 2rpx solid #cfd8d3;
+/* 勾选角标绝对定位，不占名字的宽度 */
+.role-tick {
+  position: absolute;
+  right: 6rpx;
+  top: 6rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.radio.on {
-  border-color: $brand;
+/* 选中身份的能力说明：一行字，比塞进卡片里的小字更好读 */
+.role-hint {
+  margin-top: 18rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 14rpx;
+  background: #f3f9f5;
+  border: 1px solid rgba(31, 122, 77, 0.1);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
 }
-.radio-dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 50%;
-  background: $brand;
+.role-hint-t {
+  flex: 1;
+  margin-left: 10rpx;
+  font-size: 21rpx;
+  line-height: 1.65;
+  color: $text-2;
 }
 
 /* 表单 */
@@ -829,31 +910,28 @@ function toTrace() {
     gap: 10px;
   }
   .role {
-    padding: 11px 10px;
+    width: calc(50% - 5px);
+    padding: 9px 9px;
     border-radius: 10px;
   }
   .role-ic {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 8px;
   }
-  .role-body {
-    margin-left: 8px;
-  }
   .role-n {
-    font-size: 14px;
+    margin-left: 7px;
+    font-size: 12.5px;
   }
-  .role-d {
-    font-size: 10px;
-    margin-top: 2px;
+  .role-hint {
+    margin-top: 10px;
+    padding: 9px 11px;
+    border-radius: 8px;
   }
-  .radio {
-    width: 16px;
-    height: 16px;
-  }
-  .radio-dot {
-    width: 9px;
-    height: 9px;
+  .role-hint-t {
+    margin-left: 6px;
+    font-size: 11px;
+    line-height: 1.6;
   }
   .fields {
     border-radius: 10px;
@@ -1112,7 +1190,9 @@ function toTrace() {
     padding: 36px 40px;
     overflow-y: auto;
     align-items: center;
-    justify-content: center;
+    /* 用 auto 外边距做居中：内容比视口高时它会自动退化成 0，
+       justify-content:center 在溢出时会把顶部顶出可视区、还滚不上去 */
+    justify-content: flex-start;
     background:
       radial-gradient(rgba(16, 55, 36, 0.05) 1px, rgba(16, 55, 36, 0) 1px),
       radial-gradient(700px 500px at 90% 2%, rgba(31, 122, 77, 0.09) 0%, rgba(31, 122, 77, 0) 62%),
@@ -1121,7 +1201,8 @@ function toTrace() {
   }
   .card {
     width: 448px;
-    padding: 32px 32px 26px;
+    margin-top: auto;
+    padding: 26px 30px 22px;
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.94);
     border: 1px solid rgba(16, 55, 36, 0.07);
@@ -1130,11 +1211,14 @@ function toTrace() {
       0 28px 64px -34px rgba(9, 40, 25, 0.42);
   }
   .card-sub {
-    margin-top: 8px;
-    margin-bottom: 4px;
+    margin-top: 7px;
+    margin-bottom: 2px;
+  }
+  .card-head {
+    margin-bottom: 18px;
   }
   .block + .block {
-    margin-top: 22px;
+    margin-top: 16px;
   }
   .block-label {
     font-size: 12px;
@@ -1145,38 +1229,35 @@ function toTrace() {
     gap: 12px;
   }
   .role {
-    padding: 11px 12px;
+    /* 三列两行，六块刚好排满，不留空格 */
+    width: calc(33.333% - 8px);
+    padding: 9px 10px;
     border-radius: 11px;
   }
   .role-ic {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 9px;
   }
-  .role-body {
-    margin-left: 9px;
-  }
   .role-n {
-    font-size: 13.5px;
+    margin-left: 8px;
+    font-size: 12.5px;
   }
-  .role-d {
-    font-size: 10.5px;
-    margin-top: 2px;
+  .role-hint {
+    margin-top: 10px;
+    padding: 9px 11px;
+    border-radius: 9px;
   }
-  .radio {
-    width: 16px;
-    height: 16px;
-    border-width: 1px;
-  }
-  .radio-dot {
-    width: 9px;
-    height: 9px;
+  .role-hint-t {
+    margin-left: 6px;
+    font-size: 11px;
+    line-height: 1.6;
   }
   .fields {
     border-radius: 12px;
   }
   .field {
-    min-height: 44px;
+    min-height: 42px;
     padding: 0 13px;
   }
   .field.on {
@@ -1197,9 +1278,9 @@ function toTrace() {
     padding-left: 8px;
   }
   .notice {
-    margin: 18px 2px 0;
+    margin: 14px 2px 0;
     font-size: 10.5px;
-    line-height: 1.75;
+    line-height: 1.7;
   }
   .btn {
     margin-top: 18px;
@@ -1222,6 +1303,7 @@ function toTrace() {
     align-items: center;
     width: 448px;
     margin-top: 14px;
+    margin-bottom: auto;
     height: 44px;
     padding: 0 14px;
     border-radius: 12px;

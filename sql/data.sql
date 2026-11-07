@@ -100,7 +100,10 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('PRODUCER','product:update'),('PRODUCER','farm:list'),('PRODUCER','file:upload'),
 ('PRODUCER','abnormal:trace'),('PRODUCER','correction:create'),
 -- 农场档案必须选所属行政村，没有 village:list 连新建弹窗都填不完
-('PRODUCER','village:list');
+('PRODUCER','village:list'),
+-- 生产主体要能登记自己的基地/地块：新注册的合作社没有农场就建不了批次。
+-- 只能在本村建（服务层强制），免得跨村造地块。
+('PRODUCER','farm:create'),('PRODUCER','farm:update');
 
 -- 村级管理员：只审农户侧数据（批次核验 / 农事 / 采收）。
 -- 质检报告、物流交接、销售流水的复核属监管职责，不授予村级，避免出现

@@ -100,8 +100,14 @@ public class BaseDataService {
     public Long createFarm(FarmDTO dto) {
         LoginUser user = UserContext.require();
         Long villageId = dto.getVillageId();
-        if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())) {
+        // 村管与生产主体都只能在自己所属村建地块：生产主体自助注册后要能登记基地，
+        // 但不能借这个入口给别的村造地块
+        if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())
+                || Constants.ROLE_PRODUCER.equals(user.getRoleCode())) {
             villageId = user.getVillageId();
+            if (villageId == null) {
+                throw BizException.badRequest("当前账号未绑定行政村，请联系管理员补齐");
+            }
         }
         if (villageId == null) {
             throw BizException.badRequest("请选择所属行政村");
@@ -143,6 +149,10 @@ public class BaseDataService {
         }
         if (Constants.ROLE_VILLAGE.equals(UserContext.roleCode())
                 && !UserContext.require().getVillageId().equals(farm.getVillageId())) {
+            throw BizException.forbidden("无权管理其他村的农场");
+        }
+        if (Constants.ROLE_PRODUCER.equals(UserContext.roleCode())
+                && !farm.getVillageId().equals(UserContext.require().getVillageId())) {
             throw BizException.forbidden("无权管理其他村的农场");
         }
         farm.setFarmName(dto.getFarmName());

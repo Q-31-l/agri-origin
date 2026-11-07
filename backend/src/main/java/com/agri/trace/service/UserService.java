@@ -111,23 +111,38 @@ public class UserService {
     /**
      * 自助注册（匿名可调用）。
      *
-     * 与 {@link #create(UserDTO)} 分开的原因：
+     * <p>与 {@link #create(UserDTO)} 分开的原因：
      * <ul>
      *   <li>create 依赖 UserContext，而注册时没有登录态</li>
-     *   <li>create 允许任意角色，注册只放行"农户 / 销售商"两种身份，
-     *       检测、物流、监管、村管、管理员等必须由管理员创建</li>
-     *   <li>农户必须选村，否则登录后按数据范围看不到任何可操作的批次</li>
+     *   <li>create 允许任意角色；注册只放行<b>真正参与溯源流程</b>的五种身份，
+     *       治理类角色（村管、监管、管理员）必须由管理员开通</li>
+     *   <li>各角色的必填项不同：农户必须有村（否则登录后看不到任何批次），
+     *       机构类必须有机构名（溯源页要写责任主体）</li>
      * </ul>
+     *
+     * <p>为什么偏偏是这五个：平台的数据就是沿着
+     * 生产主体建批次 → 农户记农事/采收 → 检测机构出报告 → 物流企业运输 → 销售商核销
+     * 这条链产生的。链条上每一个录入方都应该能自己注册，缺一环就得找管理员代开账号。
+     * 而村管能管本村账号、监管能看全量数据、管理员能改配置——这三种权力一旦自助开放，
+     * 等于把别人的数据处置权交给任意访客，所以只能线下实名开通。</p>
      */
     @Transactional
     public Long register(RegisterDTO dto) {
         String role = dto.getRoleCode();
-        if (!Constants.ROLE_FARMER.equals(role) && !Constants.ROLE_SELLER.equals(role)) {
+        boolean farmer = Constants.ROLE_FARMER.equals(role);
+        boolean producer = Constants.ROLE_PRODUCER.equals(role);
+        boolean inspector = Constants.ROLE_INSPECTOR.equals(role);
+        boolean logistics = Constants.ROLE_LOGISTICS.equals(role);
+        boolean seller = Constants.ROLE_SELLER.equals(role);
+        boolean orgRole = producer || inspector || logistics || seller;
+
+        if (!farmer && !orgRole) {
             throw BizException.forbidden("该身份不支持自助注册，请联系管理员开通");
         }
 
-        // 农户：必须选一个真实存在的村
-        if (Constants.ROLE_FARMER.equals(role)) {
+        // 农户：必须选一个真实存在的村——数据范围按 farmer_id 收窄，但村的归属决定
+        // 后续批次能落到哪个村管辖区；生产主体同理，建地块时要选村。
+        if (farmer || producer) {
             if (dto.getVillageId() == null) {
                 throw BizException.badRequest("请选择所属村");
             }
@@ -137,10 +152,9 @@ public class UserService {
             }
         }
 
-        // 销售商：机构名是溯源展示的责任主体，不能为空
-        if (Constants.ROLE_SELLER.equals(role)
-                && (dto.getOrgName() == null || dto.getOrgName().isEmpty())) {
-            throw BizException.badRequest("请填写销售机构名称");
+        // 机构类：机构名是溯源展示的责任主体，不能为空
+        if (orgRole && (dto.getOrgName() == null || dto.getOrgName().isEmpty())) {
+            throw BizException.badRequest("请填写" + orgLabel(role) + "名称");
         }
 
         // 密码不能与账号相同，避免 admin/admin 这类弱口令
@@ -160,13 +174,29 @@ public class UserService {
         user.setRealName(dto.getRealName());
         user.setPhone(dto.getPhone());
         user.setRoleCode(role);
-        user.setOrgName(dto.getOrgName());
-        user.setVillageId(Constants.ROLE_FARMER.equals(role) ? dto.getVillageId() : null);
+        user.setOrgName(orgRole ? dto.getOrgName() : null);
+        user.setVillageId(farmer || producer ? dto.getVillageId() : null);
         // farmId 留空：农户的数据范围按 farmerId 隔离，不要求必须有农场才能登录。
-        // 首次建档时再选择或新建农场即可。
+        // 首次建档时再选择或新建农场即可；生产主体注册后在"农场档案"里建自己的地块。
         user.setStatus(1);
         userMapper.insert(user);
         return user.getId();
+    }
+
+    /** 机构名的提示词：不同角色叫法不一样，报错要说得具体 */
+    private String orgLabel(String role) {
+        switch (role) {
+            case Constants.ROLE_PRODUCER:
+                return "合作社 / 家庭农场";
+            case Constants.ROLE_INSPECTOR:
+                return "检测机构";
+            case Constants.ROLE_LOGISTICS:
+                return "物流企业";
+            case Constants.ROLE_SELLER:
+                return "销售机构";
+            default:
+                return "机构";
+        }
     }
 
     @Transactional

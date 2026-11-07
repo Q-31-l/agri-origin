@@ -144,7 +144,7 @@ public class SystemController {
 
     @Operation(summary = "新增农场")
     @RequirePerm("farm:create")
-    @RequireRoles({Constants.ROLE_ADMIN, Constants.ROLE_VILLAGE})
+    @RequireRoles({Constants.ROLE_ADMIN, Constants.ROLE_VILLAGE, Constants.ROLE_PRODUCER})
     @PostMapping("/farm")
     public R<Long> createFarm(@Valid @RequestBody FarmDTO dto) {
         return R.ok("农场创建成功", baseDataService.createFarm(dto));
@@ -152,7 +152,7 @@ public class SystemController {
 
     @Operation(summary = "编辑农场")
     @RequirePerm("farm:update")
-    @RequireRoles({Constants.ROLE_ADMIN, Constants.ROLE_VILLAGE})
+    @RequireRoles({Constants.ROLE_ADMIN, Constants.ROLE_VILLAGE, Constants.ROLE_PRODUCER})
     @PutMapping("/farm/{id}")
     public R<Void> updateFarm(@PathVariable Long id, @Valid @RequestBody FarmDTO dto) {
         baseDataService.updateFarm(id, dto);

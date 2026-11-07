@@ -5,6 +5,13 @@
       <text class="tip-text">创建后系统会自动生成批次编码与溯源码，并把关键信息写入联盟链存证。</text>
     </view>
 
+    <!-- 新注册的生产主体可能还没有地块：与其让人对着"暂无可选农场"卡住，
+         不如允许直接指定一位农户建档（批次仍会落到该农户所在村） -->
+    <view v-if="farmLoaded && !farms.length" class="tip warn">
+      <text class="tip-icon">!</text>
+      <text class="tip-text">你还没有登记地块。可以到电脑端「农场档案」先登记，也可以直接指定一位种植农户建档。</text>
+    </view>
+
     <view class="group">
       <view class="row" @click="pickProduct">
         <text class="label required">产品</text>
@@ -15,6 +22,12 @@
       <view class="row" @click="pickFarm">
         <text class="label">农场</text>
         <text class="value" :class="{ ph: !form.farmId }">{{ farmName || '请选择所属农场' }}</text>
+        <text class="arrow">›</text>
+      </view>
+
+      <view v-if="!farms.length" class="row" @click="pickFarmer">
+        <text class="label required">农户</text>
+        <text class="value" :class="{ ph: !form.farmerId }">{{ farmerName || '没有地块时，直接指定种植农户' }}</text>
         <text class="arrow">›</text>
       </view>
 
@@ -71,6 +84,23 @@
       </view>
     </view>
 
+    <!-- 农户选择（无地块时） -->
+    <view v-if="showFarmer" class="mask" @click="showFarmer = false">
+      <view class="sheet" @click.stop>
+        <view class="sheet-head">
+          <text class="sheet-title">选择种植农户</text>
+          <text class="close" @click="showFarmer = false">×</text>
+        </view>
+        <scroll-view scroll-y class="sheet-list">
+          <view v-for="f in farmers" :key="f.id" class="opt" @click="chooseFarmer(f)">
+            <text class="opt-title">{{ f.realName }}</text>
+            <text class="opt-sub">{{ villageName(f.villageId) }}</text>
+          </view>
+          <empty-state v-if="!farmers.length" text="暂无可选农户" />
+        </scroll-view>
+      </view>
+    </view>
+
     <!-- 农场选择 -->
     <view v-if="showFarm" class="mask" @click="showFarm = false">
       <view class="sheet" @click.stop>
@@ -93,7 +123,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { createBatch, productList, farmList } from '@/api'
+import { createBatch, productList, farmList, userOptions, villageList } from '@/api'
 import { useCacheStore } from '@/store/cache'
 import { useForm } from '@/composables/useForm'
 import { toast } from '@/utils/ui'
@@ -103,13 +133,18 @@ import EmptyState from '@/components/common/empty-state.vue'
 const cache = useCacheStore()
 const products = ref([])
 const farms = ref([])
+const farmers = ref([])
+const villages = ref([])
+const farmLoaded = ref(false)
 const showProduct = ref(false)
 const showFarm = ref(false)
+const showFarmer = ref(false)
 const units = ['kg', '吨', '斤', '箱', '件']
 
 const form = reactive({
   productId: '',
   farmId: '',
+  farmerId: '',
   plantingDate: '',
   quantity: '',
   unit: 'kg',
@@ -124,17 +159,30 @@ const farmName = computed(() => {
   const f = farms.value.find((x) => String(x.id) === String(form.farmId))
   return f ? f.farmName : ''
 })
+const farmerName = computed(() => {
+  const f = farmers.value.find((x) => String(x.id) === String(form.farmerId))
+  return f ? f.realName : ''
+})
+
+function villageName(id) {
+  const v = villages.value.find((x) => String(x.id) === String(id))
+  return v ? v.villageName : ''
+}
 
 const { submitting, submit } = useForm(
   (data) =>
     createBatch({
       ...data,
-      quantity: Number(data.quantity)
+      quantity: Number(data.quantity),
+      // 空字符串会被后端当成非法 Long，没选就明确传 null
+      farmerId: data.farmerId || null,
+      farmId: data.farmId || null
     }),
   {
     successText: '创建成功',
     validate: (d) => {
       if (!d.productId) return '请选择产品品类'
+      if (!d.farmId && !d.farmerId) return '请选择农场或种植农户'
       if (!d.plantingDate) return '请选择种植日期'
       if (!d.quantity || Number(d.quantity) <= 0) return '请填写有效的预计产量'
       return ''
@@ -148,11 +196,20 @@ const { submitting, submit } = useForm(
 
 onLoad(async () => {
   try {
-    const [p, f] = await Promise.allSettled([productList(), farmList()])
+    const [p, f, u, v] = await Promise.allSettled([
+      productList(),
+      farmList(),
+      userOptions({ roleCode: 'FARMER' }),
+      villageList()
+    ])
     if (p.status === 'fulfilled') products.value = p.value.data || []
     if (f.status === 'fulfilled') farms.value = f.value.data || []
+    if (u.status === 'fulfilled') farmers.value = u.value.data || []
+    if (v.status === 'fulfilled') villages.value = v.value.data || []
   } catch (e) {
     /* ignore */
+  } finally {
+    farmLoaded.value = true
   }
 })
 
@@ -171,6 +228,14 @@ function chooseProduct(p) {
 function chooseFarm(f) {
   form.farmId = f.id
   showFarm.value = false
+}
+function pickFarmer() {
+  if (!farmers.value.length) return toast('暂无可选农户，请先在电脑端登记农户账号')
+  showFarmer.value = true
+}
+function chooseFarmer(f) {
+  form.farmerId = f.id
+  showFarmer.value = false
 }
 
 function onSubmit() {
@@ -213,6 +278,16 @@ function onSubmit() {
   font-size: 22rpx;
   color: $brand;
   line-height: 1.6;
+}
+/* 无地块提示：换成琥珀色，和普通说明区分开 */
+.tip.warn {
+  background: $warning-light;
+}
+.tip.warn .tip-text {
+  color: #8a5a00;
+}
+.tip.warn .tip-icon {
+  color: #8a5a00;
 }
 .group {
   background: #fff;

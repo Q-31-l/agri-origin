@@ -594,7 +594,7 @@ public class BatchService {
         created.setType(Constants.EVENT_BATCH);
         created.setTitle("批次建档");
         created.setOperator(batch.getFarmerName());
-        created.setStatus(batch.getAuditStatus());
+        created.setStatus(statusLabel(batch.getAuditStatus()));
         created.setDetail("创建批次 " + batch.getBatchNo() + "，产品：" + batch.getProductName()
                 + "，预计产量 " + batch.getQuantity() + batch.getUnit());
         attachChain(created, chainMap.get(Constants.EVENT_BATCH + "#" + batch.getId()));
@@ -606,7 +606,7 @@ public class BatchService {
             item.setType(Constants.EVENT_PLANTING);
             item.setTitle("农事记录 · " + recordTypeLabel(r.getRecordType()));
             item.setOperator(r.getOperatorName());
-            item.setStatus(r.getAuditStatus());
+            item.setStatus(statusLabel(r.getAuditStatus()));
             item.setDetail(r.getContent() + (r.getMaterialName() == null ? ""
                     : "（投入品：" + r.getMaterialName() + " " + (r.getDosage() == null ? "" : r.getDosage()) + "）"));
             attachChain(item, chainMap.get(Constants.EVENT_PLANTING + "#" + r.getId()));
@@ -620,7 +620,7 @@ public class BatchService {
             item.setType(Constants.EVENT_HARVEST);
             item.setTitle("采收登记");
             item.setOperator(r.getOperatorName());
-            item.setStatus(r.getAuditStatus());
+            item.setStatus(statusLabel(r.getAuditStatus()));
             item.setDetail("采收 " + r.getQuantity() + r.getUnit() + "，等级 " + r.getQualityLevel());
             attachChain(item, chainMap.get(Constants.EVENT_HARVEST + "#" + r.getId()));
             item.setEvidences(evidence.get(Constants.EVENT_HARVEST + "#" + r.getId()));
@@ -633,7 +633,7 @@ public class BatchService {
             item.setType(Constants.EVENT_QUALITY);
             item.setTitle("质量检测 · " + ("PASS".equals(r.getInspectResult()) ? "合格" : "不合格"));
             item.setOperator(r.getInspectOrg());
-            item.setStatus(r.getInspectResult());
+            item.setStatus(statusLabel(r.getInspectResult()));
             item.setDetail("报告编号 " + r.getReportNo() + "；" + (r.getConclusion() == null ? "" : r.getConclusion()));
             attachChain(item, chainMap.get(Constants.EVENT_QUALITY + "#" + r.getId()));
             item.setEvidences(evidence.get(Constants.EVENT_QUALITY + "#" + r.getId()));
@@ -646,7 +646,7 @@ public class BatchService {
             item.setType(Constants.EVENT_LOGISTICS);
             item.setTitle("物流交接");
             item.setOperator(r.getCarrierName());
-            item.setStatus(r.getStatus());
+            item.setStatus(statusLabel(r.getStatus()));
             item.setDetail(r.getFromOrg() + " → " + r.getToOrg() + "，运单 " + r.getLogisticsNo()
                     + "，车辆 " + r.getVehicleNo());
             attachChain(item, chainMap.get(Constants.EVENT_LOGISTICS + "#" + r.getId()));
@@ -660,7 +660,7 @@ public class BatchService {
             item.setType(Constants.EVENT_SALES);
             item.setTitle("终端销售");
             item.setOperator(r.getSellerName());
-            item.setStatus("SOLD");
+            item.setStatus("已售出");
             item.setDetail(r.getMarketName() + "，单价 ¥" + r.getPrice() + "，数量 " + r.getQuantity() + r.getUnit());
             attachChain(item, chainMap.get(Constants.EVENT_SALES + "#" + r.getId()));
             item.setEvidences(evidence.get(Constants.EVENT_SALES + "#" + r.getId()));
@@ -673,7 +673,7 @@ public class BatchService {
             item.setType(Constants.EVENT_ABNORMAL);
             item.setTitle("异常管控");
             item.setOperator(r.getHandlerName());
-            item.setStatus(r.getStatus());
+            item.setStatus(statusLabel(r.getStatus()));
             item.setDetail(r.getDescription());
             attachChain(item, chainMap.get(Constants.EVENT_ABNORMAL + "#" + r.getId()));
             item.setEvidences(evidence.get(Constants.EVENT_ABNORMAL + "#" + r.getId()));
@@ -685,7 +685,7 @@ public class BatchService {
                 disposal.setType(Constants.EVENT_DISPOSAL);
                 disposal.setTitle("异常处置");
                 disposal.setOperator(r.getHandlerName());
-                disposal.setStatus(r.getStatus());
+                disposal.setStatus(statusLabel(r.getStatus()));
                 disposal.setDetail("措施：" + r.getDisposalMeasure() + "；结果：" + r.getDisposalResult());
                 attachChain(disposal, chainMap.get(Constants.EVENT_DISPOSAL + "#" + r.getId()));
                 disposal.setEvidences(evidence.get(Constants.EVENT_DISPOSAL + "#" + r.getId()));
@@ -827,6 +827,29 @@ public class BatchService {
             }
         }
         throw new BizException(ResultCode.SERVER_ERROR, "当日批次编码已用尽");
+    }
+
+    /**
+     * 时间轴状态给消费者看，不能把 PENDING / SOLD / DEPARTED 这类枚举原样抛到页面上。
+     * 未知值原样返回，将来新增状态时至少不会变成空白。
+     */
+    private String statusLabel(String code) {
+        if (code == null || code.isEmpty()) {
+            return null;
+        }
+        switch (code) {
+            case Constants.AUDIT_PENDING: return "待核验";
+            case Constants.AUDIT_APPROVED: return "已核验";
+            case Constants.AUDIT_REJECTED: return "已驳回";
+            case "PASS": return "合格";
+            case "FAIL": return "不合格";
+            case "DEPARTED": return "运输中";
+            case "ARRIVED": return "已送达";
+            case Constants.BATCH_SOLD: return "已售出";
+            case Constants.ABNORMAL_HANDLING: return "处置中";
+            case Constants.ABNORMAL_DONE: return "已处置";
+            default: return code;
+        }
     }
 
     private String recordTypeLabel(String type) {
