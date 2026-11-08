@@ -7,7 +7,7 @@
 三端统一工程（`frontend/uni-app`）的截图由 `frontend/uni-app/scripts/e2e-pc.js` 自动采集，
 每次执行会覆盖 `uni-pc/` 并写出 `report.json`（包含逐页 DOM 文本与 0 报错记录）。
 
-> `uni-pc/` 与 `uni/` 下的现存图片于 2026-11-06 在线上环境（`http://8.147.61.0`）重新采集，
+> `uni-pc/` 与 `uni/` 下的现存图片于 2026-11-06 在线上环境（`http://8.130.105.150`）重新采集，
 > 对应真实四节点链；`report.json` 仍是最近一次本地 e2e 运行的记录。
 
 ## 文件清单

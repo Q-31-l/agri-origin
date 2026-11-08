@@ -11,7 +11,7 @@
 不能是动态域名。当前项目用的是
 
 ```
-https://8-147-61-0.sslip.io
+https://8-130-105-150.sslip.io
 ```
 
 `sslip.io` 是境外免费动态 DNS，**没有 ICP 备案，无法通过微信后台的域名校验**。
@@ -177,7 +177,7 @@ https://8-147-61-0.sslip.io
 | downloadFile 合法域名 | 同上 |
 | socket 合法域名 | `wss://你的备案域名`（WebSocket 实时刷新用） |
 
-当前 `8-147-61-0.sslip.io` **填不进去**（会提示域名未备案），所以走预览码演示。
+当前 `8-130-105-150.sslip.io` **填不进去**（会提示域名未备案），所以走预览码演示。
 
 ---
 
@@ -198,7 +198,7 @@ https://8-147-61-0.sslip.io
 
 其余配置都已完成：
 
-- **接口地址**：`.env.production` 里的 `VITE_API_BASE=https://8-147-61-0.sslip.io`，
+- **接口地址**：`.env.production` 里的 `VITE_API_BASE=https://8-130-105-150.sslip.io`，
   打包时自动注入（`src/config/env.js` 读取）。H5 生产构建会忽略它、强制走同域 `/api`，
   两边互不影响。
 - **定位权限**：`permission.scope.userLocation.desc` 与 `requiredPrivateInfos` 已声明。

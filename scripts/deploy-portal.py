@@ -89,7 +89,7 @@ def main():
         ]:
             code, out = run(
                 "curl -sk -o /tmp/p.html -w '%%{http_code}\\n' https://127.0.0.1%s "
-                "-H 'Host: 8-147-61-0.sslip.io' && grep -c '%s' /tmp/p.html" % (path, expect))
+                "-H 'Host: 8-130-105-150.sslip.io' && grep -c '%s' /tmp/p.html" % (path, expect))
             parts = out.split()
             status = parts[0] if parts else "?"
             hits = parts[1] if len(parts) > 1 else "0"

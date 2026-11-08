@@ -382,17 +382,17 @@ python3 scripts/e2e-acceptance.py     # 8 角色登录 → 全流程真实上链
 
 | 入口 | 地址 | 说明 |
 | --- | --- | --- |
-| **官网总门户** | <https://8-147-61-0.sslip.io/> | 平台介绍 + 业务系统入口；小程序 / App 入口已预留 |
-| 业务系统（H5/PC 自适应） | <https://8-147-61-0.sslip.io/pages/launch/index> | 9 个演示账号，密码统一 `123456`；`http://` 会自动 301 到 HTTPS |
-| 免登录溯源页 | <https://8-147-61-0.sslip.io/pages/trace/index?code=TC20261106013> | 消费者扫码后的落地页 |
-| 链上控制台 | <https://8-147-61-0.sslip.io/WeBASE-Front/> | 账号 `webase` / `Agri@2026`；看区块、交易回执、节点状态 |
+| **官网总门户** | <https://8-130-105-150.sslip.io/> | 平台介绍 + 业务系统入口；小程序 / App 入口已预留 |
+| 业务系统（H5/PC 自适应） | <https://8-130-105-150.sslip.io/pages/launch/index> | 9 个演示账号，密码统一 `123456`；`http://` 会自动 301 到 HTTPS |
+| 免登录溯源页 | <https://8-130-105-150.sslip.io/pages/trace/index?code=TC20261106013> | 消费者扫码后的落地页 |
+| 链上控制台 | <https://8-130-105-150.sslip.io/WeBASE-Front/> | 账号 `webase` / `Agri@2026`；看区块、交易回执、节点状态 |
 
 > **门户与业务系统的路径关系**：门户只接管根路径 `/`（以及 `/portal/`），
 > 其余路径仍由 uni-app H5 处理，所以 `/pages/launch/index`、`/pages/trace/index?code=…`
 > 等既有链接与二维码不受影响。门户源码见 [portal/index.html](portal/index.html)，
 > 部署脚本见 `scripts/deploy-portal.py`。
 
-> **地址为什么是 `8-147-61-0.sslip.io`**：裸 IP 签不出受信任证书，
+> **地址为什么是 `8-130-105-150.sslip.io`**：裸 IP 签不出受信任证书，
 > `sslip.io` 会把 `a-b-c-d.sslip.io` 解析回 `a.b.c.d`，因此不用买域名也能上 HTTPS。
 > 而**扫码必须 HTTPS**——浏览器只在安全上下文下开放摄像头，HTTP 页面点扫码只能落到
 > "从相册选图"。站点已把 80 全部 301 到 HTTPS，直接输 IP 也会自动跳过去，不用记域名。

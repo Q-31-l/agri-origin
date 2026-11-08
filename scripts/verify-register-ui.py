@@ -9,7 +9,7 @@
 
 用法：
     python scripts/verify-register-ui.py
-环境变量：AGRI_SITE（默认 https://8-147-61-0.sslip.io）
+环境变量：AGRI_SITE（默认 https://8-130-105-150.sslip.io）
 产物：docs/assets/screenshots/register-*.png
 """
 import os
@@ -19,7 +19,7 @@ import time
 
 from playwright.sync_api import sync_playwright
 
-SITE = os.environ.get("AGRI_SITE", "https://8-147-61-0.sslip.io")
+SITE = os.environ.get("AGRI_SITE", "https://8-130-105-150.sslip.io")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHOT = os.path.join(ROOT, "docs", "assets", "screenshots")
 os.makedirs(SHOT, exist_ok=True)
