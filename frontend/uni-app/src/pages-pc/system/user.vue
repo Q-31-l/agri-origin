@@ -11,6 +11,15 @@
         </view>
       </view>
 
+      <!-- 待审核注册申请：村级管理员/监管人员提交后，系统管理员需在此放行 -->
+      <view v-if="pendingCount > 0" class="pc-onboard">
+        <view class="ob-bar"></view>
+        <view class="ob-body">
+          <text class="ob-title">有 {{ pendingCount }} 个注册申请待审核</text>
+          <text class="ob-desc">村级管理员、监管人员的注册申请，需你审核通过后账号才能启用。</text>
+        </view>
+      </view>
+
       <view class="pc-card">
         <view class="pc-toolbar">
           <input
@@ -56,6 +65,8 @@
             <text class="pc-td w-scope">{{ scopeText(u.dataScope) }}</text>
             <text class="pc-td w-time">{{ tail4(u.phone) }}</text>
             <view class="pc-td w-act">
+              <text v-if="u.auditStatus === 'PENDING'" class="pc-link ok" @click="onAudit(u, true)">通过</text>
+              <text v-if="u.auditStatus === 'PENDING'" class="pc-link danger" @click="onAudit(u, false)">拒绝</text>
               <text v-if="canUpdate" class="pc-link" @click="openEdit(u)">编辑</text>
               <text v-if="canUpdate" class="pc-link" @click="onReset(u)">重置密码</text>
             </view>
@@ -135,6 +146,8 @@ import {
   createUser,
   updateUser,
   resetPassword,
+  pendingUsers,
+  auditUser,
   villageList,
   farmList
 } from '@/api'
@@ -150,7 +163,7 @@ const total = ref(0)
 const villages = ref([])
 const farms = ref([])
 
-const query = reactive({ page: 1, size: 10, keyword: '', roleCode: '' })
+const query = reactive({ page: 1, size: 20, keyword: '', roleCode: '' })
 
 const canCreate = computed(() => store.hasPerm('user:create'))
 const canUpdate = computed(() => store.hasPerm('user:update'))
@@ -341,9 +354,38 @@ async function onReset(u) {
   }
 }
 
+/* ---------------- 注册审核 ---------------- */
+const pendingCount = ref(0)
+
+async function loadPending() {
+  try {
+    const res = await pendingUsers()
+    pendingCount.value = (res.data || []).length
+  } catch (e) {
+    pendingCount.value = 0
+  }
+}
+
+async function onAudit(u, approve) {
+  const ok = await confirm(
+    `确定${approve ? '通过' : '拒绝'}「${u.realName || u.username}」（${u.roleName || u.roleCode}）的注册申请吗？`,
+    '注册审核'
+  )
+  if (!ok) return
+  try {
+    await auditUser(u.id, approve)
+    uni.showToast({ title: approve ? '已通过' : '已拒绝', icon: 'success' })
+    load()
+    loadPending()
+  } catch (e) {
+    /* 已提示 */
+  }
+}
+
 onShow(() => {
   load()
   loadBase()
+  loadPending()
 })
 </script>
 
@@ -399,5 +441,46 @@ onShow(() => {
 .st.off {
   color: #6b7280;
   background: #f1f2f4;
+}
+/* 待审核提示条 */
+.pc-onboard {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #fdf6ec 0%, #fffdfa 70%);
+  border: 1px solid rgba(183, 121, 31, 0.2);
+}
+.ob-bar {
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
+  background: #b7791f;
+  flex: 0 0 auto;
+}
+.ob-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ob-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8a5a00;
+}
+.ob-desc {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #a07b4b;
+}
+.pc-link.ok {
+  color: #16a34a;
+}
+.pc-link.danger {
+  color: #d93026;
 }
 </style>

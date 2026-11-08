@@ -11,8 +11,11 @@ import java.time.LocalDate;
 @Data
 public class PlantingDTO {
 
-    @NotNull(message = "请选择批次")
+    /** 所属批次。可空：未指派批次时，农户可手写 productName，村管审核通过后自动建档批次 */
     private Long batchId;
+
+    /** 手写作物名（batchId 为空时必填），如"草莓/玉米/高粱" */
+    private String productName;
 
     @NotBlank(message = "请选择农事类型")
     private String recordType;

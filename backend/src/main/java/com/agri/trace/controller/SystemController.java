@@ -108,6 +108,23 @@ public class SystemController {
         return R.ok(userService.toVO(user));
     }
 
+    @Operation(summary = "待审核注册申请列表（仅系统管理员）")
+    @RequirePerm("user:list")
+    @RequireRoles(Constants.ROLE_ADMIN)
+    @GetMapping("/user/pending")
+    public R<List<UserVO>> pendingUsers() {
+        return R.ok(userService.pendingRegistrations());
+    }
+
+    @Operation(summary = "审核注册申请（仅系统管理员），approve=true 通过 / false 拒绝")
+    @RequirePerm("user:update")
+    @RequireRoles(Constants.ROLE_ADMIN)
+    @PostMapping("/user/{id}/audit")
+    public R<Void> auditUser(@PathVariable Long id, @RequestParam boolean approve) {
+        userService.auditRegistration(id, approve);
+        return R.<Void>ok(approve ? "已通过，账号启用" : "已拒绝", null);
+    }
+
     // ---------------- 行政村 ----------------
     @Operation(summary = "行政村列表")
     @RequirePerm("village:list")

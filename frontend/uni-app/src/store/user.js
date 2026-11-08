@@ -85,9 +85,12 @@ export const useUserStore = defineStore('user', {
     /**
      * 自助注册：后端注册成功即签发 JWT，这里直接落凭证，
      * 用户不用"注册完再输一遍账号密码"。
+     * 例外：村级管理员/监管人员注册后进入待审核（pendingAudit=true），
+     * 此时不落凭证，由页面提示"等待系统管理员审核"。
      */
     async register(form) {
       const res = await registerApi(form)
+      if (res.data && res.data.pendingAudit) return res.data
       this.applyAuth(res.data)
       return res.data
     },

@@ -4,12 +4,22 @@
       <batch-picker
         v-model="form.batchId"
         label="批次"
-        required
         status="PLANTING"
         usable
-        empty-hint="暂无可录入的批次
-农户的批次由本村生产主体建档并指派，经村管核验通过后才会出现在这里"
+        empty-hint="暂无已核验的批次
+也可以不选批次，直接在下方手写作物名提交，村管审核通过后会自动建档批次"
         @change="onBatchChange" />
+
+      <view v-if="!form.batchId" class="row">
+        <text class="label required">作物</text>
+        <input
+          v-model="form.productName"
+          class="input"
+          placeholder="手写作物名，如：草莓 / 玉米 / 高粱"
+          placeholder-class="ph"
+          maxlength="30"
+        />
+      </view>
 
       <view class="row">
         <text class="label required">农事类型</text>
@@ -104,6 +114,7 @@ const types = typeOptions.map((t) => t.label)
 
 const form = reactive({
   batchId: '',
+  productName: '',
   recordType: 'SOIL',
   operationDate: today(),
   content: '',
@@ -164,12 +175,14 @@ const { submitting, submit } = useForm(
   (data) =>
     createPlanting({
       ...data,
+      batchId: data.batchId || null,
+      productName: (data.productName || '').trim(),
       evidenceIds: uploader.value ? uploader.value.ids() : []
     }),
   {
     successText: '记录已提交',
     validate: (d) => {
-      if (!d.batchId) return '请选择批次'
+      if (!d.batchId && !(d.productName || '').trim()) return '请选择批次或手写作物名'
       if (!d.recordType) return '请选择农事类型'
       if (!d.operationDate) return '请选择作业日期'
       if (!d.content || d.content.trim().length < 2) return '请填写农事内容'

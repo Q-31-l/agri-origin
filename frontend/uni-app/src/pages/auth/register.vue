@@ -153,6 +153,20 @@
               <text class="village-hint-t">{{ locateTip }}，点上方手动选择或填写</text>
             </view>
 
+            <!-- 村级管理员 / 监管人员：实名认证必填，提交后待系统管理员审核 -->
+            <view v-if="needIdCard" class="field" :class="{ on: focus === 'idcard' }">
+              <text class="label">身份证号</text>
+              <input
+                v-model="form.idCard"
+                class="input"
+                placeholder="真实身份证号（实名认证）"
+                placeholder-class="ph"
+                maxlength="18"
+                @focus="focus = 'idcard'"
+                @blur="focus = ''"
+              />
+            </view>
+
             <!-- 机构类身份：机构名会印在溯源页的责任主体上 -->
             <view v-if="needOrg" class="field" :class="{ on: focus === 'org' }">
               <text class="label">机构</text>
@@ -368,11 +382,16 @@ const ROLES = [
     hint: '登记销售与批次核销，售出即完成溯源闭环；需填门店或企业名称'
   },
   {
-    code: '',
-    name: '村管/监管',
+    code: 'VILLAGE_ADMIN',
+    name: '村级管理员',
     icon: 'lock',
-    locked: true,
-    hint: ''
+    hint: '管理本村账号、审核农事与批次。需填真实身份证号，提交后由系统管理员审核通过才能启用'
+  },
+  {
+    code: 'REGULATOR',
+    name: '监管人员',
+    icon: 'chain',
+    hint: '全量监管与异常处置。需实名认证 + 所属监管部门，提交后由系统管理员审核通过才能启用'
   }
 ]
 
@@ -391,6 +410,7 @@ const form = reactive({
   roleCode: 'FARMER',
   realName: '',
   phone: '',
+  idCard: '',
   villageId: null,
   villageName: '',
   regionName: '',
@@ -402,21 +422,27 @@ const form = reactive({
 
 const isFarmer = computed(() => form.roleCode === 'FARMER')
 const isProducer = computed(() => form.roleCode === 'PRODUCER')
-/** 村：农户与生产主体必填 */
-const needVillage = computed(() => isFarmer.value || isProducer.value)
-/** 机构名：除农户外的四种身份必填 */
-const needOrg = computed(() => !isFarmer.value)
+const isVillageAdmin = computed(() => form.roleCode === 'VILLAGE_ADMIN')
+const isRegulator = computed(() => form.roleCode === 'REGULATOR')
+/** 村：农户、生产主体、村级管理员必填（村级管理员要落到辖区） */
+const needVillage = computed(() => isFarmer.value || isProducer.value || isVillageAdmin.value)
+/** 机构名：生产/检测/物流/销售/监管必填 */
+const needOrg = computed(() => !isFarmer.value && !isVillageAdmin.value)
+/** 身份证号：村级管理员、监管人员必填（实名认证，待系统管理员审核） */
+const needIdCard = computed(() => isVillageAdmin.value || isRegulator.value)
 const ORG_PLACEHOLDER = {
   PRODUCER: '合作社 / 家庭农场全称',
   INSPECTOR: '检测机构全称',
   LOGISTICS: '物流企业全称',
-  SELLER: '门店或企业全称'
+  SELLER: '门店或企业全称',
+  REGULATOR: '监管部门全称'
 }
 const ORG_LABEL = {
   PRODUCER: '合作社 / 家庭农场',
   INSPECTOR: '检测机构',
   LOGISTICS: '物流企业',
-  SELLER: '销售机构'
+  SELLER: '销售机构',
+  REGULATOR: '监管部门'
 }
 const orgPlaceholder = computed(() => ORG_PLACEHOLDER[form.roleCode] || '机构全称')
 const currentRole = computed(() => ROLES.find((r) => r.code === form.roleCode) || ROLES[0])
@@ -509,10 +535,6 @@ function distanceM(lat1, lng1, lat2, lng2) {
 }
 
 function pickRole(r) {
-  if (r.locked) {
-    toast('村管、监管、管理员涉及他人数据处置权，需联系管理员实名开通')
-    return
-  }
   form.roleCode = r.code
 }
 
@@ -581,6 +603,7 @@ function validate() {
   if (form.phone && !/^1[3-9]\d{9}$/.test(form.phone)) return '手机号格式不正确'
   if (needVillage.value && !form.villageId && !form.villageName.trim()) return '请选择或填写所属村'
   if (needOrg.value && !form.orgName.trim()) return '请填写' + (ORG_LABEL[form.roleCode] || '机构') + '名称'
+  if (needIdCard.value && !/^\d{17}[\dXx]$/.test(form.idCard.trim())) return '请填写正确的 18 位身份证号'
   if (!/^[A-Za-z0-9_]{4,20}$/.test(form.username)) return '账号需为 4–20 位字母、数字或下划线'
   if (form.password.length < 6) return '密码至少 6 位'
   if (form.password === form.username) return '密码不能与账号相同'
@@ -605,10 +628,11 @@ async function submit() {
   if (msg) return toast(msg)
   loading.value = true
   try {
-    await store.register({
+    const data = await store.register({
       roleCode: form.roleCode,
       realName: form.realName.trim(),
       phone: form.phone.trim(),
+      idCard: form.idCard.trim(),
       villageId: needVillage.value ? form.villageId : null,
       villageName: needVillage.value ? form.villageName : '',
       regionName: needVillage.value ? form.regionName : '',
@@ -616,6 +640,16 @@ async function submit() {
       username: form.username.trim(),
       password: form.password
     })
+    // 村级管理员/监管人员：注册即进入待审核，不直接登录
+    if (data && data.pendingAudit) {
+      uni.showModal({
+        title: '已提交',
+        content: '注册申请已提交，请等待系统管理员审核通过后再登录。',
+        showCancel: false
+      })
+      setTimeout(() => uni.reLaunch({ url: ROUTES.LOGIN }), 400)
+      return
+    }
     uni.showToast({ title: '注册成功', icon: 'success' })
     setTimeout(afterRegister, 400)
   } catch (e) {

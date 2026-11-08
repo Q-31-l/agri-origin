@@ -22,6 +22,8 @@ public class BizPlantingRecord {
 
     private Long batchId;
     private String batchNo;
+    /** 手写作物名：农户录农事时未指派批次，直接写"草莓/玉米/高粱"等，审核通过后据此建档批次 */
+    private String productName;
     /** SOIL/SOWING/FERTILIZE/IRRIGATE/PEST/WEED/OTHER */
     private String recordType;
     private LocalDate operationDate;

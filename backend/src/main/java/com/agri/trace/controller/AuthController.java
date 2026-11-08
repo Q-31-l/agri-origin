@@ -1,5 +1,6 @@
 package com.agri.trace.controller;
 
+import com.agri.trace.common.Constants;
 import com.agri.trace.common.R;
 import com.agri.trace.dto.LoginDTO;
 import com.agri.trace.dto.PasswordDTO;
@@ -60,13 +61,19 @@ public class AuthController {
      * 实名开通，不能自助注册。具体校验在 {@link UserService#register(RegisterDTO)}，
      * 这里只负责防刷 + 注册即登录，省掉"注册完还要再输一遍密码"的一步。</p>
      */
-    @Operation(summary = "自助注册（农户/生产主体/检测/物流/销售），成功即登录")
+    @Operation(summary = "自助注册（农户/生产主体/检测/物流/销售直接登录，村级/监管待审核）")
     @PostMapping("/register")
     public R<LoginVO> register(@Valid @RequestBody RegisterDTO dto, HttpServletRequest request) {
         String ip = registerGuard.check(request);
         Long userId = userService.register(dto);
         registerGuard.markSuccess(ip);
         SysUser user = userService.getById(userId);
+        // 村级管理员/监管人员：掌握他人数据处置权，注册后须经系统管理员审核才能启用，
+        // 这里不签发 token，前端据此提示"已提交，请等待审核"
+        if (Constants.AUDIT_PENDING.equals(user.getAuditStatus())) {
+            LoginVO vo = LoginVO.builder().pendingAudit(true).build();
+            return R.ok("注册申请已提交，请等待系统管理员审核", vo);
+        }
         return R.ok("注册成功", authService.issueToken(user));
     }
 

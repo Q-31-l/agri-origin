@@ -23,6 +23,8 @@ public class SysUser {
 
     private String realName;
     private String phone;
+    /** 身份证号（实名认证）：村级管理员/监管必填，其余身份使用功能前需补填 */
+    private String idCard;
     private String avatar;
     /** 微信小程序 openid，null 表示未绑定 */
     private String wxOpenid;
@@ -37,6 +39,8 @@ public class SysUser {
     private Long villageId;
     private Long farmId;
     private Integer status;
+    /** 注册审核状态：PENDING/APPROVED/REJECTED，null 表示无需审核（农户等直接注册） */
+    private String auditStatus;
     private LocalDateTime lastLoginTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

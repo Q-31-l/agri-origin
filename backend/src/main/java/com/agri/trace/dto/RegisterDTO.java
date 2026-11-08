@@ -29,6 +29,9 @@ public class RegisterDTO {
     @Pattern(regexp = "^$|^1[3-9]\\d{9}$", message = "手机号格式不正确")
     private String phone;
 
+    /** 身份证号：村级管理员/监管人员必填（实名认证），其余身份选填 */
+    private String idCard;
+
     @NotBlank(message = "请选择身份")
     private String roleCode;
 
@@ -77,6 +80,14 @@ public class RegisterDTO {
 
     public void setPhone(String phone) {
         this.phone = phone == null ? null : phone.trim();
+    }
+
+    public String getIdCard() {
+        return idCard;
+    }
+
+    public void setIdCard(String idCard) {
+        this.idCard = idCard == null ? null : idCard.trim();
     }
 
     public String getRoleCode() {

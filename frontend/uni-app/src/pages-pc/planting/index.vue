@@ -75,16 +75,20 @@
         <view class="pc-form">
           <view class="pc-form-grid">
             <view class="pc-field">
-              <text class="pc-label">所属批次<text class="req">*</text></text>
+              <text class="pc-label">所属批次</text>
               <pc-select
                 v-model="form.batchId"
                 :options="batchPickOpts"
-                placeholder="请选择批次"
+                placeholder="可留空，直接手写作物"
                 width="100%"
                 pop-width="360px"
-                empty-hint="暂无可录入的批次
-农户的批次由本村生产主体建档并指派，经村管核验通过后才会出现在这里"
+                empty-hint="暂无已核验的批次
+可不选批次，在下方手写作物名提交，村管审核通过后自动建档批次"
               />
+            </view>
+            <view v-if="!form.batchId" class="pc-field">
+              <text class="pc-label">作物<text class="req">*</text></text>
+              <input class="pc-input" v-model="form.productName" placeholder="手写作物名，如：草莓 / 玉米 / 高粱" />
             </view>
             <view class="pc-field">
               <text class="pc-label">操作类型</text>
@@ -290,6 +294,7 @@ const evidenceFiles = ref([])
 
 const form = reactive({
   batchId: '',
+  productName: '',
   recordType: 'SOIL',
   operationDate: today(),
   content: '',
@@ -353,6 +358,7 @@ function onDate(e) {
 async function openCreate() {
   await loadCreatableBatches()
   form.batchId = ''
+  form.productName = ''
   form.recordType = 'SOIL'
   form.operationDate = today()
   form.content = ''
@@ -369,7 +375,7 @@ async function openCreate() {
 
 async function submit() {
   if (submitting.value) return
-  if (!form.batchId) return toast('请选择所属批次')
+  if (!form.batchId && !form.productName.trim()) return toast('请选择批次或手写作物名')
   if (!form.operationDate) return toast('请选择操作日期')
   if (!form.content.trim()) return toast('请填写操作内容')
   if (uploader.value && uploader.value.isUploading()) return toast('实证文件仍在上传，请稍候')
@@ -379,7 +385,8 @@ async function submit() {
   submitting.value = true
   try {
     await createPlanting({
-      batchId: form.batchId,
+      batchId: form.batchId || null,
+      productName: form.productName.trim(),
       recordType: form.recordType,
       operationDate: form.operationDate,
       content: form.content,

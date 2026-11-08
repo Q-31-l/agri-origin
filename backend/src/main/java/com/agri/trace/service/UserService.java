@@ -144,23 +144,31 @@ public class UserService {
         boolean inspector = Constants.ROLE_INSPECTOR.equals(role);
         boolean logistics = Constants.ROLE_LOGISTICS.equals(role);
         boolean seller = Constants.ROLE_SELLER.equals(role);
-        boolean orgRole = producer || inspector || logistics || seller;
+        boolean villageAdmin = Constants.ROLE_VILLAGE.equals(role);
+        boolean regulator = Constants.ROLE_REGULATOR.equals(role);
+        boolean orgRole = producer || inspector || logistics || seller || regulator;
+        // 村级管理员、监管人员掌握他人数据的处置权，自助注册后必须经系统管理员审核才能启用
+        boolean audited = villageAdmin || regulator;
 
-        if (!farmer && !orgRole) {
+        if (!farmer && !orgRole && !villageAdmin) {
             throw BizException.forbidden("该身份不支持自助注册，请联系管理员开通");
         }
 
-        // 农户/生产主体都必须落到一个真实存在的村：村决定后续批次落在哪个村管辖区，
-        // 农户没村登录后看不到任何批次。支持两种给村方式：从列表选（villageId），
-        // 或定位/列表都拿不到时自填村名（villageName，同名复用、无则新建）。
+        // 农户/生产主体/村级管理员都必须落到一个真实存在的村：农户没村看不到批次，
+        // 村级管理员没村就没有辖区。生产主体建地块时也要选村。
         Long villageId = null;
-        if (farmer || producer) {
+        if (farmer || producer || villageAdmin) {
             villageId = resolveVillage(dto);
         }
 
-        // 机构类：机构名是溯源展示的责任主体，不能为空
+        // 机构类（含监管）：机构名是溯源展示的责任主体，不能为空
         if (orgRole && (dto.getOrgName() == null || dto.getOrgName().isEmpty())) {
             throw BizException.badRequest("请填写" + orgLabel(role) + "名称");
+        }
+
+        // 需要审核的身份必须实名（填身份证号），否则管理员无法核实"这人是谁"
+        if (audited && (dto.getIdCard() == null || dto.getIdCard().isEmpty())) {
+            throw BizException.badRequest("请填写真实身份证号（实名认证）");
         }
 
         // 密码不能与账号相同，避免 admin/admin 这类弱口令
@@ -179,12 +187,13 @@ public class UserService {
         user.setPassword(BCrypt.hashpw(dto.getPassword(), BCrypt.gensalt()));
         user.setRealName(dto.getRealName());
         user.setPhone(dto.getPhone());
+        user.setIdCard(dto.getIdCard());
         user.setRoleCode(role);
         user.setOrgName(orgRole ? dto.getOrgName() : null);
         user.setVillageId(villageId);
-        // farmId 留空：农户的数据范围按 farmerId 隔离，不要求必须有农场才能登录。
-        // 首次建档时再选择或新建农场即可；生产主体注册后在"农场档案"里建自己的地块。
-        user.setStatus(1);
+        // 村级管理员/监管人员：待审核（status=0，审核通过才启用）；其余身份直接启用
+        user.setStatus(audited ? 0 : 1);
+        user.setAuditStatus(audited ? Constants.AUDIT_PENDING : null);
         userMapper.insert(user);
         return user.getId();
     }
@@ -234,6 +243,8 @@ public class UserService {
                 return "物流企业";
             case Constants.ROLE_SELLER:
                 return "销售机构";
+            case Constants.ROLE_REGULATOR:
+                return "监管部门";
             default:
                 return "机构";
         }
@@ -333,6 +344,7 @@ public class UserService {
         vo.setUsername(user.getUsername());
         vo.setRealName(user.getRealName());
         vo.setPhone(user.getPhone());
+        vo.setIdCard(user.getIdCard());
         vo.setAvatar(user.getAvatar());
         vo.setRoleCode(user.getRoleCode());
         SysRole role = permissionCache.role(user.getRoleCode());
@@ -341,6 +353,8 @@ public class UserService {
         vo.setOrgName(user.getOrgName());
         vo.setVillageId(user.getVillageId());
         vo.setFarmId(user.getFarmId());
+        vo.setStatus(user.getStatus());
+        vo.setAuditStatus(user.getAuditStatus());
         if (user.getVillageId() != null) {
             BaseVillage village = villageMapper.selectById(user.getVillageId());
             vo.setVillageName(village == null ? null : village.getVillageName());
@@ -350,6 +364,33 @@ public class UserService {
             vo.setFarmName(farm == null ? null : farm.getFarmName());
         }
         return vo;
+    }
+
+    /** 待系统管理员审核的注册申请列表（村级管理员/监管人员） */
+    public List<UserVO> pendingRegistrations() {
+        List<SysUser> users = userMapper.selectList(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getAuditStatus, Constants.AUDIT_PENDING)
+                .orderByAsc(SysUser::getId));
+        return users.stream().map(this::toVO).collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 系统管理员审核自助注册申请（村级管理员/监管人员）。
+     * 通过 → 启用账号；拒绝 → 保持停用。审核后立即废弃身份缓存，让结果即时生效。
+     */
+    @Transactional
+    public void auditRegistration(Long id, boolean approve) {
+        SysUser user = userMapper.selectById(id);
+        if (user == null) {
+            throw BizException.notFound("用户不存在");
+        }
+        if (!Constants.AUDIT_PENDING.equals(user.getAuditStatus())) {
+            throw BizException.conflict("该申请已处理，请勿重复操作");
+        }
+        user.setAuditStatus(approve ? Constants.AUDIT_APPROVED : Constants.AUDIT_REJECTED);
+        user.setStatus(approve ? 1 : 0);
+        userMapper.updateById(user);
+        userAuthCache.evict(id);
     }
 
     public SysUserMapper getMapper() {

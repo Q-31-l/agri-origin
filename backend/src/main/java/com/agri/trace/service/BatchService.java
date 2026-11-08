@@ -436,6 +436,75 @@ public class BatchService {
     }
 
     /**
+     * 农户未指派批次、直接手写作物录农事，村管审核通过后据此自动建档批次。
+     * 批次落在农户所属村，建档即视为已核验（村管审核农事通过 = 核验了这条生产记录）。
+     */
+    @Transactional
+    public BizBatch createAutoFromPlanting(BizPlantingRecord record, String auditByName) {
+        SysUser farmer = userMapper.selectById(record.getOperatorId());
+        if (farmer == null) {
+            throw BizException.notFound("农户不存在");
+        }
+        String productName = record.getProductName();
+        BaseProduct product = resolveProductByName(productName);
+
+        BizBatch batch = new BizBatch();
+        batch.setBatchNo(generateBatchNo());
+        batch.setTraceCode("TC" + batch.getBatchNo().substring(2));
+        batch.setProductId(product == null ? null : product.getId());
+        batch.setProductName(productName);
+        batch.setVariety(product == null ? null : product.getVariety());
+        batch.setFarmerId(farmer.getId());
+        batch.setFarmerName(farmer.getRealName());
+        batch.setVillageId(farmer.getVillageId());
+        if (farmer.getVillageId() != null) {
+            BaseVillage village = villageMapper.selectById(farmer.getVillageId());
+            batch.setVillageName(village == null ? null : village.getVillageName());
+        }
+        batch.setPlantingDate(record.getOperationDate());
+        batch.setQuantity(java.math.BigDecimal.ZERO);
+        batch.setUnit("kg");
+        batch.setStatus(Constants.BATCH_PLANTING);
+        batch.setAuditStatus(Constants.AUDIT_APPROVED);
+        batch.setAuditBy(auditByName);
+        batch.setAuditTime(LocalDateTime.now());
+        batch.setAbnormalFlag(0);
+        batch.setChainStatus(Constants.CHAIN_NONE);
+        batch.setCreateBy(record.getOperatorId());
+        batch.setRemark("农户手写作物录农事，村管审核通过自动建档");
+        batchMapper.insert(batch);
+        batch.setVersion(0);
+
+        String dataHash = DigestHelper.batch(batch);
+        ChainResult chain = contractService.registerBatch(batch, dataHash, farmer.getRealName());
+        batch.setChainStatus(chain.getStatus());
+        batch.setChainTxHash(chain.getTxHash());
+        batch.setBlockNumber(chain.getBlockNumber());
+        Db.updated(batchMapper.updateById(batch));
+        chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_BATCH, batch.getId(),
+                "BATCH_REGISTER", dataHash, null, chain);
+        return batch;
+    }
+
+    private BaseProduct resolveProductByName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return null;
+        }
+        name = name.trim();
+        BaseProduct existing = productMapper.selectOne(Wrappers.<BaseProduct>lambdaQuery()
+                .eq(BaseProduct::getProductName, name).last("limit 1"));
+        if (existing != null) {
+            return existing;
+        }
+        BaseProduct p = new BaseProduct();
+        p.setProductCode("P-" + (System.currentTimeMillis() % 1000000));
+        p.setProductName(name);
+        p.setUnit("kg");
+        productMapper.insert(p);
+        return p;
+    }
+
+    /**
      * 确保批次已在链上注册（懒注册）。
      * <p>
      * 合约除 registerBatch 外的所有写方法都带 batchExists 校验，而演示种子数据、

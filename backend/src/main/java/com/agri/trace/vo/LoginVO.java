@@ -34,4 +34,9 @@ public class LoginVO implements Serializable {
     private Boolean needBind;
     /** 绑定票据，仅 needBind=true 时返回，10 分钟内有效且一次性 */
     private String bindTicket;
+    /**
+     * 自助注册专用：true 表示"注册申请已提交、待系统管理员审核"，
+     * 此时 token/user/permissions 均为 null，前端应提示用户等待审核而非直接登录。
+     */
+    private Boolean pendingAudit;
 }
