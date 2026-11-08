@@ -10,8 +10,14 @@ import java.time.LocalDate;
 @Data
 public class BatchDTO {
 
-    @NotNull(message = "请选择产品")
+    /** 已有产品品类的 id。为 null 时可改填 productName 手写产品 */
     private Long productId;
+
+    /** 手写产品名（productId 为空时使用），如"草莓 / 玉米 / 高粱" */
+    private String productName;
+
+    /** 可选：手写产品的品种，如"红颜 / 糯玉米" */
+    private String variety;
 
     private Long farmId;
 

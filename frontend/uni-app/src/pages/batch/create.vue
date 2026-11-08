@@ -13,10 +13,17 @@
     </view>
 
     <view class="group">
-      <view class="row" @click="pickProduct">
+      <view class="row">
         <text class="label required">产品</text>
-        <text class="value" :class="{ ph: !form.productId }">{{ productName || '请选择产品品类' }}</text>
-        <text class="arrow">›</text>
+        <input
+          v-model="form.productName"
+          class="input"
+          placeholder="手写产品名，如：草莓 / 玉米 / 高粱"
+          placeholder-class="ph"
+          maxlength="30"
+          @input="onProductInput"
+        />
+        <text class="pick-link" @click="pickProduct">选品类</text>
       </view>
 
       <view class="row" @click="pickFarm">
@@ -79,7 +86,7 @@
             <text class="opt-title">{{ p.productName }}</text>
             <text class="opt-sub">{{ p.category || '' }} {{ p.variety ? '· ' + p.variety : '' }}</text>
           </view>
-          <empty-state v-if="!products.length" text="暂无产品品类，请联系管理员维护" />
+          <empty-state v-if="!products.length" text="暂无已有品类，可直接手写产品名" />
         </scroll-view>
       </view>
     </view>
@@ -143,6 +150,7 @@ const units = ['kg', '吨', '斤', '箱', '件']
 
 const form = reactive({
   productId: '',
+  productName: '',
   farmId: '',
   farmerId: '',
   plantingDate: '',
@@ -151,10 +159,6 @@ const form = reactive({
   remark: ''
 })
 
-const productName = computed(() => {
-  const p = products.value.find((x) => String(x.id) === String(form.productId))
-  return p ? p.productName : ''
-})
 const farmName = computed(() => {
   const f = farms.value.find((x) => String(x.id) === String(form.farmId))
   return f ? f.farmName : ''
@@ -174,6 +178,9 @@ const { submitting, submit } = useForm(
     createBatch({
       ...data,
       quantity: Number(data.quantity),
+      // 手写产品时 productId 为空，只传 productName；选了品类则两者都有
+      productId: data.productId || null,
+      productName: (data.productName || '').trim(),
       // 空字符串会被后端当成非法 Long，没选就明确传 null
       farmerId: data.farmerId || null,
       farmId: data.farmId || null
@@ -181,7 +188,7 @@ const { submitting, submit } = useForm(
   {
     successText: '创建成功',
     validate: (d) => {
-      if (!d.productId) return '请选择产品品类'
+      if (!d.productId && !(d.productName || '').trim()) return '请填写或选择产品'
       if (!d.farmId && !d.farmerId) return '请选择农场或种植农户'
       if (!d.plantingDate) return '请选择种植日期'
       if (!d.quantity || Number(d.quantity) <= 0) return '请填写有效的预计产量'
@@ -214,7 +221,7 @@ onLoad(async () => {
 })
 
 function pickProduct() {
-  if (!products.value.length) return toast('暂无产品品类')
+  if (!products.value.length) return toast('暂无已有品类，可直接手写产品名')
   showProduct.value = true
 }
 function pickFarm() {
@@ -223,7 +230,12 @@ function pickFarm() {
 }
 function chooseProduct(p) {
   form.productId = p.id
+  form.productName = p.productName
   showProduct.value = false
+}
+/** 手写产品名后，清掉之前选中的品类 id，走"手写建批次" */
+function onProductInput() {
+  form.productId = ''
 }
 function chooseFarm(f) {
   form.farmId = f.id
@@ -340,6 +352,12 @@ function onSubmit() {
   font-size: 26rpx;
   color: $text-3;
   margin-left: 12rpx;
+}
+.pick-link {
+  margin-left: 16rpx;
+  font-size: 24rpx;
+  color: $brand;
+  flex-shrink: 0;
 }
 .ph {
   color: $text-4;

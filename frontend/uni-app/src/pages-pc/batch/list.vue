@@ -97,13 +97,22 @@
         <view class="pc-form">
           <view class="pc-form-grid">
             <view class="pc-field">
-              <text class="pc-label">产品品类<text class="req">*</text></text>
-              <pc-select
-                v-model="form.productId"
-                :options="productOptions"
-                placeholder="请选择产品"
-                width="100%"
-              />
+              <text class="pc-label">产品<text class="req">*</text></text>
+              <view class="pc-product-row">
+                <input
+                  class="pc-input"
+                  v-model="form.productName"
+                  placeholder="手写产品名，如：草莓 / 玉米 / 高粱"
+                  @input="onProductInput"
+                />
+                <pc-select
+                  v-model="form.productId"
+                  :options="productOptions"
+                  placeholder="或选品类"
+                  width="120px"
+                  @change="onProductPick"
+                />
+              </view>
             </view>
             <view class="pc-field">
               <text class="pc-label">所属农场</text>
@@ -282,6 +291,7 @@ const farms = ref([])
 
 const form = reactive({
   productId: '',
+  productName: '',
   farmId: '',
   plantingDate: '',
   quantity: '',
@@ -303,6 +313,7 @@ function onDate(e) {
 async function openCreate() {
   createVisible.value = true
   form.productId = ''
+  form.productName = ''
   form.farmId = ''
   form.plantingDate = ''
   form.quantity = ''
@@ -316,16 +327,28 @@ async function openCreate() {
   }
 }
 
+/** 手写产品名后清掉选中的品类 id，走"手写建批次" */
+function onProductInput() {
+  form.productId = ''
+}
+
+/** 从品类下拉选中后，把产品名同步到手写框，保持一致 */
+function onProductPick(v) {
+  const p = products.value.find((x) => String(x.id) === String(v))
+  if (p) form.productName = p.productName
+}
+
 async function submitCreate() {
   if (submitting.value) return
-  if (!form.productId) return toast('请选择产品品类')
+  if (!form.productId && !form.productName.trim()) return toast('请填写或选择产品')
   if (!form.plantingDate) return toast('请选择种植日期')
   if (!form.quantity || Number(form.quantity) <= 0) return toast('请填写有效的预计产量')
 
   submitting.value = true
   try {
     const payload = {
-      productId: form.productId,
+      productId: form.productId || null,
+      productName: form.productName.trim(),
       plantingDate: form.plantingDate,
       quantity: Number(form.quantity),
       unit: form.unit,
@@ -470,5 +493,17 @@ useRealtime(() => {
 .picker-box .ph {
   color: #b6bec9;
   font-size: 12px;
+}
+/* 产品行：左侧手写输入框 + 右侧品类下拉 */
+.pc-product-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.pc-product-row .pc-input {
+  flex: 1;
+  min-width: 0;
 }
 </style>

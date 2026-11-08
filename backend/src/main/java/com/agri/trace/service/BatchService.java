@@ -340,9 +340,9 @@ public class BatchService {
             throw BizException.forbidden("仅生产主体可创建批次");
         }
 
-        BaseProduct product = productMapper.selectById(dto.getProductId());
+        BaseProduct product = resolveProduct(dto);
         if (product == null) {
-            throw BizException.notFound("产品不存在");
+            throw BizException.badRequest("请选择产品或手写产品名称");
         }
 
         BaseFarm farm = dto.getFarmId() == null ? null : farmMapper.selectById(dto.getFarmId());
@@ -396,6 +396,43 @@ public class BatchService {
                 "BATCH_REGISTER", dataHash, null, chain);
 
         return batch.getId();
+    }
+
+    /**
+     * 解析建批次的产品：优先用已有品类 id，手写产品名时"同名复用、无则新建"。
+     *
+     * <p>建批次不再要求先由管理员维护产品品类：生产主体手写"草莓 / 玉米 / 高粱"等
+     * 任意作物即可建档，系统自动落到 base_product（同名复用避免重复），批次照常上链。
+     * 这样农户想种什么就建什么，不被固定品类下拉卡住。</p>
+     */
+    private BaseProduct resolveProduct(BatchDTO dto) {
+        if (dto.getProductId() != null) {
+            BaseProduct p = productMapper.selectById(dto.getProductId());
+            if (p == null) {
+                throw BizException.notFound("产品不存在");
+            }
+            return p;
+        }
+        String name = dto.getProductName();
+        if (name == null || name.trim().isEmpty()) {
+            return null;
+        }
+        name = name.trim();
+        if (name.length() > 30) {
+            throw BizException.badRequest("产品名过长，请精简后填写");
+        }
+        BaseProduct existing = productMapper.selectOne(Wrappers.<BaseProduct>lambdaQuery()
+                .eq(BaseProduct::getProductName, name).last("limit 1"));
+        if (existing != null) {
+            return existing;
+        }
+        BaseProduct p = new BaseProduct();
+        p.setProductCode("P-" + (System.currentTimeMillis() % 1000000));
+        p.setProductName(name);
+        p.setVariety(dto.getVariety());
+        p.setUnit(dto.getUnit() == null ? "kg" : dto.getUnit());
+        productMapper.insert(p);
+        return p;
     }
 
     /**
