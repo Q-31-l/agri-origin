@@ -477,7 +477,18 @@ onShow(load)
 .w-res { flex: 0.9; }
 .w-file { flex: 1; }
 .w-chain { flex: 1; }
-.w-act { flex: 0.8; }
+.w-act {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+.w-act .pc-link {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .mono {
   font-family: Consolas, monospace;
   font-size: 11.5px;

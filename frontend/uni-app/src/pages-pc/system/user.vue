@@ -67,6 +67,7 @@
             <view class="pc-td w-act">
               <text v-if="u.auditStatus === 'PENDING'" class="pc-link ok" @click="onAudit(u, true)">通过</text>
               <text v-if="u.auditStatus === 'PENDING'" class="pc-link danger" @click="onAudit(u, false)">拒绝</text>
+              <text v-if="u.auditStatus === 'PENDING' && canUpdate" class="sep">|</text>
               <text v-if="canUpdate" class="pc-link" @click="openEdit(u)">编辑</text>
               <text v-if="canUpdate" class="pc-link" @click="onReset(u)">重置密码</text>
             </view>
@@ -399,7 +400,26 @@ onShow(() => {
 .w-phone { flex: 1.1; }
 .w-scope { flex: 0.9; }
 .w-time { flex: 1.3; }
-.w-act { flex: 1.2; }
+.w-act {
+  flex: 1.6;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+/* 操作列里的文字按钮：给足点击区域，避免挤成一串 */
+.w-act .pc-link {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* 审核按钮组与常规操作之间的竖线分隔 */
+.w-act .sep {
+  color: #e2e8f0;
+  font-size: 11px;
+  user-select: none;
+  flex-shrink: 0;
+}
 .mono {
   font-family: Consolas, monospace;
   font-size: 11.5px;
