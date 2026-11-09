@@ -218,6 +218,8 @@ public class QualityService {
         }
         report.setAuditStatus(dto.getAuditStatus());
         report.setAuditRemark(dto.getAuditRemark());
+        report.setAuditBy(UserContext.require().getRealName());
+        report.setAuditTime(LocalDateTime.now());
         qualityMapper.updateById(report);
     }
 }

@@ -46,6 +46,8 @@ public class BizQualityReport {
 
     private String auditStatus;
     private String auditRemark;
+    private String auditBy;
+    private LocalDateTime auditTime;
 
     @JsonIgnore
     @TableLogic

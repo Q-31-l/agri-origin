@@ -48,6 +48,8 @@ public class BizLogisticsRecord {
 
     private String auditStatus;
     private String auditRemark;
+    private String auditBy;
+    private LocalDateTime auditTime;
 
     @JsonIgnore
     @TableLogic

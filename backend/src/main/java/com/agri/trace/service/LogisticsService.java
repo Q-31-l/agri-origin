@@ -143,6 +143,8 @@ public class LogisticsService {
         }
         record.setAuditStatus(dto.getAuditStatus());
         record.setAuditRemark(dto.getAuditRemark());
+        record.setAuditBy(UserContext.require().getRealName());
+        record.setAuditTime(java.time.LocalDateTime.now());
         logisticsMapper.updateById(record);
     }
 }

@@ -85,9 +85,11 @@ public class HarvestService {
             throw BizException.status("该批次已采收，请勿重复提交");
         }
 
-        // 一个批次仅允许一条采收记录
+        // 一个批次仅允许一条「有效」采收记录：被村管驳回的那条不算占用，
+        // 否则农户第一次填错被驳回后，永远被 409 挡在门外，批次卡死在种植中。
         Long exists = harvestMapper.selectCount(Wrappers.<BizHarvestRecord>lambdaQuery()
-                .eq(BizHarvestRecord::getBatchId, dto.getBatchId()));
+                .eq(BizHarvestRecord::getBatchId, dto.getBatchId())
+                .ne(BizHarvestRecord::getAuditStatus, Constants.AUDIT_REJECTED));
         if (exists != null && exists > 0) {
             throw BizException.conflict("该批次已存在采收记录，请勿重复提交");
         }
@@ -150,6 +152,16 @@ public class HarvestService {
         }
         record.setAuditStatus(dto.getAuditStatus());
         record.setAuditRemark(dto.getAuditRemark());
+        record.setAuditBy(user.getRealName());
+        record.setAuditTime(java.time.LocalDateTime.now());
         harvestMapper.updateById(record);
+
+        // 驳回：批次回退到种植中，农户可修正后重新提交；否则批次停在 HARVESTED，
+        // 质检机构面对一条"未通过审核"的采收记录照样能出报告，链路就断了。
+        if (Constants.AUDIT_REJECTED.equals(dto.getAuditStatus())) {
+            batch.setHarvestDate(null);
+            batch.setStatus(Constants.BATCH_PLANTING);
+            Db.updated(batchMapper.updateById(batch));
+        }
     }
 }

@@ -14,6 +14,13 @@
           <text class="date">{{ formatDate(p.operationDate) }}</text>
         </view>
         <text class="content">{{ p.content }}</text>
+        <text v-if="p.auditStatus === 'PENDING'" class="audit-info pending">已提交，等待村管审核</text>
+        <text v-else-if="p.auditStatus === 'REJECTED'" class="audit-info danger">
+          已驳回{{ p.auditRemark ? '：' + p.auditRemark : '' }}，请修正后重新提交
+        </text>
+        <text v-else-if="p.auditTime" class="audit-info">
+          审核：{{ p.auditBy || '村管' }} · {{ p.auditTime }}
+        </text>
         <view class="rc-foot">
           <text class="batch mono">{{ p.batchNo }}</text>
           <chain-badge :status="p.chainStatus" :block-number="p.blockNumber" />
@@ -48,6 +55,14 @@ const { list, loading, status, reload, loadMore } = useList(plantingPage, {
 })
 
 function toBatch(p) {
+  if (!p.batchId) {
+    // 手写作物的农事在村管审核通过前还没有批次档案，跳详情只会得到空白页
+    uni.showToast({
+      title: p.auditStatus === 'PENDING' ? '待村管审核，通过后自动建档' : '该记录尚未关联批次',
+      icon: 'none'
+    })
+    return
+  }
   nav(ROUTES.BATCH_DETAIL, { id: p.batchId })
 }
 
@@ -104,6 +119,18 @@ onReachBottom(() => loadMore())
   font-size: 24rpx;
   color: $text-2;
   line-height: 1.6;
+}
+.audit-info {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: $text-4;
+}
+.audit-info.pending {
+  color: #b45309;
+}
+.audit-info.danger {
+  color: #d93026;
 }
 .rc-foot {
   margin-top: 14rpx;

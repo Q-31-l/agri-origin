@@ -139,6 +139,7 @@ const { submitting, submit } = useForm(
     }),
   {
     successText: '发运登记成功',
+    noticeType: 'LOGISTICS',
     validate: (d) => {
       if (!d.batchId) return '请选择批次'
       if (!d.logisticsNo) return '请填写运单号'

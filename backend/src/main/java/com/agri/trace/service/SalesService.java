@@ -167,6 +167,8 @@ public class SalesService {
         }
         record.setAuditStatus(dto.getAuditStatus());
         record.setAuditRemark(dto.getAuditRemark());
+        record.setAuditBy(UserContext.require().getRealName());
+        record.setAuditTime(java.time.LocalDateTime.now());
         salesMapper.updateById(record);
     }
 }

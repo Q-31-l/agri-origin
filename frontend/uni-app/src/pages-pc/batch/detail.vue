@@ -67,6 +67,9 @@
               </view>
             </view>
 
+            <!-- 审核进度：每一级谁提交、谁审核、现在卡在谁那里 -->
+            <pc-workflow :progress="progress" />
+
             <view class="pc-card">
               <view class="pc-card-head">
                 <text class="pc-card-title">基础信息</text>
@@ -383,7 +386,8 @@ import PcQr from '@/components/pc/pc-qr.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
 import PcSelect from '@/components/pc/pc-select.vue'
 import PcTimeline from '@/components/pc/pc-timeline.vue'
-import { batchDetail, verifyBatch, auditBatch, closeBatch } from '@/api'
+import PcWorkflow from '@/components/pc/pc-workflow.vue'
+import { batchDetail, verifyBatch, auditBatch, closeBatch, workflowProgress } from '@/api'
 import { useUserStore } from '@/store/user'
 import { AUDIT_STATUS, EVENT_TYPE, plantingTypeLabel } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
@@ -397,6 +401,8 @@ const store = useUserStore()
 const batchId = ref('')
 const loading = ref(true)
 const detail = ref({})
+/** 审核进度（/workflow/progress） */
+const progress = ref(null)
 const tab = ref('planting')
 
 const batch = computed(() => detail.value.batch || {})
@@ -440,12 +446,22 @@ const canClose = computed(() => {
 })
 
 /* ---------------- 数据 ---------------- */
+async function loadProgress() {
+  try {
+    const r = await workflowProgress(batchId.value)
+    progress.value = (r && r.data) || null
+  } catch (e) {
+    progress.value = null
+  }
+}
+
 async function load() {
   if (!batchId.value) return
   loading.value = true
   try {
     const res = await batchDetail(batchId.value)
     detail.value = res.data || {}
+    loadProgress()
   } catch (e) {
     detail.value = {}
   } finally {

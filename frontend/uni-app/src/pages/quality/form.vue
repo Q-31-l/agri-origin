@@ -201,6 +201,7 @@ const { submitting, submit } = useForm(
     }),
   {
     successText: '质检结果已提交',
+    noticeType: 'QUALITY',
     validate: (d) => {
       if (!d.batchId) return '请选择批次'
       if (!d.reportNo) return '请填写报告编号'

@@ -187,6 +187,7 @@ const { submitting, submit } = useForm(
     }),
   {
     successText: '创建成功',
+    noticeType: 'BATCH',
     validate: (d) => {
       if (!d.productId && !(d.productName || '').trim()) return '请填写或选择产品'
       if (!d.farmId && !d.farmerId) return '请选择农场或种植农户'

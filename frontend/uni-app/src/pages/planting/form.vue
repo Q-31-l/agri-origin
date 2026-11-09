@@ -181,6 +181,7 @@ const { submitting, submit } = useForm(
     }),
   {
     successText: '记录已提交',
+    noticeType: 'PLANTING',
     validate: (d) => {
       if (!d.batchId && !(d.productName || '').trim()) return '请选择批次或手写作物名'
       if (!d.recordType) return '请选择农事类型'

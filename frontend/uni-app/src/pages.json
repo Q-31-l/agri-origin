@@ -7,9 +7,7 @@
       "path": "pages/launch/index",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "农安链溯源",
-        "backgroundColor": "#072b1c",
-        "backgroundTextStyle": "light"
+        "navigationBarTitleText": "农安链溯源"
       }
     },
     {
@@ -20,18 +18,12 @@
       }
     },
     {
-      "path": "pages/auth/register",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "注册账号"
-      }
-    },
-    {
       "path": "pages/auth/wx-bind",
       "style": {
         "navigationBarTitleText": "绑定账号"
       }
-    },    {
+    },
+    {
       "path": "pages/auth/password",
       "style": {
         "navigationBarTitleText": "修改密码"
@@ -136,6 +128,13 @@
       }
     },
     {
+      "path": "pages/workflow/todo",
+      "style": {
+        "navigationBarTitleText": "审核待办",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/abnormal/index",
       "style": {
         "navigationBarTitleText": "异常管控",
@@ -179,6 +178,13 @@
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "数据看板"
+      }
+    },
+    {
+      "path": "pages-pc/workflow/todo",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "审核待办"
       }
     },
     {

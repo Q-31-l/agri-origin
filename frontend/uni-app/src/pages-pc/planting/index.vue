@@ -156,6 +156,7 @@ import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
 import { plantingPage, createPlanting, auditPlanting, batchOptions } from '@/api'
+import { showSubmitNotice } from '@/utils/submit-notice'
 import EvidenceUploader from '@/components/business/evidence-uploader.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
@@ -384,7 +385,7 @@ async function submit() {
 
   submitting.value = true
   try {
-    await createPlanting({
+    const created = await createPlanting({
       batchId: form.batchId || null,
       productName: form.productName.trim(),
       recordType: form.recordType,
@@ -397,6 +398,7 @@ async function submit() {
       evidenceIds: ids
     })
     uni.showToast({ title: '记录已提交', icon: 'success' })
+    await showSubmitNotice('PLANTING', created && created.data)
     createVisible.value = false
     cache.invalidate('batch', 'planting')
     query.page = 1

@@ -110,6 +110,7 @@ const { submitting, submit } = useForm(
   (data) => createSales({ ...data, price: Number(data.price), quantity: Number(data.quantity), evidenceIds: uploader.value ? uploader.value.ids() : [] }),
   {
     successText: '销售登记成功',
+    noticeType: 'SALES',
     validate: (d) => {
       if (!d.batchId) return '请选择批次'
       if (!d.marketName) return '请填写销售市场'

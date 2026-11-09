@@ -40,6 +40,10 @@ public class BizPlantingRecord {
 
     private String auditStatus;
     private String auditRemark;
+    /** 审核人姓名：让农户知道"是谁审的" */
+    private String auditBy;
+    /** 审核时间：让农户能看清"什么时候被审核通过/驳回" */
+    private LocalDateTime auditTime;
 
     private String dataHash;
     private String chainStatus;

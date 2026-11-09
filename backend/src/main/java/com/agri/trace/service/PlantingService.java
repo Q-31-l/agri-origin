@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -52,8 +53,40 @@ public class PlantingService {
         LoginUser user = UserContext.require();
         if (Constants.ROLE_FARMER.equals(user.getRoleCode())) {
             wrapper.eq(BizPlantingRecord::getOperatorId, user.getUserId());
+        } else if (Constants.ROLE_VILLAGE.equals(user.getRoleCode())) {
+            // 村管：既看本村已有批次的农事，也要看本村农户刚提交、尚未建档批次（batch_id 为空）的待审核农事，
+            // 否则农户手写作物提交后村管看不到，链路就断了。
+            List<Long> batchIds = batchService.visibleBatchIds(user);
+            List<SysUser> farmers = userMapper.selectList(Wrappers.<SysUser>lambdaQuery()
+                    .select(SysUser::getId)
+                    .eq(SysUser::getRoleCode, Constants.ROLE_FARMER)
+                    .eq(SysUser::getVillageId, user.getVillageId()));
+            java.util.List<Long> farmerIds = new java.util.ArrayList<>();
+            for (SysUser f : farmers) {
+                farmerIds.add(f.getId());
+            }
+            boolean hasBatch = batchIds != null && !batchIds.isEmpty();
+            boolean hasFarmer = !farmerIds.isEmpty();
+            // 注意：这里必须用 or(Consumer) 一次性把"第二支"包成括号，
+            // 不能写成 w.or(); w.and(c)。MyBatis-Plus 的 and(c) 会覆盖掉前一个 OR 关键字，
+            // 最终拼出 (batch_id IN (...) AND (batch_id IS NULL AND ...)) —— 恒为空集，
+            // 表现为"农户提交成功、村管列表一条都看不到"。
+            wrapper.and(w -> {
+                if (hasBatch && hasFarmer) {
+                    w.in(BizPlantingRecord::getBatchId, batchIds)
+                            .or(x -> x.isNull(BizPlantingRecord::getBatchId)
+                                    .in(BizPlantingRecord::getOperatorId, farmerIds));
+                } else if (hasBatch) {
+                    w.in(BizPlantingRecord::getBatchId, batchIds);
+                } else if (hasFarmer) {
+                    w.isNull(BizPlantingRecord::getBatchId)
+                            .in(BizPlantingRecord::getOperatorId, farmerIds);
+                } else {
+                    w.apply("1 = 0");
+                }
+            });
         } else {
-            // 村管看本村、生产主体看本人建档批次的农事记录
+            // 生产主体看本人建档批次的农事记录；监管方与管理员不受限（visible 为 null）
             List<Long> visible = batchService.visibleBatchIds(user);
             if (visible != null) {
                 if (visible.isEmpty()) {
@@ -178,6 +211,8 @@ public class PlantingService {
             }
             record.setAuditStatus(dto.getAuditStatus());
             record.setAuditRemark(dto.getAuditRemark());
+            record.setAuditBy(user.getRealName());
+            record.setAuditTime(LocalDateTime.now());
             if (Constants.AUDIT_APPROVED.equals(dto.getAuditStatus())) {
                 BizBatch batch = batchService.createAutoFromPlanting(record, user.getRealName());
                 record.setBatchId(batch.getId());
@@ -205,6 +240,8 @@ public class PlantingService {
         }
         record.setAuditStatus(dto.getAuditStatus());
         record.setAuditRemark(dto.getAuditRemark());
+        record.setAuditBy(user.getRealName());
+        record.setAuditTime(LocalDateTime.now());
         plantingMapper.updateById(record);
     }
 }

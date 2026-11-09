@@ -35,6 +35,9 @@
         </view>
       </view>
 
+      <!-- 审核进度：每一级谁提交、谁审核、现在等谁 -->
+      <workflow-steps :progress="progress" />
+
       <!-- 存证 -->
       <view class="chain-bar">
         <view class="row">
@@ -151,7 +154,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad, onShow, onPullDownRefresh } from '@dcloudio/uni-app'
-import { batchDetail, verifyBatch, auditBatch, closeBatch } from '@/api'
+import { batchDetail, verifyBatch, auditBatch, closeBatch, workflowProgress } from '@/api'
+import WorkflowSteps from '@/components/common/workflow-steps.vue'
 import StatusTag from '@/components/common/status-tag.vue'
 import AppIcon from '@/components/common/app-icon.vue'
 import ChainBadge from '@/components/common/chain-badge.vue'
@@ -179,6 +183,8 @@ const plantings = computed(() => detail.value.plantings || [])
 const qualities = computed(() => detail.value.qualities || [])
 const logistics = computed(() => detail.value.logistics || [])
 const sales = computed(() => detail.value.sales || [])
+
+const progress = ref(null)
 
 const showAudit = ref(false)
 const auditRemark = ref('')
@@ -215,12 +221,22 @@ const actions = computed(() => {
   return list
 })
 
+async function loadProgress() {
+  try {
+    const r = await workflowProgress(batchId.value)
+    progress.value = (r && r.data) || null
+  } catch (e) {
+    progress.value = null
+  }
+}
+
 async function load() {
   if (!batchId.value) return
   loading.value = true
   try {
     const res = await batchDetail(batchId.value)
     detail.value = res.data || {}
+    loadProgress()
   } catch (e) {
     detail.value = {}
   } finally {

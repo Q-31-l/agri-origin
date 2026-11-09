@@ -1581,6 +1581,57 @@ GET /correction/page?page=1&size=10&batchId=1
 
 ---
 
+## 十四·补、审核流 `/workflow`
+
+> 解决同一个问题：「我提交了，然后呢？」提交方看进度，审核方看待办，中间不靠口头传递。
+> 三个接口共用一套阶段规则与数据范围，保证"进度说在等村管、村管的待办里就一定有"。
+
+### 14b.1 批次全链路进度
+
+```
+GET /workflow/progress/{batchId}
+```
+
+**权限**：`batch:list`（越权访问他村/他人批次返回 403）
+
+**响应 `data`**
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `currentStage` | string | 当前所处环节标题 |
+| `currentStageCode` | string | `BATCH` / `BATCH_AUDIT` / `PLANTING` / `HARVEST` / `QUALITY` / `LOGISTICS` / `SALES` / `DONE` |
+| `waitingRole` / `waitingNames` | string | 当前在等谁（角色名 / 具体人姓名） |
+| `tip` | string | 一句话进度描述，页面直接展示 |
+| `doneCount` / `advancedCount` / `totalCount` | int | 已通过 / 已推进 / 总环节数 |
+| `percent` | int | 0-100，已推进环节占比 |
+| `stages[]` | array | 七个环节，每项含 `status`（`DONE`/`PENDING`/`REJECTED`/`TODO`/`ABNORMAL`）、`submitBy`、`submitTime`、`auditBy`、`auditTime`、`auditRemark`、`tip` |
+
+### 14b.2 我的审核待办
+
+```
+GET /workflow/todo
+```
+
+**权限**：登录即可；按权限点与数据范围裁剪，只返回"确实轮到他审"的数据
+
+**响应 `data`**：`total` + `groups[]`，每组含 `type`（`BATCH`/`PLANTING`/`HARVEST`/`QUALITY`/`LOGISTICS`/`SALES`/`ABNORMAL`）、`title`、`count`、`items[]`（`batchNo`、`productName`、`submitBy`、`submitTime`、`summary`、`from`）。
+
+- 村管：本村批次核验、本村农事、本村采收（含尚未建档批次的"手写作物"记录）
+- 监管：全量质检 / 物流 / 销售复核与异常处置
+- 农户 / 生产主体 / 检测 / 物流 / 销售：无审核职责，返回空列表
+
+### 14b.3 提交后的等待审核提示
+
+```
+GET /workflow/notice?bizType=PLANTING&bizId=123
+```
+
+**响应 `data`**：`title`、`message`（如「已提交，等待溪头村 王秀兰（村级管理员）审核」）、`waitingRole`、`waitingNames`、`nextStep`（通过后进入哪一环节）。
+
+**`bizType` 取值**：`BATCH`、`PLANTING`、`HARVEST`、`QUALITY`、`LOGISTICS`、`SALES`
+
+---
+
 ## 十五、接口速查表
 
 | 模块 | 方法 | 路径 | 权限 | 角色限制 |

@@ -16,6 +16,8 @@ export const ROUTES = {
   BATCH_CREATE: '/pages/batch/create',
   BATCH_EDIT: '/pages/batch/edit',
 
+  WORKFLOW_TODO: '/pages/workflow/todo',
+
   PLANTING_LIST: '/pages/planting/list',
   PLANTING_FORM: '/pages/planting/form',
   HARVEST_FORM: '/pages/harvest/form',
@@ -32,6 +34,7 @@ export const ROUTES = {
   SETTINGS: '/pages/common/settings',
 
   PC_DASHBOARD: '/pages-pc/dashboard/index',
+  PC_WORKFLOW_TODO: '/pages-pc/workflow/todo',
   PC_BATCH_LIST: '/pages-pc/batch/list',
   PC_BATCH_DETAIL: '/pages-pc/batch/detail',
   PC_PLANTING: '/pages-pc/planting/index',
@@ -56,6 +59,7 @@ export const TAB_PAGES = [ROUTES.HOME, ROUTES.TAB_BATCH, ROUTES.TAB_TRACE, ROUTE
  */
 export const PC_MENUS = [
   { path: ROUTES.PC_DASHBOARD, title: '数据看板', icon: 'dashboard' },
+  { path: ROUTES.PC_WORKFLOW_TODO, title: '审核待办', icon: 'check' },
   { group: '全流程管理' },
   { path: ROUTES.PC_BATCH_LIST, title: '批次管理', icon: 'batch', perm: 'batch:list' },
   { path: ROUTES.PC_PLANTING, title: '农事记录', icon: 'planting', perm: 'planting:list' },

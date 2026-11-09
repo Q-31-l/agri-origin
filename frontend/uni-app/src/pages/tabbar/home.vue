@@ -41,6 +41,15 @@
     </view>
 
     <view class="body">
+      <!-- 待我审核：村管 / 监管登录后第一眼就能看到轮到自己处理的事 -->
+      <view v-if="todoTotal > 0" class="todo-banner" @click="toTodo">
+        <view class="tb-left">
+          <text class="tb-title">有 {{ todoTotal }} 项待你审核</text>
+          <text class="tb-sub">{{ todoHint }}</text>
+        </view>
+        <text class="tb-go">去处理 ›</text>
+      </view>
+
       <view class="quick card">
         <view class="card-title">
           <text>快捷操作</text>
@@ -85,7 +94,7 @@ import AppIcon from '@/components/common/app-icon.vue'
 import BatchCard from '@/components/business/batch-card.vue'
 import EmptyState from '@/components/common/empty-state.vue'
 import { useUserStore } from '@/store/user'
-import { batchPage, statsOverview } from '@/api'
+import { batchPage, statsOverview, workflowTodo } from '@/api'
 import { nav } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
 import { sys } from '@/config/platform'
@@ -94,6 +103,8 @@ const store = useUserStore()
 const stats = ref({ totalBatches: 0, abnormalBatches: 0, qualifiedRate: 0 })
 const recent = ref([])
 const loading = ref(false)
+const todoTotal = ref(0)
+const todoHint = ref('')
 
 const avatarText = computed(() => (store.displayName || 'U').slice(0, 1))
 
@@ -107,6 +118,7 @@ const greeting = computed(() => {
 })
 
 const ALL_QUICKS = [
+  { title: '审核待办', icon: 'check', bg: '#fff3dd', color: '#b45309', path: ROUTES.WORKFLOW_TODO, perm: 'batch:audit' },
   { title: '新建批次', icon: 'plus', bg: '#e8f5ee', color: '#1f7a4d', path: ROUTES.BATCH_CREATE, perm: 'batch:create' },
   { title: '农事记录', icon: 'planting', bg: '#e8f0fe', color: '#2563eb', path: ROUTES.PLANTING_FORM, perm: 'planting:create' },
   { title: '采收登记', icon: 'harvest', bg: '#fef6e0', color: '#b45309', path: ROUTES.HARVEST_FORM, perm: 'harvest:create' },
@@ -149,12 +161,26 @@ function createBatch() {
   nav(ROUTES.BATCH_CREATE)
 }
 
+function toTodo() {
+  nav(ROUTES.WORKFLOW_TODO)
+}
+
 async function load() {
   loading.value = true
   try {
-    const [b, s] = await Promise.allSettled([batchPage({ page: 1, size: 3 }), statsOverview()])
+    const [b, s, t] = await Promise.allSettled([
+      batchPage({ page: 1, size: 3 }),
+      statsOverview(),
+      workflowTodo()
+    ])
     if (b.status === 'fulfilled') recent.value = (b.value.data && b.value.data.records) || []
     if (s.status === 'fulfilled' && s.value.data) stats.value = s.value.data
+    if (t.status === 'fulfilled') {
+      const d = (t.value && t.value.data) || {}
+      todoTotal.value = d.total || 0
+      const first = (d.groups || [])[0]
+      todoHint.value = first ? first.title + ' ' + first.count + ' 条待处理' : ''
+    }
   } finally {
     loading.value = false
     uni.stopPullDownRefresh()
@@ -283,6 +309,36 @@ onPullDownRefresh(() => load())
   padding: 0 $gap;
   position: relative;
   z-index: 2;
+}
+.todo-banner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff8ea;
+  border: 1px solid #f3dfb9;
+  border-radius: $radius;
+  padding: 22rpx 24rpx;
+  margin-bottom: $gap-sm;
+}
+.tb-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.tb-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #8a4b08;
+}
+.tb-sub {
+  font-size: 22rpx;
+  color: #a9712a;
+}
+.tb-go {
+  font-size: 24rpx;
+  color: #b45309;
+  font-weight: 600;
 }
 .quick {
   padding-bottom: 12rpx;

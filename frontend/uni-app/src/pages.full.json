@@ -128,6 +128,13 @@
       }
     },
     {
+      "path": "pages/workflow/todo",
+      "style": {
+        "navigationBarTitleText": "审核待办",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/abnormal/index",
       "style": {
         "navigationBarTitleText": "异常管控",
@@ -171,6 +178,13 @@
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "数据看板"
+      }
+    },
+    {
+      "path": "pages-pc/workflow/todo",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "审核待办"
       }
     },
     {

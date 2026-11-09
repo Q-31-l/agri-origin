@@ -36,6 +36,8 @@ public class BizHarvestRecord {
 
     private String auditStatus;
     private String auditRemark;
+    private String auditBy;
+    private LocalDateTime auditTime;
 
     private String dataHash;
     private String chainStatus;

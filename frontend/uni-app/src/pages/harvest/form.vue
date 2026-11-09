@@ -180,6 +180,7 @@ const { submitting, submit } = useForm(
     }),
   {
     successText: '采收登记成功',
+    noticeType: 'HARVEST',
     validate: (d) => {
       if (!d.batchId) return '请选择批次'
       if (!d.harvestDate) return '请选择采收日期'
