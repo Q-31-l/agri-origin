@@ -20,7 +20,10 @@
 
     <view class="foot">
       <text class="time">{{ formatDate(batch.plantingDate) }} 种植</text>
-      <text v-if="batch.abnormalFlag" class="warn">异常批次</text>
+      <view class="foot-right">
+        <text v-if="batch.pendingStage" class="pending">待审 · {{ batch.pendingStage }}</text>
+        <text v-if="batch.abnormalFlag" class="warn">异常批次</text>
+      </view>
     </view>
   </view>
 </template>
@@ -119,5 +122,18 @@ function open() {
 .warn {
   font-size: 22rpx;
   color: $danger;
+}
+.pending {
+  font-size: 22rpx;
+  color: #c2410c;
+  background: #fff1e6;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+}
+.foot-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10rpx;
 }
 </style>

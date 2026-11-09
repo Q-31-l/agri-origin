@@ -144,10 +144,9 @@ public class QualityService {
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_QUALITY, report.getId(),
                 "QUALITY_REPORT", dataHash, evidenceHash, chain);
 
-        if ("PASS".equals(dto.getInspectResult())) {
-            batch.setStatus(Constants.BATCH_QUALIFIED);
-            Db.updated(batchMapper.updateById(batch));
-        } else {
+        // 合格报告只落库、不推进批次状态：监管复核通过后才置为 QUALIFIED（见 audit）。
+        // 不合格属于安全结论，立即熔断，不等复核。
+        if (!"PASS".equals(dto.getInspectResult())) {
             markAbnormal(batch, report, user);
         }
         return report.getId();
@@ -221,5 +220,20 @@ public class QualityService {
         report.setAuditBy(UserContext.require().getRealName());
         report.setAuditTime(LocalDateTime.now());
         qualityMapper.updateById(report);
+
+        // 复核通过 + 结论合格，才把批次推进到"已质检"；被退回时批次留在已采收，
+        // 检测机构可修正后重新出报告，物流企业也不会在报告未认可时提前发运。
+        if (Constants.AUDIT_APPROVED.equals(dto.getAuditStatus())
+                && "PASS".equals(report.getInspectResult())
+                && report.getBatchId() != null) {
+            BizBatch batch = batchMapper.selectById(report.getBatchId());
+            if (batch != null
+                    && !Constants.BATCH_ABNORMAL.equals(batch.getStatus())
+                    && !Constants.BATCH_CLOSED.equals(batch.getStatus())
+                    && !Constants.BATCH_QUALIFIED.equals(batch.getStatus())) {
+                batch.setStatus(Constants.BATCH_QUALIFIED);
+                Db.updated(batchMapper.updateById(batch));
+            }
+        }
     }
 }

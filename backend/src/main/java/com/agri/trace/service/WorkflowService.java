@@ -122,7 +122,13 @@ public class WorkflowService {
         vo.setDoneCount(done);
         vo.setAdvancedCount(advanced);
         vo.setTotalCount(stages.size());
-        vo.setPercent(stages.isEmpty() ? 0 : Math.round(advanced * 100f / stages.size()));
+        int percent = stages.isEmpty() ? 0 : Math.round(advanced * 100f / stages.size());
+        // 只要还有环节没走完（待审核 / 被驳回 / 待办），就不允许显示 100%：
+        // 否则会出现"进度 100%、里面还挂着一条待审核"的自相矛盾。
+        if (done < stages.size() && percent >= 100) {
+            percent = 99;
+        }
+        vo.setPercent(percent);
 
         WorkflowStageVO current = null;
         for (WorkflowStageVO s : stages) {

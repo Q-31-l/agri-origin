@@ -9,8 +9,10 @@ import com.agri.trace.dto.AuditDTO;
 import com.agri.trace.dto.HarvestDTO;
 import com.agri.trace.entity.BizBatch;
 import com.agri.trace.entity.BizHarvestRecord;
+import com.agri.trace.entity.BizPlantingRecord;
 import com.agri.trace.mapper.BizBatchMapper;
 import com.agri.trace.mapper.BizHarvestRecordMapper;
+import com.agri.trace.mapper.BizPlantingRecordMapper;
 import com.agri.trace.security.LoginUser;
 import com.agri.trace.security.UserContext;
 import com.agri.trace.sdk.ChainResult;
@@ -32,6 +34,8 @@ public class HarvestService {
 
     @Resource
     private BizHarvestRecordMapper harvestMapper;
+    @Resource
+    private BizPlantingRecordMapper plantingMapper;
     @Resource
     private BizBatchMapper batchMapper;
     @Resource
@@ -85,6 +89,16 @@ public class HarvestService {
             throw BizException.status("该批次已采收，请勿重复提交");
         }
 
+        // 采收是"这一季作业的收口"，前面录的农事必须已经被村管核实过；
+        // 否则会出现"农事还挂着待审核、批次却已经采完卖完"，进度条永远关不掉。
+        Long pendingPlanting = plantingMapper.selectCount(Wrappers.<BizPlantingRecord>lambdaQuery()
+                .eq(BizPlantingRecord::getBatchId, batch.getId())
+                .eq(BizPlantingRecord::getAuditStatus, Constants.AUDIT_PENDING));
+        if (pendingPlanting != null && pendingPlanting > 0) {
+            throw BizException.status("该批次还有 " + pendingPlanting
+                    + " 条农事记录等待村管审核，审核通过后再提交采收");
+        }
+
         // 一个批次仅允许一条「有效」采收记录：被村管驳回的那条不算占用，
         // 否则农户第一次填错被驳回后，永远被 409 挡在门外，批次卡死在种植中。
         Long exists = harvestMapper.selectCount(Wrappers.<BizHarvestRecord>lambdaQuery()
@@ -129,8 +143,10 @@ public class HarvestService {
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_HARVEST, record.getId(),
                 "HARVEST_RECORD", dataHash, evidenceHash, chain);
 
+        // 只记录采收日期这一客观事实，批次状态必须等村管审核通过后再推进（见 audit）。
+        // 若在提交时就置为 HARVESTED，会出现"外层已采收、进度里待审核"的矛盾状态，
+        // 并且质检机构能在采收未审核时直接出报告，整条审核链就失去了卡点。
         batch.setHarvestDate(dto.getHarvestDate());
-        batch.setStatus(Constants.BATCH_HARVESTED);
         Db.updated(batchMapper.updateById(batch));
         return record.getId();
     }
@@ -161,6 +177,11 @@ public class HarvestService {
         if (Constants.AUDIT_REJECTED.equals(dto.getAuditStatus())) {
             batch.setHarvestDate(null);
             batch.setStatus(Constants.BATCH_PLANTING);
+            Db.updated(batchMapper.updateById(batch));
+        } else if (Constants.AUDIT_APPROVED.equals(dto.getAuditStatus())) {
+            // 审核通过才是"真正采收完成"：批次状态在此时推进，外层标签与内层进度因此始终一致。
+            batch.setHarvestDate(record.getHarvestDate());
+            batch.setStatus(Constants.BATCH_HARVESTED);
             Db.updated(batchMapper.updateById(batch));
         }
     }

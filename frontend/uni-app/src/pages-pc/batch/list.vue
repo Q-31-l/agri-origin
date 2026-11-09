@@ -71,6 +71,7 @@
             <text class="pc-td w-qty">{{ fmtQty(b.quantity, b.unit) }}</text>
             <view class="pc-td w-status">
               <pc-status :value="b.status" type="batch" />
+              <text v-if="b.pendingStage" class="pending-chip">待审 · {{ b.pendingStage }}</text>
             </view>
             <view class="pc-td w-chain">
               <pc-status :value="b.chainStatus" type="chain" />
@@ -446,9 +447,19 @@ useRealtime(() => {
 .w-village { flex: 1; }
 .w-date { flex: 1.05; }
 .w-qty { flex: 0.85; }
-.w-status { flex: 1; }
+.w-status { flex: 1.25; }
 .w-chain { flex: 1.1; }
 .w-act { flex: 1.15; }
+.pending-chip {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  color: #c2410c;
+  background: #fff1e6;
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
 
 .pc-tr .w-act,
 .pc-td.w-act {

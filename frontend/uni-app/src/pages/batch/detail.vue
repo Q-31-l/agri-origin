@@ -16,7 +16,9 @@
           </view>
           <view class="col tags">
             <status-tag :value="batch.status" />
-            <status-tag v-if="batch.auditStatus" :value="batch.auditStatus" type="audit" />
+            <!-- 卡点标签与下方审核进度同源（都来自 /workflow/progress 的 stages），
+                 不再单独渲染批次 auditStatus，避免"已通过"被误读成当前环节已通过 -->
+            <text v-if="currentChip" class="stage-chip" :style="{ color: currentChip.color, background: currentChip.bg }">{{ currentChip.text }}</text>
           </view>
         </view>
 
@@ -186,6 +188,24 @@ const sales = computed(() => detail.value.sales || [])
 
 const progress = ref(null)
 
+/**
+ * 页头"卡点"标签：取流程里第一个未完成的阶段。
+ * 与 workflow-steps 用同一份数据，所以"外面"看到的一定和"里面"的进度一致：
+ * 采收待审核时这里显示"采收登记 待审核"，批次状态仍是"种植中"，不会假装已采收完成。
+ */
+const currentChip = computed(() => {
+  const p = progress.value
+  if (!p || !Array.isArray(p.stages)) return null
+  const s = p.stages.find((x) => x.status === 'PENDING' || x.status === 'REJECTED')
+  if (!s) return null
+  const pending = s.status === 'PENDING'
+  return {
+    text: s.title + (pending ? ' 待审核' : ' 已驳回'),
+    color: pending ? '#c2410c' : '#d93026',
+    bg: pending ? '#fff1e6' : '#fdeceb'
+  }
+})
+
 const showAudit = ref(false)
 const auditRemark = ref('')
 
@@ -338,6 +358,13 @@ function toTrace() {
 .tags {
   align-items: flex-end;
   gap: 8rpx;
+}
+.stage-chip {
+  font-size: 20rpx;
+  line-height: 1.7;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  white-space: nowrap;
 }
 .hero-grid {
   display: flex;

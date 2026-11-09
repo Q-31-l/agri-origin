@@ -122,13 +122,39 @@ def main():
         "content": "重复提交", "evidenceIds": [f_plant["id"]]})
     check("重复农事被拦截(409)", st == 409, "http=%s code=%s" % (st, j.get("code")))
 
+    # 农事不审核就采收会被后端拦住（采收是作业收口，前置记录必须先被核实）
+    st, j = call("POST", "/harvest", "farmer01", json={
+        "batchId": bid, "harvestDate": today(), "quantity": 300, "unit": "kg",
+        "qualityLevel": "A", "weather": "晴", "evidenceIds": [f_harvest["id"]]})
+    check("农事未审核时采收被拦截", j.get("code") != 0 and st >= 400, "http=%s msg=%s" % (st, j.get("message")))
+
+    st, j = call("POST", "/planting/%d/audit" % planting_id, "village01",
+                 json={"auditStatus": "APPROVED", "auditRemark": "E2E 农事审核通过"})
+    check("村管审核农事记录", j.get("code") == 0, j)
+
     st, j = call("POST", "/harvest", "farmer01", json={
         "batchId": bid, "harvestDate": today(), "quantity": 300, "unit": "kg",
         "qualityLevel": "A", "weather": "晴", "evidenceIds": [f_harvest["id"]]})
     check("采收登记上链", j.get("code") == 0, j)
     hid = j.get("data")
     b = batch_of("producer01", bid)
-    check("采收后批次转为 HARVESTED", b.get("status") == "HARVESTED", b.get("status"))
+    check("采收提交后仍为种植中（等村管审核）", b.get("status") == "PLANTING", b.get("status"))
+
+    # 越级拦截：采收还没审核，检测机构不能出报告，否则审核链就形同虚设
+    qf_skip = upload("inspector01", "E2E 越级质检尝试")
+    st, j = call("POST", "/quality", "inspector01", json={
+        "batchId": bid, "reportNo": "E2E-SKIP-" + suffix, "inspectDate": today(),
+        "inspectResult": "PASS", "standardNo": "GB 2763-2021", "conclusion": "越级尝试",
+        "fileName": qf_skip["fileName"], "filePath": qf_skip["filePath"],
+        "fileHash": qf_skip["fileHash"], "fileSize": qf_skip["fileSize"],
+        "evidenceIds": [qf_skip["id"]]})
+    check("采收未审核时质检被拦截", j.get("code") != 0 and st >= 400, "http=%s msg=%s" % (st, j.get("message")))
+
+    st, j = call("POST", "/harvest/%d/audit" % hid, "village01",
+                 json={"auditStatus": "APPROVED", "auditRemark": "E2E 采收审核通过"})
+    check("村管审核采收", j.get("code") == 0, j)
+    b = batch_of("producer01", bid)
+    check("采收审核通过后转 HARVESTED", b.get("status") == "HARVESTED", b.get("status"))
 
     qf = upload("inspector01", "E2E 质检报告 PASS")
     st, j = call("POST", "/quality", "inspector01", json={
@@ -140,7 +166,13 @@ def main():
     qid = j.get("data")
     check("质检报告上链", j.get("code") == 0, j)
     b = batch_of("producer01", bid)
-    check("质检合格后批次转 QUALIFIED", b.get("status") == "QUALIFIED", b.get("status"))
+    check("质检待复核时仍为已采收", b.get("status") == "HARVESTED", b.get("status"))
+
+    st, j = call("POST", "/quality/%d/audit" % qid, "regulator01",
+                 json={"auditStatus": "APPROVED", "auditRemark": "E2E 质检复核通过"})
+    check("监管复核质检报告", j.get("code") == 0, j)
+    b = batch_of("producer01", bid)
+    check("质检复核通过后转 QUALIFIED", b.get("status") == "QUALIFIED", b.get("status"))
 
     f_logi = upload("logistics01", "E2E 物流交接单")
     st, j = call("POST", "/logistics", "logistics01", json={
@@ -151,7 +183,13 @@ def main():
     lid = j.get("data")
     check("物流交接上链", j.get("code") == 0, j)
     b = batch_of("producer01", bid)
-    check("发运后批次转 IN_TRANSIT", b.get("status") == "IN_TRANSIT", b.get("status"))
+    check("运单待复核时仍为检测合格", b.get("status") == "QUALIFIED", b.get("status"))
+
+    st, j = call("POST", "/logistics/%d/audit" % lid, "regulator01",
+                 json={"auditStatus": "APPROVED", "auditRemark": "E2E 物流复核通过"})
+    check("监管复核运单", j.get("code") == 0, j)
+    b = batch_of("producer01", bid)
+    check("物流复核通过后转 IN_TRANSIT", b.get("status") == "IN_TRANSIT", b.get("status"))
 
     f_sale = upload("seller01", "E2E 销售凭证")
     st, j = call("POST", "/sales", "seller01", json={
@@ -161,14 +199,21 @@ def main():
     sid = j.get("data")
     check("销售登记上链", j.get("code") == 0, j)
     b = batch_of("producer01", bid)
-    check("部分售出后批次转 ON_SALE", b.get("status") == "ON_SALE", b.get("status"))
+    check("销售待复核时仍为运输中", b.get("status") == "IN_TRANSIT", b.get("status"))
 
-    print("\n=== 3. 监管复核（质检/物流/销售三条审核链） ===")
-    for name, path in [("质检", "/quality/%d/audit" % qid),
-                       ("物流", "/logistics/%d/audit" % lid),
-                       ("销售", "/sales/%d/audit" % sid)]:
-        st, j = call("POST", path, "regulator01", json={"auditStatus": "APPROVED", "auditRemark": "E2E 监管复核通过"})
-        check("%s记录监管复核" % name, j.get("code") == 0, j)
+    st, j = call("POST", "/sales/%d/audit" % sid, "regulator01",
+                 json={"auditStatus": "APPROVED", "auditRemark": "E2E 销售复核通过"})
+    check("监管复核销售", j.get("code") == 0, j)
+    b = batch_of("producer01", bid)
+    check("销售复核通过后转 ON_SALE", b.get("status") == "ON_SALE", b.get("status"))
+
+    print("\n=== 3. 审核进度与批次状态同源 ===")
+    st, j = call("GET", "/workflow/progress/%d" % bid, "producer01")
+    wp = j.get("data") or {}
+    stages = {s.get("code"): s.get("status") for s in (wp.get("stages") or [])}
+    check("进度接口返回七个环节", len(stages) == 7, stages)
+    check("已审核环节全部为 DONE", all(v == "DONE" for v in stages.values()), stages)
+    check("进度百分比 100%", wp.get("percent") == 100, wp.get("percent"))
 
     print("\n=== 4. 消费者溯源（免登录） ===")
     r = S.get(BASE + "/trace/" + trace_code, timeout=20)
@@ -212,6 +257,10 @@ def main():
         "batchId": bid2, "harvestDate": today(), "quantity": 200, "qualityLevel": "B",
         "weather": "多云", "evidenceIds": [f_harvest2["id"]]})
     check("异常批次采收登记", j.get("code") == 0, j)
+    hid2 = j.get("data")
+    st, j = call("POST", "/harvest/%d/audit" % hid2, "village01",
+                 json={"auditStatus": "APPROVED", "auditRemark": "E2E 异常批次采收通过"})
+    check("异常批次采收审核通过", j.get("code") == 0, j)
 
     qf2 = upload("inspector01", "E2E 质检报告 FAIL")
     st, j = call("POST", "/quality", "inspector01", json={

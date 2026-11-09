@@ -11,7 +11,12 @@
             <text class="no mono">{{ q.reportNo }}</text>
             <text class="org">{{ q.inspectOrg }} · {{ formatDate(q.inspectDate) }}</text>
           </view>
-          <status-tag :value="q.inspectResult" type="quality" />
+          <view class="res-tags">
+            <status-tag :value="q.inspectResult" type="quality" />
+            <!-- 结论只代表检测机构的判定，复核是否完成要单独标出来，
+                 否则"合格"绿标会被当成"已通过审核" -->
+            <status-tag v-if="q.auditStatus && q.auditStatus !== 'APPROVED'" :value="q.auditStatus" type="audit" />
+          </view>
         </view>
         <view class="foot">
           <text class="batch mono">{{ q.batchNo }}</text>
@@ -88,6 +93,13 @@ onReachBottom(() => loadMore())
   flex-direction: row;
   align-items: flex-start;
   justify-content: space-between;
+}
+.res-tags {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  flex-shrink: 0;
 }
 .no {
   font-size: 26rpx;

@@ -51,7 +51,13 @@
             <text class="pc-td w-batch mono">{{ r.batchNo || '-' }}</text>
             <text class="pc-td w-org">{{ r.inspectOrg || '-' }}</text>
             <text class="pc-td w-date">{{ r.inspectDate || '-' }}</text>
-            <view class="pc-td w-res"><pc-status :value="r.inspectResult" type="quality" /></view>
+            <view class="pc-td w-res">
+              <view class="res-cell">
+                <pc-status :value="r.inspectResult" type="quality" />
+                <!-- 复核状态单独标出，避免"合格"被读成"已通过审核" -->
+                <pc-status v-if="r.auditStatus && r.auditStatus !== 'APPROVED'" :value="r.auditStatus" type="audit" />
+              </view>
+            </view>
             <text class="pc-td">{{ r.standardNo || '-' }}</text>
             <view class="pc-td w-file">
               <text v-if="r.filePath" class="pc-link" @click="openFile(r)">查看报告</text>
@@ -474,7 +480,13 @@ onShow(load)
 .w-org { flex: 1.9; }
 .w-batch { flex: 1.5; }
 .w-date { flex: 1; }
-.w-res { flex: 0.9; }
+.w-res { flex: 1.1; }
+.res-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
 .w-file { flex: 1; }
 .w-chain { flex: 1; }
 .w-act {

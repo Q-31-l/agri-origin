@@ -124,10 +124,8 @@ public class LogisticsService {
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_LOGISTICS, record.getId(),
                 "LOGISTICS_HANDOVER", dataHash, evidenceHash, chain);
 
-        if (Constants.BATCH_QUALIFIED.equals(batch.getStatus())) {
-            batch.setStatus(Constants.BATCH_IN_TRANSIT);
-            Db.updated(batchMapper.updateById(batch));
-        }
+        // 运单登记不推进批次状态：监管复核通过后才置为 IN_TRANSIT（见 audit），
+        // 否则销售商能在运单未认可时就开始登记销售，审核链被绕过。
         return record.getId();
     }
 
@@ -146,5 +144,19 @@ public class LogisticsService {
         record.setAuditBy(UserContext.require().getRealName());
         record.setAuditTime(java.time.LocalDateTime.now());
         logisticsMapper.updateById(record);
+
+        // 复核通过才进入"运输中"，此时销售商的下拉里才会出现该批次（准入校验在 SalesService.create）
+        if (Constants.AUDIT_APPROVED.equals(dto.getAuditStatus()) && record.getBatchId() != null) {
+            BizBatch batch = batchMapper.selectById(record.getBatchId());
+            if (batch != null
+                    && !Constants.BATCH_ABNORMAL.equals(batch.getStatus())
+                    && !Constants.BATCH_CLOSED.equals(batch.getStatus())
+                    && !Constants.BATCH_IN_TRANSIT.equals(batch.getStatus())
+                    && !Constants.BATCH_ON_SALE.equals(batch.getStatus())
+                    && !Constants.BATCH_SOLD.equals(batch.getStatus())) {
+                batch.setStatus(Constants.BATCH_IN_TRANSIT);
+                Db.updated(batchMapper.updateById(batch));
+            }
+        }
     }
 }

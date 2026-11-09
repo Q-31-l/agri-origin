@@ -98,10 +98,8 @@ public class SalesService {
             throw BizException.conflict("该批次当日已有销售记录，请勿重复提交");
         }
 
-        List<BizSalesRecord> sold = salesMapper.selectList(Wrappers.<BizSalesRecord>lambdaQuery()
-                .eq(BizSalesRecord::getBatchId, batch.getId()));
-        BigDecimal soldQty = sold.stream().map(BizSalesRecord::getQuantity)
-                .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        // 被监管退回的销售记录不再占用库存，否则错填一次就永久吃掉可售数量
+        BigDecimal soldQty = effectiveSoldQty(batch.getId());
         BigDecimal total = soldQty.add(dto.getQuantity());
         if (batch.getQuantity() != null && total.compareTo(batch.getQuantity()) > 0) {
             throw BizException.conflict("销售数量超出批次库存，剩余 " + batch.getQuantity().subtract(soldQty) + batch.getUnit());
@@ -142,17 +140,22 @@ public class SalesService {
         chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_SALES, record.getId(),
                 "SALES_RECORD", dataHash, evidenceHash, chain);
 
-        boolean soldOut = batch.getQuantity() != null && total.compareTo(batch.getQuantity()) >= 0;
-        batch.setStatus(soldOut ? Constants.BATCH_SOLD : Constants.BATCH_ON_SALE);
-        Db.updated(batchMapper.updateById(batch));
+        // 销售登记不推进批次状态：等监管复核通过再置为在售/售罄（见 audit），
+        // 保证"外层状态"永远代表已经过审核的事实，而不是刚提交的待审数据。
         return record.getId();
     }
 
-    public BigDecimal soldQuantity(Long batchId) {
+    /** 有效销售量：排除被驳回的记录（驳回数据不算成交，也不吃库存） */
+    private BigDecimal effectiveSoldQty(Long batchId) {
         return salesMapper.selectList(Wrappers.<BizSalesRecord>lambdaQuery()
-                        .eq(BizSalesRecord::getBatchId, batchId))
+                        .eq(BizSalesRecord::getBatchId, batchId)
+                        .ne(BizSalesRecord::getAuditStatus, Constants.AUDIT_REJECTED))
                 .stream().map(BizSalesRecord::getQuantity)
                 .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal soldQuantity(Long batchId) {
+        return effectiveSoldQty(batchId);
     }
 
 
@@ -170,5 +173,20 @@ public class SalesService {
         record.setAuditBy(UserContext.require().getRealName());
         record.setAuditTime(java.time.LocalDateTime.now());
         salesMapper.updateById(record);
+
+        // 复核通过才让批次进入在售/售罄；退回的销售记录不计入成交量
+        if (Constants.AUDIT_APPROVED.equals(dto.getAuditStatus()) && record.getBatchId() != null) {
+            BizBatch batch = batchMapper.selectById(record.getBatchId());
+            if (batch != null
+                    && !Constants.BATCH_ABNORMAL.equals(batch.getStatus())
+                    && !Constants.BATCH_CLOSED.equals(batch.getStatus())
+                    && !Constants.BATCH_SOLD.equals(batch.getStatus())) {
+                BigDecimal sold = effectiveSoldQty(batch.getId());
+                boolean soldOut = batch.getQuantity() != null && batch.getQuantity().compareTo(BigDecimal.ZERO) > 0
+                        && sold.compareTo(batch.getQuantity()) >= 0;
+                batch.setStatus(soldOut ? Constants.BATCH_SOLD : Constants.BATCH_ON_SALE);
+                Db.updated(batchMapper.updateById(batch));
+            }
+        }
     }
 }

@@ -11,7 +11,8 @@
             <view class="title-row">
               <text class="pc-title mono">{{ batch.batchNo }}</text>
               <pc-status :value="batch.status" type="batch" />
-              <pc-status v-if="batch.auditStatus" :value="batch.auditStatus" type="audit" />
+              <!-- 卡点标签与左侧审核进度同源，避免外层"已通过"与内层"待审核"打架 -->
+              <text v-if="currentChip" class="stage-chip" :style="{ color: currentChip.color, background: currentChip.bg }">{{ currentChip.text }}</text>
               <text v-if="batch.abnormalFlag === 1" class="abn-chip">异常熔断中</text>
             </view>
             <text class="pc-sub">
@@ -424,6 +425,20 @@ const auditText = computed(() => {
   return c ? c.text : batch.value.auditStatus || '-'
 })
 
+/** 当前卡点：取进度里第一个未完成阶段，和页面下方进度条共用同一份数据 */
+const currentChip = computed(() => {
+  const p = progress.value
+  if (!p || !Array.isArray(p.stages)) return null
+  const s = p.stages.find((x) => x.status === 'PENDING' || x.status === 'REJECTED')
+  if (!s) return null
+  const pending = s.status === 'PENDING'
+  return {
+    text: s.title + (pending ? ' 待审核' : ' 已驳回'),
+    color: pending ? '#c2410c' : '#d93026',
+    bg: pending ? '#fff1e6' : '#fdeceb'
+  }
+})
+
 const tabs = computed(() => [
   { key: 'planting', label: '农事记录', list: plantings.value },
   { key: 'harvest', label: '采收', list: harvests.value },
@@ -604,6 +619,12 @@ function openFile(r) {
   border: 1px solid #f7c9c5;
   border-radius: 4px;
   padding: 1px 7px;
+}
+.stage-chip {
+  font-size: 10.5px;
+  border-radius: 4px;
+  padding: 1px 7px;
+  white-space: nowrap;
 }
 .mini {
   font-size: 11px;

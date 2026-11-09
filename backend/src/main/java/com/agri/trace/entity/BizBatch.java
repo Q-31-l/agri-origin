@@ -1,6 +1,7 @@
 package com.agri.trace.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -52,6 +53,16 @@ public class BizBatch {
     private String auditRemark;
 
     private Integer abnormalFlag;
+
+    /**
+     * 当前卡在哪个环节等待审核（列表页展示用，非数据库字段）。
+     *
+     * <p>批次 status 只在审核通过后推进，所以"已提交、还没审"的环节不会体现在 status 上；
+     * 列表如果只显示 status，村管会看不出这个批次有活等着他、农户也会以为提交没成功。
+     * 值形如"采收登记"，为空表示没有待审环节。
+     */
+    @TableField(exist = false)
+    private String pendingStage;
 
     private String chainStatus;
     private String chainTxHash;

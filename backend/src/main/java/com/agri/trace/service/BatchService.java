@@ -129,7 +129,62 @@ public class BatchService {
                 .apply(endDate != null && !endDate.isEmpty(), "DATE(create_time) <= {0}", endDate)
                 .orderByDesc(BizBatch::getId);
         applyScope(wrapper, UserContext.require());
-        return PageResult.of(batchMapper.selectPage(new Page<>(page, size), wrapper));
+        PageResult<BizBatch> result = PageResult.of(batchMapper.selectPage(new Page<>(page, size), wrapper));
+        fillPendingStage(result.getRecords());
+        return result;
+    }
+
+    /**
+     * 给列表补充"当前待审环节"：批次 status 只在审核通过后推进，
+     * 所以只看 status 会漏掉"已提交、等审核"的环节。
+     * 一次 in 查询按环节顺序取每批最早的那个待审环节，避免逐行查库。
+     */
+    private void fillPendingStage(List<BizBatch> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        List<Long> ids = new ArrayList<>();
+        for (BizBatch b : rows) {
+            ids.add(b.getId());
+        }
+        Map<Long, String> pending = new HashMap<>();
+        // 顺序即流程顺序：先命中先写入，最终留下的是流程上最靠前的待审环节
+        for (BizHarvestRecord r : harvestMapper.selectList(Wrappers.<BizHarvestRecord>lambdaQuery()
+                .select(BizHarvestRecord::getBatchId)
+                .in(BizHarvestRecord::getBatchId, ids)
+                .eq(BizHarvestRecord::getAuditStatus, Constants.AUDIT_PENDING))) {
+            pending.putIfAbsent(r.getBatchId(), "采收登记");
+        }
+        for (BizQualityReport r : qualityMapper.selectList(Wrappers.<BizQualityReport>lambdaQuery()
+                .select(BizQualityReport::getBatchId)
+                .in(BizQualityReport::getBatchId, ids)
+                .eq(BizQualityReport::getAuditStatus, Constants.AUDIT_PENDING))) {
+            pending.putIfAbsent(r.getBatchId(), "质量检测");
+        }
+        for (BizLogisticsRecord r : logisticsMapper.selectList(Wrappers.<BizLogisticsRecord>lambdaQuery()
+                .select(BizLogisticsRecord::getBatchId)
+                .in(BizLogisticsRecord::getBatchId, ids)
+                .eq(BizLogisticsRecord::getAuditStatus, Constants.AUDIT_PENDING))) {
+            pending.putIfAbsent(r.getBatchId(), "物流运输");
+        }
+        for (BizSalesRecord r : salesMapper.selectList(Wrappers.<BizSalesRecord>lambdaQuery()
+                .select(BizSalesRecord::getBatchId)
+                .in(BizSalesRecord::getBatchId, ids)
+                .eq(BizSalesRecord::getAuditStatus, Constants.AUDIT_PENDING))) {
+            pending.putIfAbsent(r.getBatchId(), "终端销售");
+        }
+        for (BizBatch b : rows) {
+            // 已结案 / 异常熔断的批次不再流转，谈"待审"没有意义（进度里显示的是异常处置）
+            if (Constants.BATCH_CLOSED.equals(b.getStatus()) || Constants.BATCH_ABNORMAL.equals(b.getStatus())) {
+                continue;
+            }
+            // 村级核验是流程第一环，优先级最高
+            if (Constants.AUDIT_PENDING.equals(b.getAuditStatus())) {
+                b.setPendingStage("村级核验");
+            } else if (pending.containsKey(b.getId())) {
+                b.setPendingStage(pending.get(b.getId()));
+            }
+        }
     }
 
     public List<BizBatch> listForSelect(String status) {
@@ -683,14 +738,20 @@ public class BatchService {
      * 批次详情：聚合全流程数据与时间轴
      */
     public BatchDetailVO detail(Long id) {
-        return assemble(getAuthorized(id));
+        return assemble(getAuthorized(id), false);
     }
 
     /**
      * 公共溯源使用：不做登录用户数据范围校验（仅暴露脱敏后的时间轴）
      */
+    /**
+     * 对外（扫码溯源、免登录）视图。
+     *
+     * <p>消费者只应看到"已经通过审核"的事实：待审核/被驳回的采收、质检、物流、销售记录
+     * 一律不下发。否则会出现"管理端显示待审核、消费者扫码却看到已完成"的两套真相。
+     */
     public BatchDetailVO detailPublic(BizBatch batch) {
-        return assemble(batch);
+        return assemble(batch, true);
     }
 
     public BizBatch getByCode(String code) {
@@ -703,23 +764,34 @@ public class BatchService {
         return batch;
     }
 
-    private BatchDetailVO assemble(BizBatch batch) {
+    private BatchDetailVO assemble(BizBatch batch, boolean publicOnly) {
         Long id = batch.getId();
         BatchDetailVO vo = new BatchDetailVO();
         vo.setBatch(batch);
         vo.setChainEnabled(contractService.isEnabled());
         vo.setChainMessage(contractService.getChainMessage());
 
+        // publicOnly 为真时只取审核通过的记录，保证对外展示口径与审核进度一致
         vo.setPlantings(plantingMapper.selectList(Wrappers.<BizPlantingRecord>lambdaQuery()
-                .eq(BizPlantingRecord::getBatchId, id).orderByAsc(BizPlantingRecord::getOperationDate)));
+                .eq(BizPlantingRecord::getBatchId, id)
+                .eq(publicOnly, BizPlantingRecord::getAuditStatus, Constants.AUDIT_APPROVED)
+                .orderByAsc(BizPlantingRecord::getOperationDate)));
         vo.setHarvests(harvestMapper.selectList(Wrappers.<BizHarvestRecord>lambdaQuery()
-                .eq(BizHarvestRecord::getBatchId, id).orderByAsc(BizHarvestRecord::getId)));
+                .eq(BizHarvestRecord::getBatchId, id)
+                .eq(publicOnly, BizHarvestRecord::getAuditStatus, Constants.AUDIT_APPROVED)
+                .orderByAsc(BizHarvestRecord::getId)));
         vo.setQualities(qualityMapper.selectList(Wrappers.<BizQualityReport>lambdaQuery()
-                .eq(BizQualityReport::getBatchId, id).orderByAsc(BizQualityReport::getId)));
+                .eq(BizQualityReport::getBatchId, id)
+                .eq(publicOnly, BizQualityReport::getAuditStatus, Constants.AUDIT_APPROVED)
+                .orderByAsc(BizQualityReport::getId)));
         vo.setLogistics(logisticsMapper.selectList(Wrappers.<BizLogisticsRecord>lambdaQuery()
-                .eq(BizLogisticsRecord::getBatchId, id).orderByAsc(BizLogisticsRecord::getId)));
+                .eq(BizLogisticsRecord::getBatchId, id)
+                .eq(publicOnly, BizLogisticsRecord::getAuditStatus, Constants.AUDIT_APPROVED)
+                .orderByAsc(BizLogisticsRecord::getId)));
         vo.setSales(salesMapper.selectList(Wrappers.<BizSalesRecord>lambdaQuery()
-                .eq(BizSalesRecord::getBatchId, id).orderByAsc(BizSalesRecord::getId)));
+                .eq(BizSalesRecord::getBatchId, id)
+                .eq(publicOnly, BizSalesRecord::getAuditStatus, Constants.AUDIT_APPROVED)
+                .orderByAsc(BizSalesRecord::getId)));
         vo.setDisposals(abnormalMapper.selectList(Wrappers.<BizAbnormalDisposal>lambdaQuery()
                 .eq(BizAbnormalDisposal::getBatchId, id).orderByAsc(BizAbnormalDisposal::getId)));
         vo.setCorrections(correctionMapper.selectList(Wrappers.<BizCorrection>lambdaQuery()
