@@ -232,11 +232,46 @@ public class TraceContractService {
         } catch (Exception e) {
             log.error("上链失败 function={}, batchNo={}, err={}", function,
                     params.isEmpty() ? "" : params.get(0), e.getMessage());
+            String friendly = friendlyChainError(e.getMessage());
             if (properties.isStrict()) {
-                throw BizException.chain("上链失败，操作已回滚：" + e.getMessage());
+                throw BizException.chain("上链失败，操作已回滚：" + friendly);
             }
-            return ChainResult.failed(e.getMessage());
+            return ChainResult.failed(friendly);
         }
+    }
+
+    /**
+     * 合约 require 的英文原文直接抛给用户，界面上只会看到
+     * 「交易执行失败：batch already exists」这种半截英文，既看不懂也不知道该怎么办。
+     * 这里把已知的几种 revert 翻成可操作的提示；未知错误保留原文，方便排查。
+     */
+    private String friendlyChainError(String raw) {
+        if (raw == null) {
+            return "链上节点无响应，请稍后重试";
+        }
+        String lower = raw.toLowerCase();
+        if (lower.contains("batch already exists")) {
+            return "该批次号已在链上存证（历史批次占用），换个批次号重试即可";
+        }
+        if (lower.contains("batch not found")) {
+            return "该批次尚未在链上登记，请先完成建档";
+        }
+        if (lower.contains("batch closed")) {
+            return "批次已关闭，不能再追加记录";
+        }
+        if (lower.contains("already abnormal")) {
+            return "批次已处于异常状态，无需重复标记";
+        }
+        if (lower.contains("batch not abnormal")) {
+            return "批次当前不是异常状态，无法处置";
+        }
+        if (lower.contains("not authorized")) {
+            return "链上账户未获授权，请联系管理员在合约中授权该账户";
+        }
+        if (lower.contains("timeout") || lower.contains("connect")) {
+            return "链上节点连接超时，请检查 FISCO 节点状态";
+        }
+        return raw;
     }
 
     private BigInteger toBigInteger(Object o) {

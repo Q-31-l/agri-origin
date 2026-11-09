@@ -44,6 +44,7 @@ import com.agri.trace.vo.TimelineItem;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +61,7 @@ import java.util.Map;
 /**
  * 批次全生命周期管理
  */
+@Slf4j
 @Service
 public class BatchService {
 
@@ -386,14 +388,7 @@ public class BatchService {
         // 回填后紧接着的上链状态回写才会带上版本条件，避免 MyBatis-Plus 打 warn 并跳过锁
         batch.setVersion(0);
 
-        String dataHash = DigestHelper.batch(batch);
-        ChainResult chain = contractService.registerBatch(batch, dataHash, user.getRealName());
-        batch.setChainStatus(chain.getStatus());
-        batch.setChainTxHash(chain.getTxHash());
-        batch.setBlockNumber(chain.getBlockNumber());
-        Db.updated(batchMapper.updateById(batch));
-        chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_BATCH, batch.getId(),
-                "BATCH_REGISTER", dataHash, null, chain);
+        registerBatchOnChain(batch, user.getRealName());
 
         return batch.getId();
     }
@@ -475,15 +470,63 @@ public class BatchService {
         batchMapper.insert(batch);
         batch.setVersion(0);
 
-        String dataHash = DigestHelper.batch(batch);
-        ChainResult chain = contractService.registerBatch(batch, dataHash, farmer.getRealName());
-        batch.setChainStatus(chain.getStatus());
-        batch.setChainTxHash(chain.getTxHash());
-        batch.setBlockNumber(chain.getBlockNumber());
-        Db.updated(batchMapper.updateById(batch));
-        chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_BATCH, batch.getId(),
-                "BATCH_REGISTER", dataHash, null, chain);
+        registerBatchOnChain(batch, farmer.getRealName());
         return batch;
+    }
+
+    /**
+     * 建档上链（带换号重试）。
+     *
+     * <p>合约 {@code registerBatch} 的语义是"批次号存在即 revert"，而链上数据不可删除：
+     * 只要历史上用过这个号（哪怕本地记录已删、库被重置过），这里就会拿到
+     * {@code batch already exists}，strict 模式下直接抛异常、把整笔建档/审核事务回滚——
+     * 表现就是村管点"通过"弹「上链失败，操作已回滚」。
+     *
+     * <p>号在 {@link #generateBatchNo()} 里已经做过链上探测，正常一次就成；
+     * 这里再兜一层并发与探测失败的情况：撞号就换下一个可用号、重算摘要再写一次，
+     * 最多 3 次。其它链上错误（未授权、链不可用等）原样抛出，不掩盖真问题。
+     */
+    private void registerBatchOnChain(BizBatch batch, String operatorName) {
+        BizException last = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                String dataHash = DigestHelper.batch(batch);
+                ChainResult chain = contractService.registerBatch(batch, dataHash, operatorName);
+                batch.setChainStatus(chain.getStatus());
+                batch.setChainTxHash(chain.getTxHash());
+                batch.setBlockNumber(chain.getBlockNumber());
+                Db.updated(batchMapper.updateById(batch));
+                chainService.saveRecord(batch.getBatchNo(), Constants.EVENT_BATCH, batch.getId(),
+                        "BATCH_REGISTER", dataHash, null, chain);
+                return;
+            } catch (BizException e) {
+                if (!isBatchAlreadyExists(e.getMessage())) {
+                    throw e;
+                }
+                last = e;
+                log.warn("批次号 {} 在链上已被占用，换号后重试（第 {} 次）", batch.getBatchNo(), attempt + 1);
+                String newNo = generateBatchNo();
+                batch.setBatchNo(newNo);
+                batch.setTraceCode("TC" + newNo.substring(2));
+                Db.updated(batchMapper.updateById(batch));
+                // 换号会走一次带版本条件的更新，版本号随之 +1；
+                // 重新读一次，避免下一次回写链上状态时因版本过期拿到 0 行被判 409。
+                BizBatch fresh = batchMapper.selectById(batch.getId());
+                if (fresh != null) {
+                    batch.setVersion(fresh.getVersion());
+                }
+            }
+        }
+        throw last;
+    }
+
+    private boolean isBatchAlreadyExists(String message) {
+        if (message == null) {
+            return false;
+        }
+        // TraceContractService 会把合约的英文 revert 翻成中文，两种写法都要认
+        String lower = message.toLowerCase();
+        return lower.contains("batch already exists") || message.contains("已在链上存证");
     }
 
     private BaseProduct resolveProductByName(String name) {
@@ -528,7 +571,21 @@ public class BatchService {
             return;
         }
         String dataHash = DigestHelper.batch(batch);
-        ChainResult chain = contractService.registerBatch(batch, dataHash, operatorName);
+        ChainResult chain;
+        try {
+            chain = contractService.registerBatch(batch, dataHash, operatorName);
+        } catch (BizException e) {
+            // 探测失败（链抖动）时会漏判"链上已存在"，补注册再撞一次。
+            // 这种情况批次本来就在链上，业务没必要回滚，回写状态即可。
+            if (isBatchAlreadyExists(e.getMessage())
+                    && Boolean.TRUE.equals(contractService.batchExistsOnChain(batch.getBatchNo()))) {
+                log.warn("批次 {} 已在链上，跳过补注册并回写状态", batch.getBatchNo());
+                batch.setChainStatus(Constants.CHAIN_SUCCESS);
+                Db.updated(batchMapper.updateById(batch));
+                return;
+            }
+            throw e;
+        }
         if (!chain.isSuccess()) {
             throw BizException.chain("批次 " + batch.getBatchNo() + " 链上注册失败：" + chain.getMessage());
         }
@@ -922,15 +979,35 @@ public class BatchService {
     public synchronized String generateBatchNo() {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "AG" + date;
-        long count = batchMapper.selectCount(Wrappers.<BizBatch>lambdaQuery()
-                .likeRight(BizBatch::getBatchNo, prefix));
+        // 以当日最大序号为基准往后取，而不是按"条数 + 1"。
+        // 条数会在删过批次后回退（库里只剩 001、011 时 count=2 → 生成 003），
+        // 而链上批次永久存在、删不掉，003 可能正是历史遗留的号，一建就 revert。
+        long max = 0;
+        BizBatch last = batchMapper.selectOne(Wrappers.<BizBatch>lambdaQuery()
+                .likeRight(BizBatch::getBatchNo, prefix)
+                .orderByDesc(BizBatch::getBatchNo)
+                .last("limit 1"));
+        if (last != null && last.getBatchNo() != null && last.getBatchNo().length() > prefix.length()) {
+            try {
+                max = Long.parseLong(last.getBatchNo().substring(prefix.length()));
+            } catch (NumberFormatException ignore) {
+                // 尾段不是纯数字（历史脏数据）时退回从 1 开始找，不影响可用性
+            }
+        }
         for (int i = 1; i <= 999; i++) {
-            String candidate = prefix + String.format("%03d", count + i);
+            String candidate = prefix + String.format("%03d", max + i);
             Long exists = batchMapper.selectCount(Wrappers.<BizBatch>lambdaQuery()
                     .eq(BizBatch::getBatchNo, candidate));
-            if (exists == null || exists == 0) {
-                return candidate;
+            if (exists != null && exists > 0) {
+                continue;
             }
+            // 链上还有"库已删、链仍在"的历史批次号，占着就不能再用：
+            // 先问链再落库，避免走到 registerBatch 才被 revert。
+            if (Boolean.TRUE.equals(contractService.batchExistsOnChain(candidate))) {
+                log.warn("批次号 {} 已被链上历史批次占用，跳过", candidate);
+                continue;
+            }
+            return candidate;
         }
         throw new BizException(ResultCode.SERVER_ERROR, "当日批次编码已用尽");
     }
