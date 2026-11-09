@@ -59,7 +59,8 @@ export const TAB_PAGES = [ROUTES.HOME, ROUTES.TAB_BATCH, ROUTES.TAB_TRACE, ROUTE
  */
 export const PC_MENUS = [
   { path: ROUTES.PC_DASHBOARD, title: '数据看板', icon: 'dashboard' },
-  { path: ROUTES.PC_WORKFLOW_TODO, title: '审核待办', icon: 'check' },
+  // 只有真的承担审核职责的角色才看得到：村管（本村核验/农事/采收）、监管（质检/物流/销售复核）
+  { path: ROUTES.PC_WORKFLOW_TODO, title: '审核待办', icon: 'check', perm: 'batch:audit' },
   { group: '全流程管理' },
   { path: ROUTES.PC_BATCH_LIST, title: '批次管理', icon: 'batch', perm: 'batch:list' },
   { path: ROUTES.PC_PLANTING, title: '农事记录', icon: 'planting', perm: 'planting:list' },

@@ -7,8 +7,8 @@
       </view>
       <view class="wf-bar"><view class="wf-bar-in" :style="{ width: (progress.percent || 0) + '%' }"></view></view>
       <view class="wf-now">
-        <text v-if="waitingTag" class="wf-chip">{{ waitingTag }}</text>
-        <text class="wf-tip">{{ progress.tip || '暂无进度信息' }}</text>
+        <view v-if="waitingTag" class="wf-chip">{{ waitingTag }}</view>
+        <view class="wf-tip">{{ progress.tip || '暂无进度信息' }}</view>
       </view>
     </view>
 
@@ -52,13 +52,17 @@ const STATUS_TEXT = {
   ABNORMAL: '异常'
 }
 
-/** 顶部提示条：说清楚"现在卡在谁那里" */
+/**
+ * 顶部提示条左侧的状态标签：只说"在等审核"，具体等谁由右侧整句讲，
+ * 同一句话不重复两遍（原来左边"等待王秀兰审核"、右边又"已提交，等待…审核"）。
+ */
 const waitingTag = computed(() => {
   const p = props.progress
   if (!p) return ''
-  if (p.currentStageCode === 'DONE') return '全部完成'
-  if (p.waitingRole && p.waitingNames) return `等待 ${p.waitingNames} 审核`
-  if (p.waitingRole) return `等待${p.waitingRole}`
+  if (p.currentStageCode === 'DONE') return '已完成'
+  if (p.stages && p.stages.some((s) => s.status === 'REJECTED')) return '已驳回'
+  if (p.stages && p.stages.some((s) => s.status === 'ABNORMAL')) return '异常'
+  if (p.tip && p.tip.indexOf('等待') >= 0) return '待审核'
   return ''
 })
 
@@ -125,9 +129,11 @@ function statusText(s) {
 }
 .wf-tip {
   flex: 1;
+  min-width: 0;
   font-size: 24rpx;
   color: $text-2;
   line-height: 1.6;
+  word-break: break-all;
 }
 .wf-steps {
   margin-top: 16rpx;

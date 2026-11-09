@@ -10,8 +10,8 @@
     <view class="pc-card-body">
       <view class="wf-bar"><view class="wf-bar-in" :style="{ width: (progress.percent || 0) + '%' }"></view></view>
       <view class="wf-now" :class="{ warn: isWaiting }">
-        <text v-if="waitingTag" class="wf-chip">{{ waitingTag }}</text>
-        <text class="wf-tip">{{ progress.tip }}</text>
+        <view v-if="waitingTag" class="wf-chip">{{ waitingTag }}</view>
+        <view class="wf-tip">{{ progress.tip }}</view>
       </view>
 
       <view class="wf-strip">
@@ -60,12 +60,14 @@ const isWaiting = computed(() => {
   return !!p && (p.currentStageCode === 'PENDING' || p.tip && p.tip.indexOf('等待') === 0)
 })
 
+/** 提示条左侧的状态小标签：只标"在等审核"，具体等谁由右侧整句说明，避免同一句话说两遍 */
 const waitingTag = computed(() => {
   const p = props.progress
   if (!p) return ''
-  if (p.currentStageCode === 'DONE') return '全部完成'
-  if (p.waitingRole && p.waitingNames) return `等待 ${p.waitingNames} 审核`
-  if (p.waitingRole) return `等待${p.waitingRole}`
+  if (p.currentStageCode === 'DONE') return '已完成'
+  if (p.stages && p.stages.some((s) => s.status === 'REJECTED')) return '已驳回'
+  if (p.stages && p.stages.some((s) => s.status === 'ABNORMAL')) return '异常'
+  if (p.tip && p.tip.indexOf('等待') >= 0) return '待审核'
   return ''
 })
 
@@ -146,9 +148,11 @@ function lineOf(s) {
 }
 .wf-tip {
   flex: 1;
+  min-width: 0;
   font-size: 12.5px;
   color: #475569;
   line-height: 1.6;
+  word-break: break-all;
 }
 
 /* 横向环节条 */

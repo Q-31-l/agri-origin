@@ -217,12 +217,16 @@ public class WorkflowService {
         String lastAuditBy = null;
         LocalDateTime lastAuditTime = null;
         for (BizPlantingRecord r : list) {
+            // 提交人与提交时间要按"全部记录"统计，不能只在 PENDING 时收集：
+            // 否则农事全部审核通过后，进度里这一环只剩审核人，看不到是谁提交的。
+            if (!isEmpty(r.getOperatorName())) {
+                submitters.add(r.getOperatorName());
+            }
+            if (r.getCreateTime() != null && (lastSubmit == null || r.getCreateTime().isAfter(lastSubmit))) {
+                lastSubmit = r.getCreateTime();
+            }
             if (Constants.AUDIT_PENDING.equals(r.getAuditStatus())) {
                 pending++;
-                submitters.add(r.getOperatorName());
-                if (lastSubmit == null || (r.getCreateTime() != null && r.getCreateTime().isAfter(lastSubmit))) {
-                    lastSubmit = r.getCreateTime();
-                }
             } else if (Constants.AUDIT_REJECTED.equals(r.getAuditStatus())) {
                 rejected++;
             } else {
@@ -741,6 +745,7 @@ public class WorkflowService {
         LambdaQueryWrapper<SysUser> w = Wrappers.<SysUser>lambdaQuery()
                 .select(SysUser::getRealName)
                 .eq(SysUser::getRoleCode, roleCode)
+                .eq(SysUser::getStatus, 1)
                 .eq(villageId != null, SysUser::getVillageId, villageId)
                 .orderByAsc(SysUser::getId);
         List<String> names = new ArrayList<>();
@@ -847,8 +852,19 @@ public class WorkflowService {
         return t == null ? null : t.format(DT_FMT);
     }
 
+    /**
+     * 姓名拼接：超过 3 人只列前 3 个，其余折成"等 N 人"。
+     * 一个村配了七八个村管时，把全名都塞进"等待 XX 审核"会撑破提示条，
+     * 提交方真正需要知道的是"在等哪一级、大概几个人"。
+     */
     private String join(List<String> names) {
-        return names == null || names.isEmpty() ? "" : String.join("、", names);
+        if (names == null || names.isEmpty()) {
+            return "";
+        }
+        if (names.size() <= 3) {
+            return String.join("、", names);
+        }
+        return String.join("、", names.subList(0, 3)) + " 等 " + names.size() + " 人";
     }
 
     private String nullSafe(String s) {

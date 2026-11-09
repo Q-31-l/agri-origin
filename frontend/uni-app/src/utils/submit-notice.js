@@ -20,7 +20,10 @@ export async function showSubmitNotice(bizType, bizId) {
     return
   }
   if (!d || !d.message) return
-  const content = d.nextStep ? d.message + '\n\n' + d.nextStep : d.message
+  // 标题已经写明"XX已提交"，正文再把"已提交，"开头顶一遍就成了重复话术：
+  // 标题「农事记录已提交」+ 正文「等待溪头村 王秀兰（村级管理员）审核」才是一句完整的话。
+  const msg = d.message.indexOf('已提交，') === 0 ? d.message.slice(4) : d.message
+  const content = d.nextStep ? msg + '\n\n' + d.nextStep : msg
   await new Promise((resolve) => {
     uni.showModal({
       title: d.title || '提交成功',

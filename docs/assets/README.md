@@ -12,11 +12,10 @@ docs/assets/
 ├── flow-batch-lifecycle.png      业务流程图（PNG，可直接插入 Word 报告）
 ├── use-case.svg                  角色用例图（矢量源文件）
 ├── use-case.png                  角色用例图（PNG）
-├── screenshots/                  系统实际运行截图（14 张，见该目录 README）
-│   ├── pc-01-login.png           PC 登录页
-│   ├── pc-02-dashboard.png       数据看板
-│   ├── ...
-│   └── h5-05-trace.png           消费者扫码溯源
+├── screenshots/                  系统实际运行截图（40 张，见该目录 README）
+│   ├── uni-pc/                   PC 管理端（登录、看板、批次、审核待办、七类业务页、系统页）
+│   ├── uni/                      移动端（工作台、批次、审核待办、提交提示、消费者溯源）
+│   └── ...                       全流程四个时刻：flow-01-created ~ flow-04-completed
 └── samples/
     ├── JC20260512-001_红颜草莓_质检报告.pdf     合格样例（对应批次 AG20260512001）
     ├── JC20260515-002_小白菜_质检报告.pdf       不合格样例·农残超标（对应批次 AG20260515002）

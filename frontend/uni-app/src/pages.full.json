@@ -18,6 +18,12 @@
       }
     },
     {
+      "path": "pages/auth/register",
+      "style": {
+        "navigationBarTitleText": "注册账号"
+      }
+    },
+    {
       "path": "pages/auth/wx-bind",
       "style": {
         "navigationBarTitleText": "绑定账号"
