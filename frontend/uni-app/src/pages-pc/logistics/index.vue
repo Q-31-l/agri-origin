@@ -58,7 +58,11 @@
             </view>
             <text class="pc-td w-time">{{ formatDateTime(r.departTime) }}</text>
             <text class="pc-td">{{ r.temperature || '-' }}</text>
-            <text class="pc-td">{{ statusText(r.status) }}</text>
+            <view class="pc-td st-cell">
+              <text class="st-text">{{ statusText(r.status) }}</text>
+              <!-- 运单状态是运输事实，不代表监管已复核，两者必须分开显示 -->
+              <pc-status v-if="r.auditStatus && r.auditStatus !== 'APPROVED'" :value="r.auditStatus" type="audit" />
+            </view>
             <view class="pc-td w-chain"><pc-status :value="r.chainStatus" type="chain" /></view>
             <view class="pc-td w-act">
               <text v-if="canAuditRow(r)" class="pc-link" @click="openAudit(r)">审核</text>
@@ -417,6 +421,15 @@ onShow(() => {
 .w-car { flex: 1.25; }
 .w-time { flex: 1.6; }
 .w-chain { flex: 1; }
+.st-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.st-text {
+  font-size: 11.5px;
+}
 .w-act { flex: 0.7; }
 .pc-tr .w-act,
 .pc-td.w-act {
