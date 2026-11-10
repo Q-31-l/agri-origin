@@ -50,7 +50,7 @@
             <text class="pc-td w-date">{{ r.operationDate || '-' }}</text>
             <text class="pc-td w-batch mono">{{ r.batchNo || '-' }}</text>
             <text class="pc-td w-type">{{ plantingTypeLabel(r.recordType) }}</text>
-            <view class="pc-td w-content">{{ r.content || '-' }}</view>
+            <view class="pc-td w-content wrap">{{ r.content || '-' }}</view>
             <text class="pc-td w-material">{{ r.materialName || '-' }}</text>
             <text class="pc-td w-dosage">{{ r.dosage || '-' }}</text>
             <text class="pc-td w-op">{{ r.operatorName || '-' }}</text>
@@ -425,7 +425,7 @@ onShow(() => {
 .w-date { flex: 1; }
 .w-batch { flex: 1.4; }
 .w-type { flex: 1; }
-.w-content { flex: 2.2; }
+.w-content { flex: 2.45; }
 .w-material { flex: 1.1; }
 .w-dosage { flex: 0.9; }
 .w-op { flex: 0.9; }

@@ -48,7 +48,6 @@
           <text class="pc-th w-phone">手机号</text>
           <text class="pc-th w-scope">数据范围</text>
           <text class="pc-th w-stat">状态</text>
-          <text class="pc-th w-time">手机号后四位</text>
           <text class="pc-th w-act">操作</text>
         </view>
 
@@ -69,17 +68,21 @@
                 {{ u.status === 0 ? '已停用' : '启用中' }}
               </text>
             </view>
-            <text class="pc-td w-time">{{ tail4(u.phone) }}</text>
             <view class="pc-td w-act">
-              <text v-if="u.auditStatus === 'PENDING'" class="pc-link ok" @click="onAudit(u, true)">通过</text>
-              <text v-if="u.auditStatus === 'PENDING'" class="pc-link danger" @click="onAudit(u, false)">拒绝</text>
-              <text v-if="u.auditStatus === 'PENDING' && canUpdate" class="sep">|</text>
-              <text v-if="canUpdate" class="pc-link" @click="openEdit(u)">编辑</text>
-              <text v-if="canUpdate" class="pc-link" @click="onReset(u)">重置密码</text>
-              <text v-if="canDisable && u.id !== myId" class="pc-link" @click="onToggle(u)">
-                {{ u.status === 0 ? '启用' : '停用' }}
-              </text>
-              <text v-if="canDelete && u.id !== myId" class="pc-link danger" @click="onDelete(u)">删除</text>
+              <!-- 主操作常驻：待审核先处理审核，其余先给编辑 -->
+              <template v-if="u.auditStatus === 'PENDING'">
+                <text class="pc-link ok" @click="onAudit(u, true)">通过</text>
+                <text class="pc-link danger" @click="onAudit(u, false)">拒绝</text>
+              </template>
+              <text v-else-if="canUpdate" class="pc-link" @click="openEdit(u)">编辑</text>
+              <text v-else class="pc-link mute">—</text>
+
+              <!-- 次要操作收进下拉：重置密码 / 启停 / 删除，不再把列撑爆 -->
+              <pc-more
+                v-if="moreItems(u).length"
+                :items="moreItems(u)"
+                @select="(it) => onMore(u, it.action)"
+              />
             </view>
           </view>
         </view>
@@ -152,6 +155,7 @@ import PcShell from '@/layouts/pc-shell.vue'
 import PcSelect from '@/components/pc/pc-select.vue'
 import PcPager from '@/components/pc/pc-pager.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
+import PcMore from '@/components/pc/pc-more.vue'
 import {
   userPage,
   createUser,
@@ -205,13 +209,42 @@ const SCOPE_TEXT = {
   SELF: '仅本人'
 }
 
-function tail4(phone) {
-  const p = String(phone || '')
-  return p.length >= 4 ? '****' + p.slice(-4) : '-'
-}
-
 function scopeText(s) {
   return SCOPE_TEXT[s] || s || '—'
+}
+
+/**
+ * 操作列只平铺主操作，其余收进「更多」。
+ * 之前 6 个文字按钮一行排开，列宽不够会把最后的"删除"裁掉，
+ * 而且待审核行同时出现审核与治理按钮，视觉上没有主次。
+ */
+function moreItems(u) {
+  const items = []
+  // 待审核行的主操作已经是通过/拒绝，编辑挪进下拉
+  if (u.auditStatus === 'PENDING' && canUpdate.value) {
+    items.push({ label: '编辑资料', action: 'edit' })
+  }
+  if (canUpdate.value) {
+    items.push({ label: '重置密码', action: 'reset' })
+  }
+  if (canDisable.value && u.id !== myId.value) {
+    // 停用是"暂时关掉"，不是破坏性操作，用中性色；只有删除才标红
+    items.push({
+      label: u.status === 0 ? '启用账号' : '停用账号',
+      action: 'toggle'
+    })
+  }
+  if (canDelete.value && u.id !== myId.value) {
+    items.push({ label: '删除账号', action: 'delete', danger: true })
+  }
+  return items
+}
+
+function onMore(u, action) {
+  if (action === 'edit') return openEdit(u)
+  if (action === 'reset') return onReset(u)
+  if (action === 'toggle') return onToggle(u)
+  if (action === 'delete') return onDelete(u)
 }
 
 function roleClass(code) {
@@ -450,26 +483,24 @@ onShow(() => {
 .w-phone { flex: 1.1; }
 .w-scope { flex: 0.9; }
 .w-stat { flex: 0.72; }
-.w-time { flex: 1.3; }
-.w-act {
-  flex: 2.4;
+/* 操作列：主操作 + 更多。overflow 必须放开，否则下拉面板会被单元格裁掉 */
+.pc-td.w-act {
+  flex: 1.7;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
   flex-wrap: nowrap;
+  overflow: visible;
 }
 /* 操作列里的文字按钮：给足点击区域，避免挤成一串 */
 .w-act .pc-link {
   white-space: nowrap;
   flex-shrink: 0;
 }
-/* 审核按钮组与常规操作之间的竖线分隔 */
-.w-act .sep {
-  color: #e2e8f0;
-  font-size: 11px;
-  user-select: none;
-  flex-shrink: 0;
+.w-act .pc-link.mute {
+  color: #b6bec9;
+  cursor: default;
 }
 .mono {
   font-family: Consolas, monospace;

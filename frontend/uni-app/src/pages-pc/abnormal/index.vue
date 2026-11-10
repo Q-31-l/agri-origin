@@ -64,9 +64,9 @@
           <view v-for="r in list" :key="r.id" class="pc-tr">
             <text class="pc-td w-batch mono">{{ r.batchNo || '-' }}</text>
             <text class="pc-td">{{ abnormalTypeLabel(r.abnormalType) }}</text>
-            <view class="pc-td w-desc">{{ r.description || '-' }}</view>
-            <text class="pc-td w-measure">{{ r.disposalMeasure || '-' }}</text>
-            <view class="pc-td w-res">{{ r.disposalResult || '-' }}</view>
+            <view class="pc-td w-desc wrap">{{ r.description || '-' }}</view>
+            <text class="pc-td w-measure wrap">{{ r.disposalMeasure || '-' }}</text>
+            <view class="pc-td w-res wrap">{{ r.disposalResult || '-' }}</view>
             <text class="pc-td">{{ r.handlerName || '-' }}</text>
             <text class="pc-td w-time">{{ formatDateTime(r.handleTime) }}</text>
             <view class="pc-td w-status">
@@ -277,10 +277,10 @@ useRealtime(() => {
   display: flex;
   flex-direction: column;
 }
-.w-batch { flex: 1.5; }
-.w-desc { flex: 2.0; }
-.w-measure { flex: 1.8; }
-.w-res { flex: 1.4; }
+.w-batch { flex: 1.2; }
+.w-desc { flex: 2.5; }
+.w-measure { flex: 1.6; }
+.w-res { flex: 1.2; }
 .w-time { flex: 1.5; }
 .w-status { flex: 0.8; }
 .w-act { flex: 0.6; }

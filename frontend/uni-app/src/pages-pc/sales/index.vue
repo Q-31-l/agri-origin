@@ -50,8 +50,8 @@
           <view v-for="r in list" :key="r.id" class="pc-tr">
             <text class="pc-td w-date">{{ r.salesDate || '-' }}</text>
             <text class="pc-td w-batch mono">{{ r.batchNo || '-' }}</text>
-            <text class="pc-td">{{ r.marketName || '-' }}</text>
-            <text class="pc-td">{{ r.sellerName || '-' }}</text>
+            <text class="pc-td w-market">{{ r.marketName || '-' }}</text>
+            <text class="pc-td w-seller">{{ r.sellerName || '-' }}</text>
             <text class="pc-td">￥{{ r.price || '-' }}</text>
             <text class="pc-td">{{ fmtQty(r.quantity, r.unit) }}</text>
             <text class="pc-td">{{ amount(r) }}</text>
@@ -389,6 +389,9 @@ onShow(() => {
 }
 .w-date { flex: 1.1; }
 .w-batch { flex: 1.5; }
+/* 门店名与销售商都是完整名称，默认宽度会把"永辉超市闽侯旗舰店"截成"永辉超市闽侯…" */
+.w-market { flex: 1.4; }
+.w-seller { flex: 1.32; }
 .w-chain { flex: 1; }
 .w-act { flex: 0.7; }
 .pc-tr .w-act,

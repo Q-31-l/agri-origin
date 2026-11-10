@@ -52,7 +52,7 @@
             <text class="pc-td">{{ fmtQty(r.quantity, r.unit) }}</text>
             <text class="pc-td">{{ r.qualityLevel || '-' }}</text>
             <text class="pc-td">{{ r.weather || '-' }}</text>
-            <view class="pc-td w-remark">{{ r.remark || '-' }}</view>
+            <view class="pc-td w-remark wrap">{{ r.remark || '-' }}</view>
             <text class="pc-td">{{ r.operatorName || '-' }}</text>
             <view class="pc-td w-audit">
               <pc-status :value="r.auditStatus" type="audit" />
@@ -420,7 +420,7 @@ onShow(() => {
 }
 .w-date { flex: 1.1; }
 .w-batch { flex: 1.5; }
-.w-remark { flex: 1.8; }
+.w-remark { flex: 2.15; }
 .w-audit { flex: 1.1; display: flex; flex-direction: row; align-items: center; gap: 6px; }
 .au-link {
   font-size: 11.5px;

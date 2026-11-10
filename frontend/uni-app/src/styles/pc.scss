@@ -240,6 +240,21 @@ body {
   font-size: 11px;
   color: #64748b;
 }
+/**
+ * 说明性字段（异常描述、处置措施、备注这类）允许自然换行，不再单行截断。
+ *
+ * 为什么不用 -webkit-line-clamp：uni-app 的 uni-view 默认 display 会盖掉
+ * -webkit-box，实测 clamp 没有真裁剪，第三行直接画到框外和下一条记录叠在一起。
+ * 这里的列都是说明性文字，宁可行高跟着内容走，也要保证看得全。
+ */
+.pc-td.wrap {
+  display: block;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.6;
+  overflow: visible;
+  text-overflow: clip;
+}
 .pc-empty {
   padding: 48px;
   text-align: center;

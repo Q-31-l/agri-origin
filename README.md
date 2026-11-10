@@ -178,6 +178,11 @@
 
 **菜单按权限实时裁剪**：同一套代码，管理员 15 项、农户 6 项、物流企业 5 项，没有权限的分组连标题一起不渲染。
 
+**表格的统一约定**：主操作留在行内，「重置密码 / 启停 / 删除」这类次要操作收进「更多」下拉——
+一行铺六个文字按钮会把列撑爆，最右边的"删除"直接被裁掉看不见。
+说明性字段（异常描述、处置措施、操作内容、备注）按行折行完整展示，宁可行高跟着内容走，
+也不做单行截断：截成"质检报告 E2E-FAIL…"等于没说，不合格原因整个被吞了。
+
 | 系统管理员 | 农户 | 物流企业 |
 | --- | --- | --- |
 | <img src="docs/assets/screenshots/uni-pc/role-admin.png" width="360" alt="管理员菜单"> | <img src="docs/assets/screenshots/uni-pc/role-farmer01.png" width="360" alt="农户菜单"> | <img src="docs/assets/screenshots/uni-pc/role-logistics01.png" width="360" alt="物流企业菜单"> |

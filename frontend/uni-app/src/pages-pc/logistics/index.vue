@@ -50,15 +50,15 @@
           <view v-for="r in list" :key="r.id" class="pc-tr">
             <text class="pc-td w-no mono">{{ r.logisticsNo || '-' }}</text>
             <text class="pc-td w-batch mono">{{ r.batchNo || '-' }}</text>
-            <text class="pc-td">{{ r.fromOrg || '-' }}</text>
-            <text class="pc-td">{{ r.toOrg || '-' }}</text>
+            <text class="pc-td w-org">{{ r.fromOrg || '-' }}</text>
+            <text class="pc-td w-org">{{ r.toOrg || '-' }}</text>
             <view class="pc-td w-car">
               <text class="cell-main">{{ r.vehicleNo || '-' }}</text>
               <text class="sub">{{ r.driverName || '' }} {{ r.driverPhone || '' }}</text>
             </view>
             <text class="pc-td w-time">{{ formatDateTime(r.departTime) }}</text>
-            <text class="pc-td">{{ r.temperature || '-' }}</text>
-            <view class="pc-td st-cell">
+            <text class="pc-td w-temp">{{ r.temperature || '-' }}</text>
+            <view class="pc-td st-cell w-status">
               <text class="st-text">{{ statusText(r.status) }}</text>
               <!-- 运单状态是运输事实，不代表监管已复核，两者必须分开显示 -->
               <pc-status v-if="r.auditStatus && r.auditStatus !== 'APPROVED'" :value="r.auditStatus" type="audit" />
@@ -416,10 +416,15 @@ onShow(() => {
   display: flex;
   flex-direction: column;
 }
-.w-no { flex: 1.4; }
+.w-no { flex: 1.3; }
 .w-batch { flex: 1.5; }
+/* 发货方/收货方是完整机构名，给默认 flex 1 只能露出 8 个字，必须单独加宽 */
+.w-org { flex: 1.7; }
 .w-car { flex: 1.25; }
-.w-time { flex: 1.6; }
+.w-time { flex: 1.7; }
+/* 温控只放 "4℃"，状态只放 3 个字，这两列原本各占 88px 纯属浪费 */
+.w-temp { flex: 0.55; }
+.w-status { flex: 0.9; }
 .w-chain { flex: 1; }
 .st-cell {
   display: flex;

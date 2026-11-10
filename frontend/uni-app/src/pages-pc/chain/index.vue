@@ -90,8 +90,8 @@
         <view v-else class="pc-tbody">
           <view v-for="r in list" :key="r.id" class="pc-tr">
             <text class="pc-td w-batch mono">{{ r.batchNo || '-' }}</text>
-            <text class="pc-td">{{ r.bizType || '-' }}</text>
-            <text class="pc-td">{{ eventName(r.eventType) }}</text>
+            <text class="pc-td">{{ bizName(r.bizType) }}</text>
+            <text class="pc-td w-event">{{ eventName(r.eventType) }}</text>
             <text class="pc-td w-hash mono">{{ shortHash(r.txHash) }}</text>
             <text class="pc-td">{{ r.blockNumber || '-' }}</text>
             <text class="pc-td">{{ r.gasUsed || '-' }}</text>
@@ -191,7 +191,7 @@ import PcPager from '@/components/pc/pc-pager.vue'
 import PcStatus from '@/components/pc/pc-status.vue'
 import PcModal from '@/components/pc/pc-modal.vue'
 import { chainPage, chainVerifyByNo, chainStatus, chainFailed, chainRepair } from '@/api'
-import { EVENT_TYPE } from '@/config/constants'
+import { BIZ_TYPE, EVENT_TYPE } from '@/config/constants'
 import { toast } from '@/utils/ui'
 import { formatDateTime, shortHash } from '@/utils/format'
 import { useUserStore } from '@/store/user'
@@ -237,6 +237,11 @@ const stat = computed(() => {
 
 function eventName(t) {
   return EVENT_TYPE[t] || t || '-'
+}
+
+/** 业务类型统一显中文：英文原值（QUALITY_REPORT）在 120px 宽的列里必然被截断 */
+function bizName(t) {
+  return BIZ_TYPE[t] || t || '-'
 }
 
 async function loadChain() {

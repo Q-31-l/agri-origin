@@ -49,7 +49,13 @@ export const CHAIN_STATUS = {
   SKIPPED: { text: '演示模式未上链', color: '#b45309', bg: '#fef6e0' }
 }
 
+/**
+ * 存证事件类型：chain_record.event_type 实际存的是带后缀的长名（BATCH_REGISTER 等），
+ * 这里同时保留短名，兼容时间轴等按业务类型传参的地方。
+ * 之前只映射了短名，长名全部落空，列表里直接显示 "QUALITY_REPO…" 这种英文被截断的样子。
+ */
 export const EVENT_TYPE = {
+  // 短名：业务类型
   BATCH: '批次建档',
   PLANTING: '农事操作',
   HARVEST: '采收',
@@ -59,7 +65,32 @@ export const EVENT_TYPE = {
   ABNORMAL: '异常',
   DISPOSAL: '处置',
   CORRECTION: '更正',
-  CLOSE: '关闭'
+  CLOSE: '关闭',
+  // 长名：存证流水实际写入值
+  BATCH_REGISTER: '批次建档',
+  BATCH_CLOSE: '批次结案',
+  PLANTING_RECORD: '农事记录',
+  HARVEST_RECORD: '采收登记',
+  QUALITY_REPORT: '质检报告',
+  QUALITY_FAIL: '质检不合格',
+  LOGISTICS_HANDOVER: '物流交接',
+  SALES_RECORD: '销售记录',
+  DATA_CORRECTION: '数据更正',
+  ABNORMAL_DISPOSAL: '异常处置'
+}
+
+/** 存证业务类型：与 chain_record.biz_type 对应，列表里替代英文原值 */
+export const BIZ_TYPE = {
+  BATCH: '批次',
+  PLANTING: '农事',
+  HARVEST: '采收',
+  QUALITY: '质检',
+  LOGISTICS: '物流',
+  SALES: '销售',
+  ABNORMAL: '异常',
+  DISPOSAL: '处置',
+  CORRECTION: '更正',
+  CLOSE: '结案'
 }
 
 export const QUALITY_RESULT = {
