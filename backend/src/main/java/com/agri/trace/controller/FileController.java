@@ -44,6 +44,6 @@ public class FileController {
     @GetMapping("/evidence")
     public R<java.util.List<com.agri.trace.vo.EvidenceVO>> evidence(@RequestParam String bizType,
                                                                     @RequestParam Long bizId) {
-        return R.ok(fileService.listEvidence(bizType, bizId));
+        return R.ok(fileService.listEvidenceVisible(bizType, bizId));
     }
 }

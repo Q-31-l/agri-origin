@@ -44,8 +44,33 @@ export function confirm(content, title = '提示', confirmText = '确定') {
   })
 }
 
-export function vibrate() {
-  // #ifndef H5
+/**
+ * 要求输入一段文字（如撤销理由）。
+ *
+ * 撤销是会被追责的处置动作，"为什么撤"必须由操作人自己写清楚，
+ * 不能提供默认值——默认值会让理由退化成一句复制粘贴的废话。
+ *
+ * @returns {Promise<string|null>} 取消或留空时返回 null
+ */
+export function askReason(title, placeholder = '请填写理由') {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title,
+      editable: true,
+      placeholderText: placeholder,
+      confirmText: '确定',
+      confirmColor: '#d93026',
+      success: (r) => {
+        if (!r.confirm) return resolve(null)
+        const text = (r.content || '').trim()
+        resolve(text || null)
+      },
+      fail: () => resolve(null)
+    })
+  })
+}
+
+export function vibrate() {  // #ifndef H5
   uni.vibrateShort({ fail: () => {} })
   // #endif
 }

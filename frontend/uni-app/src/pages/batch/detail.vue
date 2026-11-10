@@ -133,6 +133,25 @@
         </view>
       </view>
 
+      <!-- 管理员处置（仅系统管理员）：撤销不合规记录 -->
+      <view v-if="canRevoke && adminRows.length" class="section">
+        <view class="sec-head">
+          <text class="sec-title">记录处置</text>
+          <text class="sec-count">管理员</text>
+        </view>
+        <text class="ops-tip">撤销后该记录不再展示与计分，批次阶段自动回退；链上存证保留可查。</text>
+        <view v-for="r in adminRows" :key="r.key" class="rec">
+          <view class="rec-head">
+            <text class="rec-type">{{ r.stage }} #{{ r.bizId }}</text>
+            <text class="rec-date">{{ r.date || '-' }}</text>
+          </view>
+          <view class="ops-line">
+            <text class="ops-note">{{ auditLabel(r.status) }}</text>
+            <text class="ops-kill" @click="onRevokeRecord(r)">撤销</text>
+          </view>
+        </view>
+      </view>
+
       <view class="bottom-space"></view>
     </block>
 
@@ -156,7 +175,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad, onShow, onPullDownRefresh } from '@dcloudio/uni-app'
-import { batchDetail, verifyBatch, auditBatch, closeBatch, workflowProgress } from '@/api'
+import { batchDetail, verifyBatch, auditBatch, closeBatch, workflowProgress, revokeRecord } from '@/api'
 import WorkflowSteps from '@/components/common/workflow-steps.vue'
 import StatusTag from '@/components/common/status-tag.vue'
 import AppIcon from '@/components/common/app-icon.vue'
@@ -168,10 +187,10 @@ import EmptyState from '@/components/common/empty-state.vue'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
 import { formatDate, formatDateTime, formatQty, shortHash } from '@/utils/format'
-import { plantingTypeLabel } from '@/config/constants'
+import { plantingTypeLabel, AUDIT_STATUS } from '@/config/constants'
 import { nav } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
-import { confirm, toast } from '@/utils/ui'
+import { confirm, askReason, toast } from '@/utils/ui'
 
 const store = useUserStore()
 const cache = useCacheStore()
@@ -185,8 +204,68 @@ const plantings = computed(() => detail.value.plantings || [])
 const qualities = computed(() => detail.value.qualities || [])
 const logistics = computed(() => detail.value.logistics || [])
 const sales = computed(() => detail.value.sales || [])
+const harvests = computed(() => detail.value.harvests || [])
 
 const progress = ref(null)
+
+/* ---------------- 管理员记录处置 ---------------- */
+const canRevoke = computed(() => store.hasPerm('record:revoke'))
+
+const adminRows = computed(() => {
+  if (!canRevoke.value) return []
+  const rows = []
+  const push = (type, stage, source, dateKey) => {
+    ;(source.value || []).forEach((r) => {
+      rows.push({
+        key: type + '-' + r.id,
+        bizType: type,
+        stage,
+        bizId: r.id,
+        date: r[dateKey],
+        status: r.auditStatus
+      })
+    })
+  }
+  push('PLANTING', '农事记录', plantings, 'operationDate')
+  push('HARVEST', '采收登记', harvests, 'harvestDate')
+  push('QUALITY', '质量检测', qualities, 'inspectDate')
+  push('LOGISTICS', '物流运输', logistics, 'departTime')
+  push('SALES', '终端销售', sales, 'salesDate')
+  return rows
+})
+
+function auditLabel(s) {
+  const c = AUDIT_STATUS[s]
+  return c ? c.text : (s || '-')
+}
+
+async function onRevokeRecord(row) {
+  const reason = await askReason(
+    `撤销${row.stage} #${row.bizId}`,
+    '如：现场照片涉嫌人像，或记录与实际不符'
+  )
+  if (!reason) {
+    toast('未填写理由，已取消')
+    return
+  }
+  const withEvidence = await confirm(
+    `「${row.stage} #${row.bizId}」下的实证文件是否一并撤销？`,
+    '撤销范围',
+    '一并撤销'
+  )
+  try {
+    const res = await revokeRecord({
+      bizType: row.bizType,
+      bizId: row.bizId,
+      reason,
+      withEvidence
+    })
+    toast((res && res.message) || '已撤销')
+    load()
+  } catch (e) {
+    /* 已提示 */
+  }
+}
 
 /**
  * 页头"卡点"标签：取流程里第一个未完成的阶段。
@@ -664,5 +743,36 @@ function toTrace() {
 .d-btn.pass {
   background: $brand;
   color: #fff;
+}
+
+/* 管理员处置 */
+.ops-tip {
+  display: block;
+  font-size: 22rpx;
+  color: #a9764a;
+  background: #fff8f1;
+  border: 1rpx solid #f6dcc2;
+  border-radius: 10rpx;
+  padding: 12rpx 16rpx;
+  margin-bottom: 12rpx;
+  line-height: 1.6;
+}
+.ops-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10rpx;
+}
+.ops-note {
+  font-size: 22rpx;
+  color: $text-3;
+}
+.ops-kill {
+  font-size: 24rpx;
+  color: $danger;
+  padding: 4rpx 18rpx;
+  border: 1rpx solid $danger;
+  border-radius: 999rpx;
 }
 </style>

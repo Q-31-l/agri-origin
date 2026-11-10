@@ -70,7 +70,12 @@ INSERT INTO `sys_permission` (`perm_code`, `perm_name`, `perm_type`, `module`, `
 ('logistics:audit',  '物流记录审核',   'BUTTON','logistics','/logistics/{id}/audit',  'POST'),
 ('sales:audit',      '销售记录审核',   'BUTTON','sales',    '/sales/{id}/audit',      'POST'),
 ('file:upload',      '文件上传',       'API',  'file',     '/file/upload',           'POST'),
-('correction:create', '提交更正说明',   'BUTTON','correction','/correction',           'POST');
+('correction:create', '提交更正说明',   'BUTTON','correction','/correction',           'POST'),
+-- 管理员兜底能力（详见 sql/versions/patch-admin-console.sql 与 README §6.4）
+('user:disable',     '账号启用/禁用',  'BUTTON','system',   '/user/{id}/status',      'PUT'),
+('user:delete',      '账号删除',       'BUTTON','system',   '/user/{id}',             'DELETE'),
+('record:revoke',    '撤销业务记录',   'BUTTON','system',   '/admin/revoke',          'POST'),
+('file:revoke',      '撤销实证文件',   'BUTTON','system',   '/admin/file/{id}/revoke','POST');
 
 -- ---------------- 角色-权限 ----------------
 -- 系统管理员：全部权限
@@ -116,6 +121,8 @@ INSERT INTO `sys_role_permission` (`role_code`, `perm_code`) VALUES
 ('VILLAGE_ADMIN','user:create'),('VILLAGE_ADMIN','user:update'),('VILLAGE_ADMIN','user:reset'),
 ('VILLAGE_ADMIN','chain:verify'),('VILLAGE_ADMIN','product:list'),
 ('VILLAGE_ADMIN','village:list'),('VILLAGE_ADMIN','file:upload'),
+-- 启停本村农户账号：与已有 user:update 配套；删除与撤销记录属跨村兜底权力，不下放
+('VILLAGE_ADMIN','user:disable'),
 ('VILLAGE_ADMIN','correction:create');
 
 -- 农户：stats:overview 必须授予——移动端工作台的"我的批次 / 异常批次 / 合格率"

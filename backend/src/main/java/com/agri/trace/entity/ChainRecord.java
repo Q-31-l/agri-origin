@@ -33,6 +33,9 @@ public class ChainRecord {
     private Long gasUsed;
     /** SUCCESS / FAILED / SKIPPED */
     private String status;
+    /** 1 表示该存证对应的业务记录已被管理员撤销，校验时跳过且不计入总数 */
+    private Integer revoked;
+    private String revokeReason;
     private String errorMsg;
     private LocalDateTime createTime;
 }

@@ -293,6 +293,43 @@
                 <pc-timeline :items="timeline" />
               </view>
             </view>
+
+            <!-- 管理员处置：撤销不合规记录 -->
+            <view v-if="canRevoke" class="pc-card">
+              <view class="pc-card-head">
+                <text class="pc-card-title">记录处置</text>
+                <text class="mini">仅系统管理员可见</text>
+              </view>
+              <view class="pc-card-body">
+                <view class="ops-hint">
+                  <text class="ops-hint-main">
+                    撤销后该记录不再展示，也不再作为有效证据参与校验；批次阶段会自动回退到它真实所处的环节。
+                  </text>
+                  <text class="ops-hint-sub">
+                    不合规的照片或报告文件，可在上方"全流程履历"的实证材料中点击缩略图右上角 ×，单独撤销。
+                  </text>
+                </view>
+                <view v-if="!adminRows.length" class="pc-none">暂无可处置的记录</view>
+                <view v-else class="pc-tbody">
+                  <view class="pc-thead inner ops-row">
+                    <text class="pc-th w-stage">环节</text>
+                    <text class="pc-th w-no">编号</text>
+                    <text class="pc-th w-date">发生日期</text>
+                    <text class="pc-th w-aud">审核</text>
+                    <text class="pc-th w-do">操作</text>
+                  </view>
+                  <view v-for="r in adminRows" :key="r.key" class="pc-tr ops-row">
+                    <text class="pc-td w-stage">{{ r.stage }}</text>
+                    <text class="pc-td w-no mono">#{{ r.bizId }}</text>
+                    <text class="pc-td w-date">{{ r.date || '-' }}</text>
+                    <text class="pc-td w-aud">{{ auditLabel(r.status) }}</text>
+                    <view class="pc-td w-do">
+                      <text class="pc-link danger" @click="onRevokeRecord(r)">撤销</text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+            </view>
           </view>
 
           <!-- 右侧 -->
@@ -388,12 +425,12 @@ import PcModal from '@/components/pc/pc-modal.vue'
 import PcSelect from '@/components/pc/pc-select.vue'
 import PcTimeline from '@/components/pc/pc-timeline.vue'
 import PcWorkflow from '@/components/pc/pc-workflow.vue'
-import { batchDetail, verifyBatch, auditBatch, closeBatch, workflowProgress } from '@/api'
+import { batchDetail, verifyBatch, auditBatch, closeBatch, workflowProgress, revokeRecord } from '@/api'
 import { useUserStore } from '@/store/user'
 import { AUDIT_STATUS, EVENT_TYPE, plantingTypeLabel } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import { buildUrl } from '@/utils/router'
-import { confirm, toast } from '@/utils/ui'
+import { askReason, confirm, toast } from '@/utils/ui'
 import { formatDateTime, formatQty, shortHash } from '@/utils/format'
 import { resolveFileUrl } from '@/utils/file'
 
@@ -418,6 +455,67 @@ const corrections = computed(() => detail.value.corrections || [])
 const chainRecords = computed(() => detail.value.chainRecords || [])
 const chainEnabled = computed(() => !!detail.value.chainEnabled)
 const chainMessage = computed(() => detail.value.chainMessage || '')
+
+/* ---------------- 管理员记录处置 ---------------- */
+const canRevoke = computed(() => store.hasPerm('record:revoke'))
+
+/** 五类记录合并成一张可撤销清单；只在管理员身份下计算，避免无谓开销 */
+const adminRows = computed(() => {
+  if (!canRevoke.value) return []
+  const rows = []
+  const push = (type, stage, source, dateKey) => {
+    ;(source.value || []).forEach((r) => {
+      rows.push({
+        key: type + '-' + r.id,
+        bizType: type,
+        stage,
+        bizId: r.id,
+        date: r[dateKey],
+        status: r.auditStatus
+      })
+    })
+  }
+  push('PLANTING', '农事记录', plantings, 'operationDate')
+  push('HARVEST', '采收登记', harvests, 'harvestDate')
+  push('QUALITY', '质量检测', qualities, 'inspectDate')
+  push('LOGISTICS', '物流运输', logistics, 'departTime')
+  push('SALES', '终端销售', sales, 'salesDate')
+  return rows
+})
+
+/** 业务记录的审核状态文案；与批次自身的 auditText 区分开，避免与其 computed 重名 */
+function auditLabel(s) {
+  const c = AUDIT_STATUS[s]
+  return c ? c.text : (s || '-')
+}
+
+async function onRevokeRecord(row) {
+  const reason = await askReason(
+    `撤销${row.stage} #${row.bizId}`,
+    '如：现场照片涉嫌人像，或记录与实际不符'
+  )
+  if (!reason) {
+    toast('未填写理由，已取消')
+    return
+  }
+  const withEvidence = await confirm(
+    `「${row.stage} #${row.bizId}」下的实证文件是否一并撤销？\n\n一并撤销：记录与照片/报告都不再展示；\n仅撤记录：照片保留备查。`,
+    '撤销范围',
+    '一并撤销'
+  )
+  try {
+    const res = await revokeRecord({
+      bizType: row.bizType,
+      bizId: row.bizId,
+      reason,
+      withEvidence
+    })
+    toast((res && res.message) || '已撤销')
+    load()
+  } catch (e) {
+    /* 已提示 */
+  }
+}
 const trust = computed(() => detail.value.trust || null)
 
 const auditText = computed(() => {
@@ -903,5 +1001,48 @@ function openFile(r) {
 .pc-none.small {
   padding: 20px;
   font-size: 11px;
+}
+
+/* 管理员处置面板：说明条用暖色，与常规信息区分开 */
+.ops-hint {
+  background: #fff8f1;
+  border: 1px solid #f6dcc2;
+  border-radius: 6px;
+  padding: 9px 11px;
+  margin-bottom: 12px;
+}
+.ops-hint-main {
+  display: block;
+  font-size: 11.5px;
+  color: #8a4b12;
+  line-height: 1.6;
+}
+.ops-hint-sub {
+  display: block;
+  font-size: 11px;
+  color: #a9764a;
+  margin-top: 3px;
+  line-height: 1.6;
+}
+/* 覆盖 .pc-thead.inner .pc-th { flex: 1 }，必须带上同样的祖先选择器 */
+.pc-thead.inner .pc-th.w-stage,
+.pc-tr .pc-td.w-stage {
+  flex: 1.4;
+}
+.pc-thead.inner .pc-th.w-no,
+.pc-tr .pc-td.w-no {
+  flex: 0.8;
+}
+.pc-thead.inner .pc-th.w-date,
+.pc-tr .pc-td.w-date {
+  flex: 1.4;
+}
+.pc-thead.inner .pc-th.w-aud,
+.pc-tr .pc-td.w-aud {
+  flex: 0.9;
+}
+.pc-thead.inner .pc-th.w-do,
+.pc-tr .pc-td.w-do {
+  flex: 0.7;
 }
 </style>

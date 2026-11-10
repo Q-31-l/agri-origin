@@ -47,6 +47,7 @@
           <text class="pc-th w-org">所属组织</text>
           <text class="pc-th w-phone">手机号</text>
           <text class="pc-th w-scope">数据范围</text>
+          <text class="pc-th w-stat">状态</text>
           <text class="pc-th w-time">手机号后四位</text>
           <text class="pc-th w-act">操作</text>
         </view>
@@ -63,6 +64,11 @@
             <text class="pc-td w-org">{{ u.orgName || u.villageName || u.farmName || '-' }}</text>
             <text class="pc-td w-phone">{{ u.phone || '-' }}</text>
             <text class="pc-td w-scope">{{ scopeText(u.dataScope) }}</text>
+            <view class="pc-td w-stat">
+              <text class="stat-chip" :class="u.status === 0 ? 'off' : 'on'">
+                {{ u.status === 0 ? '已停用' : '启用中' }}
+              </text>
+            </view>
             <text class="pc-td w-time">{{ tail4(u.phone) }}</text>
             <view class="pc-td w-act">
               <text v-if="u.auditStatus === 'PENDING'" class="pc-link ok" @click="onAudit(u, true)">通过</text>
@@ -70,6 +76,10 @@
               <text v-if="u.auditStatus === 'PENDING' && canUpdate" class="sep">|</text>
               <text v-if="canUpdate" class="pc-link" @click="openEdit(u)">编辑</text>
               <text v-if="canUpdate" class="pc-link" @click="onReset(u)">重置密码</text>
+              <text v-if="canDisable && u.id !== myId" class="pc-link" @click="onToggle(u)">
+                {{ u.status === 0 ? '启用' : '停用' }}
+              </text>
+              <text v-if="canDelete && u.id !== myId" class="pc-link danger" @click="onDelete(u)">删除</text>
             </view>
           </view>
         </view>
@@ -147,6 +157,8 @@ import {
   createUser,
   updateUser,
   resetPassword,
+  toggleUserStatus,
+  deleteUser,
   pendingUsers,
   auditUser,
   villageList,
@@ -168,6 +180,10 @@ const query = reactive({ page: 1, size: 20, keyword: '', roleCode: '' })
 
 const canCreate = computed(() => store.hasPerm('user:create'))
 const canUpdate = computed(() => store.hasPerm('user:update'))
+const canDisable = computed(() => store.hasPerm('user:disable'))
+const canDelete = computed(() => store.hasPerm('user:delete'))
+/** 当前登录账号：禁止在界面上对自己停用/删除，后端也会拦，这里只是提前隐藏 */
+const myId = computed(() => (store.user ? store.user.id : null))
 
 const roleOptions = Object.keys(ROLE).map((k) => ({ value: k, label: ROLE_NAME[k] }))
 const roleFilterOptions = [{ value: '', label: '全部角色' }, ...roleOptions]
@@ -355,6 +371,40 @@ async function onReset(u) {
   }
 }
 
+/* ---------------- 启用 / 停用 / 删除 ---------------- */
+async function onToggle(u) {
+  const toOff = u.status !== 0
+  const ok = await confirm(
+    toOff
+      ? `确定停用「${u.realName || u.username}」吗？停用后该账号立即无法登录，已有数据与留痕全部保留。`
+      : `确定启用「${u.realName || u.username}」吗？启用后该账号可立即恢复登录。`,
+    toOff ? '停用账号' : '启用账号'
+  )
+  if (!ok) return
+  try {
+    await toggleUserStatus(u.id, toOff ? 0 : 1)
+    uni.showToast({ title: toOff ? '已停用' : '已启用', icon: 'success' })
+    load()
+  } catch (e) {
+    /* 已提示 */
+  }
+}
+
+async function onDelete(u) {
+  const ok = await confirm(
+    `确定删除「${u.realName || u.username}」（${u.username}）吗？\n\n删除后该账号无法登录，登录名会被释放，可重新注册同名账号。历史批次与审核留痕仍保留可查。`,
+    '删除账号'
+  )
+  if (!ok) return
+  try {
+    await deleteUser(u.id)
+    uni.showToast({ title: '已删除', icon: 'success' })
+    load()
+  } catch (e) {
+    /* 已提示 */
+  }
+}
+
 /* ---------------- 注册审核 ---------------- */
 const pendingCount = ref(0)
 
@@ -399,9 +449,10 @@ onShow(() => {
 .w-org { flex: 1.5; }
 .w-phone { flex: 1.1; }
 .w-scope { flex: 0.9; }
+.w-stat { flex: 0.72; }
 .w-time { flex: 1.3; }
 .w-act {
-  flex: 1.6;
+  flex: 2.4;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -502,5 +553,25 @@ onShow(() => {
 }
 .pc-link.danger {
   color: #d93026;
+}
+
+/* 账号状态：停用是最需要一眼看出的状态，用灰底与启用态区分 */
+.stat-chip {
+  font-size: 10.5px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.stat-chip.on {
+  color: #15803d;
+  background: #eefaf1;
+  border: 1px solid #c5ebd2;
+}
+
+.stat-chip.off {
+  color: #6b7280;
+  background: #f3f4f6;
+  border: 1px solid #e0e3e8;
 }
 </style>

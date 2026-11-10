@@ -102,9 +102,17 @@ public class ChainService {
         return PageResult.of(chainRecordMapper.selectPage(new Page<>(page, size), wrapper));
     }
 
+    /**
+     * 批次的有效存证流水。
+     *
+     * <p>已撤销记录（{@code revoked=1}）不参与展示，也不计入一致性校验的总条数与分母：
+     * 撤销是管理员对"这条记录不再采信"的正式表态，把它算进"未通过"会让
+     * 一组合规撤销动作把整批存证判成异常。存证本身仍在链上，随时可在存证流水页查到。</p>
+     */
     public List<ChainRecord> listByBatch(String batchNo) {
         return chainRecordMapper.selectList(Wrappers.<ChainRecord>lambdaQuery()
                 .eq(ChainRecord::getBatchNo, batchNo)
+                .eq(ChainRecord::getRevoked, 0)
                 .orderByAsc(ChainRecord::getId));
     }
 

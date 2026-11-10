@@ -21,17 +21,20 @@
             <text class="m-name" @click="copy(f.hash)">视频 · {{ f.name || '现场视频' }}</text>
             <text v-if="f.hash" class="m-hash mono" @click="copy(f.hash)">SHA {{ short(f.hash) }}</text>
           </view>
+          <view v-if="canRevoke" class="kill" @click.stop="onRevoke(f)">×</view>
         </view>
 
         <!-- 图片：缩略图，点击放大 -->
         <view v-else-if="f.mediaType === 'IMAGE'" class="cell img-cell">
           <image :src="urlOf(f)" mode="aspectFill" class="thumb" @click="preview(i)" />
+          <view v-if="canRevoke" class="kill" @click.stop="onRevoke(f)">×</view>
         </view>
 
         <!-- 其它文件（报告 PDF 等）：下载入口 -->
         <view v-else class="cell file-cell" @click="open(f)">
           <text class="f-icon">PDF</text>
           <text class="f-name">{{ f.name || '附件' }}</text>
+          <view v-if="canRevoke" class="kill" @click.stop="onRevoke(f)">×</view>
         </view>
       </template>
     </view>
@@ -41,6 +44,31 @@
 <script setup>
 import { computed } from 'vue'
 import { resolveFileUrl, fileSize } from '@/utils/file'
+import { useUserStore } from '@/store/user'
+import { revokeFile } from '@/api'
+import { askReason, toast } from '@/utils/ui'
+
+const store = useUserStore()
+/** 只有持有 file:revoke 的角色（系统管理员）能看到撤销入口；公开溯源页无登录态，天然不显示 */
+const canRevoke = computed(() => store.hasPerm('file:revoke'))
+
+async function onRevoke(f) {
+  const reason = await askReason(
+    `撤销「${f.name || '该文件'}」`,
+    '如：该照片为人像照，与批次无关'
+  )
+  if (!reason) {
+    toast('未填写理由，已取消')
+    return
+  }
+  try {
+    await revokeFile(f.id, reason)
+    toast('已撤销，该文件不再对外展示')
+    emit('revoked', f)
+  } catch (e) {
+    /* 已提示 */
+  }
+}
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -48,6 +76,8 @@ const props = defineProps({
   chained: { type: Boolean, default: false },
   compact: { type: Boolean, default: false }
 })
+
+const emit = defineEmits(['revoked'])
 
 const list = computed(() => (props.items || []).filter((x) => x && (x.url || x.filePath)))
 
@@ -123,6 +153,7 @@ void fileSize
   height: 148rpx;
   border-radius: 10rpx;
   overflow: hidden;
+  position: relative;
 }
 .thumb {
   width: 100%;
@@ -133,6 +164,7 @@ void fileSize
   background: #0b1220;
   border-radius: 10rpx;
   overflow: hidden;
+  position: relative;
 }
 .player {
   width: 100%;
@@ -169,6 +201,7 @@ void fileSize
   align-items: center;
   justify-content: center;
   padding: 8rpx;
+  position: relative;
 }
 .f-icon {
   font-size: 24rpx;
@@ -184,5 +217,22 @@ void fileSize
 }
 .mono {
   font-family: Consolas, monospace;
+}
+
+/* 管理员撤销入口：只在持有 file:revoke 时渲染，压在缩略图右上角 */
+.kill {
+  position: absolute;
+  top: 4rpx;
+  right: 4rpx;
+  width: 38rpx;
+  height: 38rpx;
+  line-height: 34rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: rgba(217, 48, 38, 0.92);
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+  z-index: 3;
 }
 </style>

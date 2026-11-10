@@ -330,6 +330,110 @@ public class UserService {
                 .eq(SysUser::getUsername, username).last("limit 1"));
     }
 
+    /**
+     * 启用 / 停用账号。
+     *
+     * <p>与"删除"分开：停用保留全部历史与关联（批次责任人、审核留痕都还指得着），
+     * 只是登录被拒；适用于人员离职、账号被盗等需要临时切断访问的场景。
+     * 停用后 {@link UserAuthCache} 立即失效，令牌当次请求即被 401 拦下，
+     * 不必等待 12 小时令牌自然过期。</p>
+     */
+    @Transactional
+    public void toggleStatus(Long id, Integer status) {
+        if (status == null || (status != 0 && status != 1)) {
+            throw BizException.badRequest("状态值无效，仅支持 1 启用 / 0 停用");
+        }
+        LoginUser current = UserContext.require();
+        SysUser user = userMapper.selectById(id);
+        if (user == null) {
+            throw BizException.notFound("用户不存在或已被删除");
+        }
+        // 村管只能启停本村农户，口径与"编辑用户"保持一致；
+        // 若放开到机构账号，村管就能把检测机构停掉，越过了辖区边界
+        if (Constants.ROLE_VILLAGE.equals(current.getRoleCode())) {
+            if (!Constants.ROLE_FARMER.equals(user.getRoleCode())
+                    || !java.util.Objects.equals(current.getVillageId(), user.getVillageId())) {
+                throw BizException.forbidden("村级管理员仅可启停本村农户账号");
+            }
+        }
+        if (status == 0 && id.equals(current.getUserId())) {
+            throw BizException.forbidden("不能停用当前登录的账号");
+        }
+        if (status == 0 && Constants.ROLE_ADMIN.equals(user.getRoleCode())) {
+            assertNotLastAdmin(user, "停用");
+        }
+        if (java.util.Objects.equals(user.getStatus(), status)) {
+            return;
+        }
+        user.setStatus(status);
+        userMapper.updateById(user);
+        userAuthCache.evict(id);
+    }
+
+    /**
+     * 删除建错的账号。
+     *
+     * <p>采用逻辑删除而非物理删除：批次表冗余了责任人姓名、各环节留痕里也记着操作人，
+     * 物理删行会让这些历史字段失去可追溯性。删除后该账号立即无法登录，
+     * 且登录名会被释放（改为 {@code 原名#del{id}}），同名账号可以重新创建。</p>
+     *
+     * <p>唯一键 {@code uk_username} 不含删除标记，若不改名，重新注册同名账号会撞唯一索引，
+     * 表现为"提示账号已存在却查不到这个人"。</p>
+     */
+    @Transactional
+    public void delete(Long id) {
+        LoginUser current = UserContext.require();
+        if (id.equals(current.getUserId())) {
+            throw BizException.forbidden("不能删除当前登录的账号");
+        }
+        SysUser user = userMapper.selectById(id);
+        if (user == null) {
+            throw BizException.notFound("用户不存在或已被删除");
+        }
+        if (Constants.ROLE_ADMIN.equals(user.getRoleCode())) {
+            assertNotLastAdmin(user, "删除");
+        }
+        // 先释放登录名，再逻辑删除：updateById 带 deleted=0 条件，顺序反过来就改不到了
+        String freedName = releaseUsername(user);
+        if (freedName != null) {
+            user.setUsername(freedName);
+            userMapper.updateById(user);
+        }
+        userMapper.deleteById(id);
+        userAuthCache.evict(id);
+    }
+
+    /** 释放登录名：追加删除标记并裁剪到列宽 64 以内 */
+    private String releaseUsername(SysUser user) {
+        String suffix = "#del" + user.getId();
+        String base = user.getUsername() == null ? "user" : user.getUsername();
+        if (base.endsWith(suffix)) {
+            return null;
+        }
+        int keep = Math.max(1, 64 - suffix.length());
+        if (base.length() > keep) {
+            base = base.substring(0, keep);
+        }
+        return base + suffix;
+    }
+
+    /**
+     * 系统管理员是唯一的"兜底"角色：停用或删除最后一个可用管理员后，
+     * 没人能再审注册申请、改配置、处理违规，系统只能改库恢复。
+     */
+    private void assertNotLastAdmin(SysUser target, String action) {
+        if (!Integer.valueOf(1).equals(target.getStatus())) {
+            return;
+        }
+        Long remain = userMapper.selectCount(Wrappers.<SysUser>lambdaQuery()
+                .eq(SysUser::getRoleCode, Constants.ROLE_ADMIN)
+                .eq(SysUser::getStatus, 1)
+                .ne(SysUser::getId, target.getId()));
+        if (remain == null || remain == 0) {
+            throw BizException.forbidden("系统至少需要保留一个启用的管理员，无法" + action + "该账号");
+        }
+    }
+
     public SysUser getById(Long id) {
         SysUser user = userMapper.selectById(id);
         if (user == null) {

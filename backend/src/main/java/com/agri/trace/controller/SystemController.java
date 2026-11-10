@@ -20,6 +20,7 @@ import com.agri.trace.service.UserService;
 import com.agri.trace.vo.UserVO;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -99,6 +100,24 @@ public class SystemController {
                                  @RequestParam(required = false) String password) {
         userService.resetPassword(id, password);
         return R.ok();
+    }
+
+    @Operation(summary = "启用 / 停用账号")
+    @RequirePerm("user:disable")
+    @RequireRoles({Constants.ROLE_ADMIN, Constants.ROLE_VILLAGE})
+    @PutMapping("/user/{id}/status")
+    public R<Void> toggleUserStatus(@PathVariable Long id, @RequestParam Integer status) {
+        userService.toggleStatus(id, status);
+        return R.<Void>ok(status != null && status == 1 ? "账号已启用" : "账号已停用", null);
+    }
+
+    @Operation(summary = "删除账号（仅系统管理员，逻辑删除并释放登录名）")
+    @RequirePerm("user:delete")
+    @RequireRoles(Constants.ROLE_ADMIN)
+    @DeleteMapping("/user/{id}")
+    public R<Void> deleteUser(@PathVariable Long id) {
+        userService.delete(id);
+        return R.<Void>ok("账号已删除", null);
     }
 
     @Operation(summary = "当前用户信息")

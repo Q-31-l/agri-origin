@@ -142,7 +142,7 @@ public class FileService {
         return result;
     }
 
-    /** 按业务类型 + 记录 id 批量取实证，返回 key 为 "bizType#id" 的分组 */
+    /** 按业务类型 + 记录 id 批量取实证，返回 key 为 "bizType#id" 的分组（已排除被管理员撤销的文件） */
     public Map<String, List<EvidenceVO>> evidenceMap(String bizType, Collection<Long> ids) {
         Map<String, List<EvidenceVO>> map = new LinkedHashMap<>();
         if (ids == null || ids.isEmpty()) {
@@ -151,6 +151,7 @@ public class FileService {
         List<SysFile> files = fileMapper.selectList(Wrappers.<SysFile>lambdaQuery()
                 .eq(SysFile::getBizType, bizType)
                 .in(SysFile::getBizId, ids)
+                .eq(SysFile::getRevoked, 0)
                 .orderByAsc(SysFile::getId));
         for (SysFile f : files) {
             map.computeIfAbsent(bizType + "#" + f.getBizId(), k -> new ArrayList<>()).add(toEvidence(f));
@@ -158,6 +159,12 @@ public class FileService {
         return map;
     }
 
+    /**
+     * 全量实证（含已被撤销的文件）。
+     *
+     * <p>只给摘要重算用，不要拿去渲染页面——撤销掉的照片仍在链上存证的原始集合里，
+     * 少算一张就会让历史存证判成"链下数据被篡改"。</p>
+     */
     public List<EvidenceVO> listEvidence(String bizType, Long bizId) {
         List<SysFile> files = fileMapper.selectList(Wrappers.<SysFile>lambdaQuery()
                 .eq(SysFile::getBizType, bizType)
@@ -168,6 +175,61 @@ public class FileService {
             list.add(toEvidence(f));
         }
         return list;
+    }
+
+    /** 展示用实证列表：排除被管理员撤销的文件 */
+    public List<EvidenceVO> listEvidenceVisible(String bizType, Long bizId) {
+        List<SysFile> files = fileMapper.selectList(Wrappers.<SysFile>lambdaQuery()
+                .eq(SysFile::getBizType, bizType)
+                .eq(SysFile::getBizId, bizId)
+                .eq(SysFile::getRevoked, 0)
+                .orderByAsc(SysFile::getId));
+        List<EvidenceVO> list = new ArrayList<>();
+        for (SysFile f : files) {
+            list.add(toEvidence(f));
+        }
+        return list;
+    }
+
+    /**
+     * 管理员撤销单张实证。
+     *
+     * <p>不物理删文件：链上存的是文件 SHA-256，删了盘上的文件等于把"可复核"变成"不可复核"。
+     * 撤销只做三件事——不再展示、禁止下载、记录撤销人与理由。</p>
+     */
+    public void revokeFile(Long fileId, String reason, String operator) {
+        SysFile file = fileMapper.selectById(fileId);
+        if (file == null) {
+            throw BizException.notFound("文件不存在或已被撤销");
+        }
+        if (Integer.valueOf(1).equals(file.getRevoked())) {
+            throw BizException.conflict("该文件已被撤销，请勿重复操作");
+        }
+        file.setRevoked(1);
+        file.setRevokedBy(operator);
+        file.setRevokedTime(java.time.LocalDateTime.now());
+        file.setRevokeReason(reason);
+        fileMapper.updateById(file);
+        log.info("实证文件被撤销：id={}, name={}, 操作人={}, 理由={}",
+                fileId, file.getOriginalName(), operator, reason);
+    }
+
+    /** 按业务记录批量撤销其实证，返回撤销数量 */
+    public int revokeByBiz(String bizType, Long bizId, String reason, String operator) {
+        List<SysFile> files = fileMapper.selectList(Wrappers.<SysFile>lambdaQuery()
+                .eq(SysFile::getBizType, bizType)
+                .eq(SysFile::getBizId, bizId)
+                .eq(SysFile::getRevoked, 0));
+        int n = 0;
+        for (SysFile f : files) {
+            f.setRevoked(1);
+            f.setRevokedBy(operator);
+            f.setRevokedTime(java.time.LocalDateTime.now());
+            f.setRevokeReason(reason);
+            fileMapper.updateById(f);
+            n++;
+        }
+        return n;
     }
 
     /**
@@ -226,6 +288,10 @@ public class FileService {
 
     public void download(Long id, HttpServletResponse response) {
         SysFile file = getById(id);
+        // 撤销后连直链也不再放行：否则页面隐藏了图片，旧链接还能打开，等于没撤
+        if (Integer.valueOf(1).equals(file.getRevoked())) {
+            throw BizException.forbidden("该文件已被管理员撤销，不再提供查看");
+        }
         File target = new File(file.getFilePath());
         if (!target.exists()) {
             throw BizException.notFound("文件已丢失，请重新上传");
