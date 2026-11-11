@@ -660,6 +660,27 @@ function getRecord(string batchNo, uint256 index) public view returns (...);
 
 > 结论：WeBASE-Front 只是链的可视化控制台，不参与业务写链，也不是本次故障来源；链上 4 节点、296 区块、248 条存证全部正常。
 
+### 13.2 移动端 App（Android 安装包）
+
+线上 H5 已能直接在手机浏览器使用，但答辩与现场演示需要"装机可点"的图标，因此额外产出一个 Android 安装包，放在 `https://8-130-105-150.sslip.io/portal/download/` 供扫码下载。
+
+**形态**：全屏 `WebView` 外壳（`frontend/app-shell/src/com/agri/trace/MainActivity.java`），加载同域 H5，补齐浏览器给不了的原生能力——相机与定位运行时授权、`getUserMedia` 权限自动授予、文件选择（拍照/相册上传）、`DownloadManager` 下载、物理返回键逐页回退、断网重试页、启动图与桌面图标。它**不是** DCloud 云打包的 uni-app 原生包（那条路需要真实 appid + 账号登录 + 付费/排队），功能上与 H5 一致，差别是没有原生插件与离线缓存。
+
+**构建**（无需 Android Studio / Gradle，直接用 SDK 命令行工具链）：
+
+```bash
+bash frontend/app-shell/tools/build.sh          # aapt2 → javac → d8 → zipalign → apksigner
+node frontend/app-shell/tools/render-icons.js   # 改图标时重跑：品牌 SVG → 各密度 mipmap
+```
+
+- 工具链与签名证书在仓库外：`C:\Users\30786\AppData\Local\agri-android`（JDK 17、`sdk/`、`agritrace.keystore`、`keystore.properties`）。**证书丢了就无法覆盖升级**，换机前先备份这两个文件。
+- 产物：`frontend/app-shell/out/agritrace-1.0.0.apk`（约 454 KB，`com.agri.trace`，minSdk 23 / targetSdk 34）。
+- 发布：把 `out/*.apk` 与 `frontend/app-shell/download/` 下的 `index.html`、`qr.svg`、`icon-192.png` 一并上传到 `/opt/agri-origin/web/portal/download/`。下载页由 nginx 的 `location /portal/` 直接托管，无需改配置。
+- App 内站点地址写死在 `MainActivity.APP_URL`，域名或端口变更需改常量后重新构建。
+- `Content-Type` 为 `application/octet-stream`（nginx 默认未登记 apk），浏览器按后缀下载与安装，不影响使用；微信内打开会拦截下载，下载页已给出"用浏览器打开"的提示。
+
+> 升级注意：`versionCode` 在 `build.sh` 顶部的 `VER_CODE`，每次发版递增，否则同版本号安装会被系统拒绝。
+
 ---
 
 ## 十四、测试与验收
@@ -745,6 +766,7 @@ npm run dev:app         # 产物 dist/dev/app，HBuilderX 运行到手机
 | 官网门户 | <https://8-130-105-150.sslip.io/> | 平台介绍 + 业务系统入口 |
 | 业务系统 | <https://8-130-105-150.sslip.io/pages/launch/index> | 9 个演示账号，密码 `123456` |
 | 免登录溯源 | <https://8-130-105-150.sslip.io/pages/trace/index?code=TC20261109011> | 消费者扫码落地页 |
+| App 下载 | <https://8-130-105-150.sslip.io/portal/download/> | Android 安装包 454 KB，手机扫码即可装 |
 | 链上控制台 | <https://8-130-105-150.sslip.io/WeBASE-Front/> | 账号 `webase` / `Agri@2026` |
 
 ---
@@ -763,12 +785,17 @@ agri-origin/
 │       ├── sdk/                # FISCO-BCOS 封装（唯一链交互出口）
 │       └── common/             # 统一响应、异常、常量
 ├── frontend/
-│   └── uni-app/                # 三端统一工程（H5 / 微信小程序 / App）
-│       ├── src/pages/          # 移动端页面（29 页）
-│       ├── src/pages-pc/       # PC 管理端页面（16 页）
-│       ├── src/components/     # 业务组件（workflow-steps、pc-workflow、evidence-uploader…）
-│       ├── src/composables/    # useForm / usePage 等通用逻辑
-│       └── scripts/            # 截图与端到端脚本
+│   ├── uni-app/                # 三端统一工程（H5 / 微信小程序 / App）
+│   │   ├── src/pages/          # 移动端页面（29 页）
+│   │   ├── src/pages-pc/       # PC 管理端页面（16 页）
+│   │   ├── src/components/     # 业务组件（workflow-steps、pc-workflow、evidence-uploader…）
+│   │   ├── src/composables/    # useForm / usePage 等通用逻辑
+│   │   └── scripts/            # 截图与端到端脚本
+│   └── app-shell/              # Android 安装包外壳（WebView + 原生能力，见 13.2）
+│       ├── src/                # MainActivity（相机/定位/文件/下载/返回键）
+│       ├── res/                # 图标、启动图、主题
+│       ├── tools/              # build.sh 构建、render-icons.js 出图标
+│       └── download/           # 下载页与 apk（上传到 /portal/download/ 的那一份）
 ├── contracts/                  # Solidity 合约、ABI/BIN、编译部署脚本
 ├── ops/                        # 生产部署配置（systemd、nginx、logrotate）
 ├── scripts/                    # 验收与运维脚本（e2e-acceptance、verify-*）

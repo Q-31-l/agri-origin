@@ -70,3 +70,6 @@ account/
 # ---------- 微信开发者工具本地工程文件（每人路径不同，不入库） ----------
 project.config.json
 project.private.config.json
+
+# ---------- Android 壳工程构建产物 ----------
+frontend/app-shell/out/
