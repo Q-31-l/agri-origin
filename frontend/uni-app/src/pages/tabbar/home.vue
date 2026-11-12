@@ -1,5 +1,5 @@
 <template>
-  <view class="home">
+  <view class="home" :class="{ 'as-app': appShell }">
     <view class="header">
       <view class="header-bg"></view>
       <app-navbar transparent>
@@ -83,17 +83,26 @@
         </block>
       </view>
     </view>
+
+    <!-- 壳内：这一页是"工作台"二级页，Dock 照常给出五个入口，
+         「首页」回到 App 专属首页，避免又掉回系统 tabBar 那四格 -->
+    <app-dock v-if="appShell" active="workbench" />
   </view>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import AppDock from '@/components/app/app-dock.vue'
+import { isAppShell } from '@/config/platform'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import AppNavbar from '@/components/common/app-navbar.vue'
 import AppIcon from '@/components/common/app-icon.vue'
 import BatchCard from '@/components/business/batch-card.vue'
 import EmptyState from '@/components/common/empty-state.vue'
 import { useUserStore } from '@/store/user'
+
+/** 壳内：改用自绘 Dock，系统 tabBar 已在全局样式里隐藏 */
+const appShell = isAppShell()
 import { batchPage, statsOverview, workflowTodo } from '@/api'
 import { nav } from '@/utils/router'
 import { ROUTES } from '@/config/routes'

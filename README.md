@@ -1126,6 +1126,7 @@ node frontend/app-shell/tools/render-icons.js   # 改图标时重跑：品牌 SV
 | 注册 | `pages/auth/register` | `pages/app/register`（先选身份）→ 复用原表单 |
 
 - App 首页是独立页而不是 tabBar 页：沉浸式头部 + 上浮白色面板 + 横向滑动批次卡 + 自绘 Dock（中间凸起扫码），没有系统标题栏，因此打开不像网页。
+- 底部导航在壳内统一：`components/app/app-dock.vue` 一块 Dock 同时挂在 `pages/app/home` 与四个 tab 页上，系统 tabBar 由 `body.agri-app-shell` 的样式隐藏（标记在 `main.js` 挂载前打，避免首帧闪一下四格）。早期只有首页是五格、切到"批次/我的"就变成系统四格，来回切还会停在四格版本上。
 - 分流点只有三处：`pages/launch/index.vue` 的落地跳转、`pages/auth/login.vue` 的 `onLoad`/`afterLogin`/`toRegister`、`pages/auth/register.vue` 的 `role` 预选与注册后落地。全部包在 `#ifdef H5` + `isAppShell()` 双条件里，**小程序与浏览器行为完全不变**（已验证：普通手机 UA 仍落 `pages/auth/login`，桌面 UA 仍进 PC 版式）。
 - App 专属页被浏览器直接访问时会自行退回通用页（`onLoad` 守卫），不会出现半成品界面。
 - 注册表单仍只有一份（`pages/auth/register.vue`），App 的"选择身份"页只负责传 `?role=`，避免两套校验逻辑走偏。身份清单统一在 `config/roles.js`。
@@ -1137,9 +1138,11 @@ node frontend/app-shell/tools/render-icons.js   # 改图标时重跑：品牌 SV
 | | 浏览器（手机 / 电脑同一套响应式） | 微信小程序 | 安装包 App |
 |---|---|---|---|
 | 设计取向 | 克制、信息密度优先，和后台一致 | 轻快、单手可达 | 沉浸、贴近原生应用 |
-| 启动时长 | 回访 1.3s / 首见 1.9s | 回访 1.0s / 首见 1.45s | 回访 1.0s / 首见 1.35s |
+| 启动时长 | 回访 1.3s / 首见 1.9s | 回访 1.0s / 首见 1.45s | 回访 1.7s / 首见 2.0s |
+| 启动动画 | 标识涟漪扩散 | 轻量涟漪 | 标识外圈匀速旋转弧线 + 轻微呼吸（涟漪在 App 内收起） |
 | 启动页底部说明 | `FISCO-BCOS 联盟链 · 全流程上链存证` | `微信小程序 · 无需下载安装` | `正在进入应用 · AGRI-ORIGIN` |
 | 首屏 | `pages/tabbar/home` 或 PC 控制台 | `pages/tabbar/home` | `pages/app/home`（自绘 Dock） |
+| 底部导航 | 系统 tabBar（四格） | 系统 tabBar（四格） | 自绘 Dock（五格，中间凸起扫码），四个 tab 页共用同一组件 |
 
 判定方式：小程序端用 `#ifdef MP-WEIXIN`（**编译期真生效**，已核对产物里只剩 `plate="mp"` 分支）；App 壳用 `isAppShell()`；其余一律按浏览器处理。三者只影响 `plate` 这个视觉变量和 `holdMs` 这个时长，跳转目标仍由原来的 `isPcWidth()` / `isAppShell()` 决定。
 

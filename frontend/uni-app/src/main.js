@@ -2,6 +2,7 @@ import { createSSRApp } from 'vue'
 import * as Pinia from 'pinia'
 import App from './App.vue'
 import { setupStore } from '@/store'
+import { isAppShell } from '@/config/platform'
 import perm from '@/directives/perm'
 
 /**
@@ -42,6 +43,14 @@ function recoverFromChunkError(reason) {
 }
 
 // #ifdef H5
+/*
+ * 壳内标记：让全局样式隐藏系统 tabBar（四个 tab 页改用自绘 Dock）。
+ * 必须在挂载前打，否则首帧会看到四格 tabBar 闪一下。
+ */
+if (typeof document !== 'undefined' && isAppShell()) {
+  document.body.classList.add('agri-app-shell')
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (e) => {
     if (isChunkError(e && e.reason)) recoverFromChunkError(e.reason)

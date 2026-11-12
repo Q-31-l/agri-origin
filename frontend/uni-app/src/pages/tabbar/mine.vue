@@ -1,5 +1,5 @@
 <template>
-  <view class="mine">
+  <view class="mine" :class="{ 'as-app': appShell }">
     <view class="header">
       <app-navbar transparent />
       <view class="user">
@@ -76,7 +76,11 @@
 
       <view class="logout" @click="onLogout">退出登录</view>
     </view>
+
+    <!-- 壳内与首页共用同一块 Dock，系统 tabBar 由全局样式隐藏 -->
+    <app-dock v-if="appShell" active="mine" />
   </view>
+
 </template>
 
 <script setup>
@@ -88,9 +92,14 @@ import { useUserStore } from '@/store/user'
 import { statsOverview } from '@/api'
 import { nav, relaunch } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
+import AppDock from '@/components/app/app-dock.vue'
+import { isAppShell } from '@/config/platform'
 import { platformName } from '@/config/platform'
 import { ENV } from '@/config/env'
 import { confirm } from '@/utils/ui'
+
+/** 壳内：改用自绘 Dock，系统 tabBar 已在全局样式里隐藏 */
+const appShell = isAppShell()
 
 const store = useUserStore()
 const stats = ref({})

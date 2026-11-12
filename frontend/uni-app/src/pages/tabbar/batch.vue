@@ -1,5 +1,5 @@
 <template>
-  <view class="batch-tab">
+  <view class="batch-tab" :class="{ 'as-app': appShell }">
     <view class="toolbar">
       <search-bar v-model="keyword" placeholder="搜索批次号 / 产品名称" @search="onSearch" />
       <scroll-view scroll-x class="filters">
@@ -27,6 +27,9 @@
     </view>
 
     <view v-if="canCreate" class="fab" @click="create">＋</view>
+
+    <!-- 壳内与首页共用同一块 Dock，系统 tabBar 由全局样式隐藏 -->
+    <app-dock v-if="appShell" active="batch" />
   </view>
 </template>
 
@@ -38,6 +41,11 @@ import BatchCard from '@/components/business/batch-card.vue'
 import EmptyState from '@/components/common/empty-state.vue'
 import LoadMore from '@/components/common/load-more.vue'
 import { useList } from '@/composables/useList'
+import AppDock from '@/components/app/app-dock.vue'
+import { isAppShell } from '@/config/platform'
+
+/** 壳内：改用自绘 Dock，系统 tabBar 已在全局样式里隐藏 */
+const appShell = isAppShell()
 import { batchPage } from '@/api'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'
@@ -129,6 +137,11 @@ onReachBottom(() => loadMore())
 }
 .list {
   padding: 20rpx 24rpx 40rpx;
+}
+.batch-tab.as-app .fab {
+  /* 让悬浮加号落在 Dock 上方 */
+  bottom: calc(150rpx + constant(safe-area-inset-bottom));
+  bottom: calc(150rpx + env(safe-area-inset-bottom));
 }
 .fab {
   position: fixed;

@@ -110,5 +110,15 @@ export default {
 @import '@/styles/common.scss';
 /* #ifdef H5 */
 @import '@/styles/pc.scss';
+
+/*
+  壳内（Android WebView）底部导航统一用自绘的五格 Dock：
+  四个 tab 页各自渲染 <app-dock>，系统的四格 tabBar 在这里直接隐藏。
+  body 上的 agri-app-shell 在 main.js 挂载前就打上，第一帧起生效，
+  不会出现"先闪一下四格再变五格"。
+*/
+body.agri-app-shell uni-tabbar {
+  display: none !important;
+}
 /* #endif */
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <view class="scan-entry">
+  <view class="scan-entry" :class="{ 'as-app': appShell }">
     <view class="hero">
       <view class="frame">
         <view class="corner tl"></view>
@@ -44,6 +44,9 @@
         <empty-state v-if="!history.length" text="暂无查询记录" />
       </view>
     </view>
+
+    <!-- 壳内与首页共用同一块 Dock，系统 tabBar 由全局样式隐藏 -->
+    <app-dock v-if="appShell" active="trace" />
   </view>
 </template>
 
@@ -51,11 +54,16 @@
 import { ref } from 'vue'
 import { onShow, onUnload } from '@dcloudio/uni-app'
 import EmptyState from '@/components/common/empty-state.vue'
+import AppDock from '@/components/app/app-dock.vue'
+import { isAppShell } from '@/config/platform'
 import { scan, stopH5Scan, extractTraceCode } from '@/utils/scan'
 import { storage } from '@/utils/storage'
 import { nav } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
 import { toast } from '@/utils/ui'
+
+/** 壳内：改用自绘 Dock，系统 tabBar 已在全局样式里隐藏 */
+const appShell = isAppShell()
 
 const code = ref('')
 const history = ref([])

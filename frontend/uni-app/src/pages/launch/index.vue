@@ -28,6 +28,8 @@
         <view class="mark-wrap">
           <view class="ripple r1"></view>
           <view class="ripple r2"></view>
+          <!-- App 专属：标识外一圈匀速旋转的弧线，像系统级启动动画 -->
+          <view v-if="plate === 'app'" class="app-ring"></view>
           <image class="mark" src="/static/logo/mark.png" mode="aspectFit" />
         </view>
 
@@ -159,8 +161,13 @@ onLoad(() => {
     // 官网那边遮罩 620ms 里进度条已经走满，这里只做收尾：补一点点、停一下、淡出
     plan(600, 0, 200)
   } else if (plate.value === 'app') {
-    // 比浏览器短，但要让条真正走完：1000ms（回访）/ 1350ms（首次）
-    plan(hasToken ? 1000 : 1350, 400)
+    /*
+     * App 是"点开一瞬间"，但也不能快到看不清：
+     * 之前给的是 1000/1350ms，留出 400ms 的进度条入场延迟后只剩 280~380ms，
+     * 条刚露头就开始淡出，观感就是"没走完就进主界面"。
+     * 现在给 1700/2000ms，进度条实际有 1.1~1.4s 走完，走满再停 80ms 才淡出。
+     */
+    plan(hasToken ? 1700 : 2000, 260)
   } else if (plate.value === 'mp') {
     plan(hasToken ? 1000 : 1450, 500)
   } else {
@@ -214,10 +221,22 @@ onUnload(() => {
   */
   background: #0b3d26;
   opacity: 1;
+}
+/*
+  退出时不要让整页淡出。
+  根节点一旦变透明，露出来的是页面底色 #f4f6f8 —— 在手机上看就是"快进主界面时闪一下白"，
+  也正是"条还没走完就跳走"的观感来源之一。
+  现在保留深色底，只让内容（标识/标题/进度条）淡掉，交接瞬间背景仍是同一块深色。
+*/
+.launch.leaving .center,
+.launch.leaving .foot,
+.launch.leaving .relay {
+  opacity: 0;
   transition: opacity 0.24s ease;
 }
-.launch.leaving {
-  opacity: 0;
+.launch.leaving .foot,
+.launch.leaving .relay {
+  animation: none;
 }
 
 /* ---------------- 背景 ---------------- */
@@ -579,11 +598,43 @@ onUnload(() => {
   height: 120px;
   /* 启动图里没有投影，这里也去掉，避免同一枚标识在两层之间"跳"一下 */
   filter: none;
+  /* 极轻的呼吸：幅度 3.5%，肉眼是"活着"，不是"在抖" */
+  animation: markBreath 3.2s ease-in-out 1s infinite;
 }
+/*
+  App 专属的加载语汇：外圈一道匀速旋转的弧。
+  浏览器端继续用扩散涟漪，小程序端有自己的节奏——
+  三端各有各的启动感，但标识、配色、文案仍是同一套。
+  涟漪在 App 里收掉，避免"扩散 + 旋转"两种动势互相打架。
+*/
 .launch.app .ripple {
-  width: 120px;
-  height: 120px;
-  margin: -60px 0 0 -60px;
+  display: none;
+}
+.launch.app .app-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 168px;
+  height: 168px;
+  margin: -84px 0 0 -84px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(139, 240, 181, 0.12);
+  border-top-color: rgba(139, 240, 181, 0.85);
+  animation: ringSpin 1.4s linear infinite;
+}
+@keyframes ringSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes markBreath {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
 }
 .launch.app .title {
   margin-top: 18px;
@@ -700,7 +751,9 @@ onUnload(() => {
   .divider,
   .slogan,
   .foot,
-  .ripple {
+  .ripple,
+  .mark,
+  .app-ring {
     animation: none !important;
   }
   .divider {

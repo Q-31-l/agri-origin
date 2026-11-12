@@ -121,36 +121,9 @@
       </view>
     </view>
 
-    <!-- 底部留白：给 Dock 让位 -->
-    <view class="dock-space"></view>
-
     <!-- ================= 自绘 Dock ================= -->
-    <view class="dock">
-      <view class="dock-item" @click="toTop">
-        <app-icon name="farm" color="#374151" :size="44" />
-        <text class="dock-t">首页</text>
-      </view>
-      <view class="dock-item" @click="toBatch">
-        <app-icon name="batch" color="#374151" :size="44" />
-        <text class="dock-t">批次</text>
-      </view>
-
-      <view class="dock-scan" @click="toScan">
-        <view class="scan-inner">
-          <app-icon name="scan" color="#ffffff" :size="50" />
-        </view>
-        <text class="scan-t">扫码</text>
-      </view>
-
-      <view class="dock-item" @click="toSecond">
-        <app-icon :name="second.icon" color="#374151" :size="44" />
-        <text class="dock-t">{{ second.text }}</text>
-      </view>
-      <view class="dock-item" @click="toMine">
-        <app-icon name="user" color="#374151" :size="44" />
-        <text class="dock-t">我的</text>
-      </view>
-    </view>
+    <!-- 与批次 / 溯源 / 我的 页共用同一个组件：四处都是这块五格 Dock，不再出现"5 格变 4 格" -->
+    <app-dock active="home" animate />
   </view>
 </template>
 
@@ -158,6 +131,7 @@
 import { computed, ref } from 'vue'
 import { onShow, onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import AppIcon from '@/components/common/app-icon.vue'
+import AppDock from '@/components/app/app-dock.vue'
 import StatusTag from '@/components/common/status-tag.vue'
 import { useUserStore } from '@/store/user'
 import { batchPage, statsOverview, workflowTodo } from '@/api'
@@ -206,13 +180,6 @@ const ALL_QUICKS = [
 
 const quicks = computed(() => ALL_QUICKS.filter((q) => !q.perm || store.hasPerm(q.perm)))
 const canCreateBatch = computed(() => store.hasPerm('batch:create'))
-
-/** Dock 第 4 格：能审核的角色给"待办"，其余给"溯源"，避免点了 403 */
-const second = computed(() =>
-  store.hasPerm('batch:audit')
-    ? { icon: 'bell', text: '待办', act: 'todo' }
-    : { icon: 'chain', text: '溯源', act: 'trace' }
-)
 
 const emptyText = computed(() =>
   canCreateBatch.value
@@ -269,9 +236,6 @@ function go(q) {
   if (q.tab) return uni.switchTab({ url: q.path })
   nav(q.path)
 }
-function toTop() {
-  uni.pageScrollTo({ scrollTop: 0, duration: 200 })
-}
 function toBatch() {
   uni.switchTab({ url: ROUTES.TAB_BATCH })
 }
@@ -280,10 +244,6 @@ function toMine() {
 }
 function toScan() {
   // 溯源页自带扫码入口，切过去由它拉起相机，不重复实现一套扫码
-  uni.switchTab({ url: ROUTES.TAB_TRACE })
-}
-function toSecond() {
-  if (second.value.act === 'todo') return nav(ROUTES.WORKFLOW_TODO)
   uni.switchTab({ url: ROUTES.TAB_TRACE })
 }
 function toTodo() {
@@ -716,78 +676,6 @@ function openBatch(b) {
 }
 
 /* ================= Dock ================= */
-.dock-space {
-  height: 200rpx;
-}
-.dock {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  height: calc(116rpx + constant(safe-area-inset-bottom));
-  height: calc(116rpx + env(safe-area-inset-bottom));
-  padding-bottom: constant(safe-area-inset-bottom);
-  padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(255, 255, 255, 0.97);
-  border-top: 1px solid #eef2f4;
-  box-shadow: 0 -6rpx 24rpx rgba(15, 40, 28, 0.05);
-}
-.dock-item {
-  flex: 1;
-  height: 116rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.dock-item:active {
-  opacity: 0.6;
-}
-.dock-t {
-  margin-top: 6rpx;
-  font-size: 18rpx;
-  color: $text-3;
-}
-
-/* 中间凸起扫码：圆形按钮压出 Dock 顶边，这是 App 最直观的视觉特征 */
-.dock-scan {
-  flex: 1;
-  height: 116rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding-bottom: 10rpx;
-  position: relative;
-}
-.scan-inner {
-  position: absolute;
-  top: -34rpx;
-  width: 108rpx;
-  height: 108rpx;
-  border-radius: 54rpx;
-  background: linear-gradient(140deg, #1f7a4d 0%, #2f9e63 100%);
-  border: 6rpx solid #ffffff;
-  box-shadow: 0 10rpx 24rpx rgba(31, 122, 77, 0.28);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.dock-scan:active .scan-inner {
-  transform: scale(0.94);
-}
-.scan-inner {
-  transition: transform 0.12s ease;
-}
-.scan-t {
-  font-size: 18rpx;
-  color: $text-3;
-  margin-bottom: 2rpx;
-}
 
 /* ================= 进场 ================= */
 /*
@@ -800,16 +688,6 @@ function openBatch(b) {
   from {
     opacity: 0;
     transform: translateY(16rpx);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes ahDock {
-  from {
-    opacity: 0;
-    transform: translateY(100rpx);
   }
   to {
     opacity: 1;
@@ -845,9 +723,6 @@ function openBatch(b) {
 .grid-item:nth-child(4) { animation-delay: 0.44s; }
 .grid-item:nth-child(n + 5) { animation-delay: 0.48s; }
 /* Dock 从底部托上来，落点是最终位置，不占额外高度 */
-.dock {
-  animation: ahDock 0.5s 0.1s cubic-bezier(0.2, 0.8, 0.24, 1) both;
-}
 
 /* 系统开了"减少动态效果"：直接给终点状态 */
 @media (prefers-reduced-motion: reduce) {
@@ -857,8 +732,7 @@ function openBatch(b) {
   .sheet .todo,
   .sheet .panel,
   .sheet .bsec,
-  .grid-item,
-  .dock {
+  .grid-item {
     animation: none !important;
   }
 }
