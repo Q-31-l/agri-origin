@@ -40,6 +40,7 @@ import { batchDetail, traceQuery } from '@/api'
 import { ENV } from '@/config/env'
 import { toast } from '@/utils/ui'
 import { formatQty } from '@/utils/format'
+import { readWindowInfo } from '@/utils/system'
 
 const W = 750
 const H = 1200
@@ -49,7 +50,7 @@ const posterPath = ref('')
 const canvasW = ref(375)
 const canvasH = ref(600)
 
-const sys = uni.getSystemInfoSync()
+const sys = readWindowInfo()
 const dpr = sys.pixelRatio || 2
 
 const traceCode = computed(() => batch.value.traceCode || '')

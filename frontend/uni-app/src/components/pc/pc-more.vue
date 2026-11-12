@@ -24,6 +24,7 @@
 
 <script setup>
 import { computed, getCurrentInstance, nextTick, ref } from 'vue'
+import { readWindowInfo } from '@/utils/system'
 
 /**
  * 表格操作列的「更多」下拉。
@@ -77,7 +78,7 @@ function measureDirection() {
       const btn = res[0]
       const panel = res[1]
       if (!panel.height) return
-      const winH = (uni.getSystemInfoSync().windowHeight || 0) || window.innerHeight || 0
+      const winH = (readWindowInfo().windowHeight || 0) || window.innerHeight || 0
       const below = winH - btn.bottom
       const above = btn.top
       dropUp.value = below < panel.height + 16 && above > below

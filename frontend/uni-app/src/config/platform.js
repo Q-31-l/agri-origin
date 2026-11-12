@@ -1,5 +1,7 @@
 /** 平台判定：所有端差异判断集中在这里 */
 
+import { readWindowInfo } from '@/utils/system'
+
 export const isH5 = (() => {
   // #ifdef H5
   return true
@@ -40,7 +42,8 @@ let sysInfo = null
 export function sys() {
   if (!sysInfo) {
     try {
-      sysInfo = uni.getSystemInfoSync()
+      // 小程序端走 wx.getWindowInfo，避免 getSystemInfoSync 的废弃警告；取值同名同义
+      sysInfo = readWindowInfo()
     } catch (e) {
       sysInfo = { windowWidth: 375, windowHeight: 667, statusBarHeight: 0, platform: 'devtools' }
     }

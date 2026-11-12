@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { sys, isPcWidth } from '@/config/platform'
+import { readWindowInfo } from '@/utils/system'
 
 export const useAppStore = defineStore('app', {
   state: () => ({
@@ -28,7 +29,8 @@ export const useAppStore = defineStore('app', {
 
     refreshSize() {
       try {
-        const info = uni.getSystemInfoSync()
+        // 不缓存：窗口尺寸会随旋转 / 缩放变化，每次重新读
+        const info = readWindowInfo()
         this.windowWidth = info.windowWidth
         this.windowHeight = info.windowHeight
         this.statusBarHeight = info.statusBarHeight || 0
