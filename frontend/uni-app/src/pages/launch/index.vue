@@ -16,11 +16,19 @@
       让进度条补完最后一小段就进系统 —— 不再重播第二遍品牌动画。
     -->
     <view v-if="hop" class="relay">
-      <image class="relay-mark" src="/static/logo/mark.png" mode="aspectFit" />
+      <!-- 与 index.html 幕布同一份矢量，零请求，弱网也不会出现"标识先消失再出现" -->
+      <view class="relay-mark" v-html="markSvg"></view>
       <view class="relay-name">农安链溯源</view>
       <view class="relay-bar"><view class="relay-fill"></view></view>
       <text class="relay-tip">正在进入业务系统</text>
     </view>
+
+    <!--
+      换手用的底色层：淡出时铺到登录页的首屏色上，
+      reLaunch 那一瞬间底色已经完全一致，不会出现"唰"地换一张屏。
+      PC 登录页是浅色底，手机登录页首屏是品牌绿。
+    -->
+    <view v-if="hop && handoffTone" class="handoff" :class="handoffTone"></view>
 
     <template v-else>
       <view class="center">
@@ -74,6 +82,12 @@ const plate = ref('web')
 
 /** 是否"从官网过来"：官网已经播过一次过场，这里只接力，不再重播 */
 const hop = ref(false)
+
+/** 换手底色：light = PC 登录页浅色底，green = 手机登录页品牌绿 */
+const handoffTone = ref('')
+
+/** 接力画面的标识（与门户 / 幕布同源的内联矢量，不额外发请求） */
+const markSvg = `<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false" style="display:block;width:100%;height:100%"><defs><linearGradient id="rlacbmBg" x1="18%" y1="0%" x2="82%" y2="100%"><stop offset="0%" stop-color="#3fae74"/><stop offset="46%" stop-color="#1a7c48"/><stop offset="100%" stop-color="#093a22"/></linearGradient><radialGradient id="rlacbmGlow" cx="26%" cy="12%" r="72%"><stop offset="0%" stop-color="#b9ffd6" stop-opacity="0.55"/><stop offset="58%" stop-color="#b9ffd6" stop-opacity="0.06"/><stop offset="100%" stop-color="#b9ffd6" stop-opacity="0"/></radialGradient><linearGradient id="rlacbmSoil" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#9df0be" stop-opacity="0.38"/><stop offset="46%" stop-color="#0b4a2b" stop-opacity="0.92"/><stop offset="100%" stop-color="#031a0e"/></linearGradient><linearGradient id="rlacbmLeafL" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8fe4b2"/><stop offset="55%" stop-color="#d6fbe6"/><stop offset="100%" stop-color="#ffffff"/></linearGradient><linearGradient id="rlacbmLeafR" x1="100%" y1="100%" x2="0%" y2="0%"><stop offset="0%" stop-color="#8fe4b2"/><stop offset="55%" stop-color="#d6fbe6"/><stop offset="100%" stop-color="#ffffff"/></linearGradient><linearGradient id="rlacbmStem" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#c2f4d8"/></linearGradient><clipPath id="rlacbmRound"><rect x="0" y="0" width="512" height="512" rx="150" ry="150"/></clipPath></defs><g clip-path="url(#rlacbmRound)"><rect width="512" height="512" fill="url(#rlacbmBg)"/><rect width="512" height="512" fill="url(#rlacbmGlow)"/><ellipse cx="120" cy="40" rx="250" ry="200" fill="#ffffff" opacity="0.10"/><path d="M-60 512 L-60 432 Q256 366 572 432 L572 512 Z" fill="url(#rlacbmSoil)"/><path d="M-60 432 Q256 366 572 432" fill="none" stroke="#b7f7d2" stroke-opacity="0.28" stroke-width="4"/><rect x="247" y="296" width="18" height="118" rx="9" fill="url(#rlacbmStem)"/><path d="M256 296 q9 0 9 9 v100 q0 9 -9 9 q-9 0 -9 -9 v-100 q0 -9 9 -9 z" fill="#ffffff" opacity="0.35"/><path d="M258 314 Q236 196 122 206 Q150 330 258 314 Z" fill="url(#rlacbmLeafL)"/><path d="M254 314 Q276 196 390 206 Q362 330 254 314 Z" fill="url(#rlacbmLeafR)"/><path d="M252 310 Q212 262 140 214" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/><path d="M260 310 Q300 262 372 214" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/><circle cx="402" cy="126" r="30" fill="none" stroke="#e6fff0" stroke-opacity="0.62" stroke-width="6"/><circle cx="402" cy="126" r="10" fill="#e6fff0" fill-opacity="0.92"/><rect x="3" y="3" width="506" height="506" rx="148" ry="148" fill="none" stroke="#ffffff" stroke-opacity="0.20" stroke-width="6"/></g></svg>`
 
 /**
  * 开场动画的时长。
@@ -161,11 +175,15 @@ onLoad(() => {
 
   if (hop.value) {
     /*
-     * 官网那边 660ms 里进度条已经走满，接力块是"满格"状态接住的，
-     * 这里只要停一下让它被看清，然后淡出进系统。
-     * 总时长 = 官网 0.66s + 这里 0.42s ≈ 1.1s，全程只有一条进度条、一次过场。
+     * 官网那边条已经走满，这里绝不能再"停一下"：条满就是用户预期立刻进界面，
+     * 原来挂载后还要静止 180ms 才开始淡出，那就是他说的"顿一下"。
+     * 现在挂载后 60ms 就开始淡出（FADE 240），300ms 完成换手；
+     * 淡出期间 handoff 层同步铺到登录页的首屏色，reLaunch 时底色已经一致。
      */
-    plan(420, 0, 140)
+    holdMs.value = 280
+    // #ifdef H5
+    handoffTone.value = isPcWidth() ? 'light' : 'green'
+    // #endif
   } else if (plate.value === 'app') {
     /*
      * App 是"点开一瞬间"，但也不能快到看不清：
@@ -540,6 +558,17 @@ onMounted(() => {
   width: clamp(72px, 9vw, 104px);
   height: clamp(72px, 9vw, 104px);
   filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.5));
+  /* 与 index.html 幕布上的呼吸同频，换手时标识不会"跳一下" */
+  animation: relayBreath 2.8s ease-in-out infinite;
+}
+@keyframes relayBreath {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
 }
 .relay-name {
   margin-top: 20px;
@@ -562,11 +591,62 @@ onMounted(() => {
   用户看到的就是"播了两遍"。所以接力块里的条固定满格、不参与任何动画。
 */
 .relay-fill {
+  position: relative;
   width: 100%;
   height: 100%;
   border-radius: 3px;
+  overflow: hidden;
   background: linear-gradient(90deg, #45e0a6, #d6ffe9);
   box-shadow: 0 0 12px rgba(69, 224, 166, 0.55);
+}
+/* 与 index.html 幕布上的扫光同一套参数：跨文档换手后这道光还在走，画面是"活的" */
+.relay-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 46%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.75) 45%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0.75) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: relaySweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform;
+}
+@keyframes relaySweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(330%);
+  }
+}
+
+/*
+  换手底色：淡出时同步铺满，颜色 = 目标页首屏色。
+  reLaunch 是瞬间替换，只要这一层和登录页第一帧同色，就不会"唰"地闪一下。
+*/
+.handoff {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.launch.leaving .handoff {
+  opacity: 1;
+}
+.handoff.light {
+  background: #f6f8f7;
+}
+.handoff.green {
+  background: linear-gradient(160deg, #1f7a4d 0%, #2f9e63 100%);
 }
 .relay-tip {
   margin-top: 16px;
@@ -836,11 +916,13 @@ onMounted(() => {
   .foot,
   .ripple,
   .mark,
-  .app-halo,
-  .app-ring,
-  .app-ring2 {
-    animation: none !important;
-  }
+    .app-halo,
+    .app-ring,
+    .app-ring2,
+    .relay-mark,
+    .relay-fill::after {
+      animation: none !important;
+    }
   .divider {
     transform: none;
   }

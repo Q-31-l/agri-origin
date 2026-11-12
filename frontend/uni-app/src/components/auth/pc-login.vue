@@ -239,7 +239,8 @@ function ok() {
 }
 @keyframes plIn {
   from {
-    opacity: 0;
+    /* 起始不完全透明：启动页换手时底色已是同一个浅色，0 会让"发白"的过程被看见 */
+    opacity: 0.9;
   }
   to {
     opacity: 1;

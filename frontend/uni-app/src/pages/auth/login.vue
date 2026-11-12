@@ -276,8 +276,12 @@ function toRegister() {
 }
 @keyframes pageIn {
   from {
-    opacity: 0;
-    transform: translateY(8rpx);
+    /*
+      起始不要用 0：启动页换手时底色是品牌绿，若第一帧全透明会先露出浅色页面底，
+      在深绿上就是"啪"地闪一下。0.94 既保住轻微的淡入感，又不会透出底色。
+    */
+    opacity: 0.94;
+    transform: translateY(6rpx);
   }
   to {
     opacity: 1;

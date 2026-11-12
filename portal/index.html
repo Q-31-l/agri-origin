@@ -1720,9 +1720,14 @@ section{position:relative}
   display:flex;align-items:center;justify-content:center;
   background:radial-gradient(120% 100% at 50% 0%,#123528 0%,#0B1E17 58%,#070F0C 100%);
   opacity:0;visibility:hidden;pointer-events:none;
-  transition:opacity .26s var(--ease),visibility 0s linear .26s;
+  transition:opacity .18s var(--ease),visibility 0s linear .18s;
 }
-.route-veil.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .26s var(--ease),visibility 0s}
+.route-veil.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .18s var(--ease),visibility 0s}
+/*
+  按浏览器返回、页面从 bfcache 还原时，遮罩必须"立刻消失"而不是淡出。
+  以前走的是 .18s 淡出，恢复出来的那一帧就是一张静止的加载图，看起来像截图卡在那儿。
+*/
+.route-veil.kill{transition:none!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important}
 .rv-box{display:flex;flex-direction:column;align-items:center;transform:translateY(8px) scale(.985);transition:transform .56s var(--ease)}
 .route-veil.on .rv-box{transform:none}
 /* 尺寸随视口走：手机上是小标识，宽屏上不至于缩成一个小点 */
@@ -1767,12 +1772,23 @@ section{position:relative}
   var jumping = false;
 
   function hide() {
-    veil.className = veil.className.replace(/\s*on/g, "");
+    veil.className = veil.className.replace(/\s*on/g, "").trim();
+  }
+
+  /* 返回时从 bfcache 还原：连淡出都不要，直接摘掉，避免看到一张静止的加载图 */
+  function kill() {
+    jumping = false;
+    veil.className = "route-veil kill";
   }
 
   function go(href) {
     if (jumping) return;
     jumping = true;
+    /* 上一次返回留下的 kill 要先摘掉，否则这次的遮罩不会淡入 */
+    if (veil.className.indexOf("kill") >= 0) {
+      veil.className = "route-veil";
+      void veil.offsetWidth;
+    }
     /* 留给业务系统启动页读取：从官网过来的用户已经看过一次过场，开场可以短一些 */
     try { sessionStorage.setItem("agri_portal_hop", "1"); } catch (e) {}
     if (reduced) { window.location.href = href; return; }
@@ -1793,8 +1809,9 @@ section{position:relative}
     go(href);
   }, false);
 
-  /* 从业务系统按浏览器返回：页面常被 bfcache 还原，必须把遮罩收回去 */
-  window.addEventListener("pageshow", function () {
+  /* 从业务系统按浏览器返回：页面常被 bfcache 还原，必须把遮罩立刻收掉 */
+  window.addEventListener("pageshow", function (ev) {
+    if (ev.persisted) { kill(); return; }
     jumping = false;
     hide();
   });
