@@ -79,7 +79,13 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.parseColor(BRAND_DEEP));
 
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor(PAGE_BG));
+        /*
+         * WebView 自己也要是品牌深绿，不能留默认白。
+         * 启动图是深绿底 + 居中标识，WebView 从白变深绿的那一下就是最明显的
+         * "先白屏再出画面"，比任何动画都伤观感。首页与启动页都是深绿，
+         * 所以这里统一成深绿，页面内容接上时完全看不出切换。
+         */
+        web.setBackgroundColor(Color.parseColor(BRAND_DEEP));
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         root.addView(web, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));

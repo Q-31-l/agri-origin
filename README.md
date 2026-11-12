@@ -696,6 +696,30 @@ node frontend/app-shell/tools/render-icons.js   # 改图标时重跑：品牌 SV
 - App 专属页被浏览器直接访问时会自行退回通用页（`onLoad` 守卫），不会出现半成品界面。
 - 注册表单仍只有一份（`pages/auth/register.vue`），App 的"选择身份"页只负责传 `?role=`，避免两套校验逻辑走偏。身份清单统一在 `config/roles.js`。
 
+#### 三端各自的界面与启动感
+
+三端共用一套业务逻辑，界面按"端"分开表达，功能一条都没分叉：
+
+| | 浏览器（手机 / 电脑同一套响应式） | 微信小程序 | 安装包 App |
+|---|---|---|---|
+| 设计取向 | 克制、信息密度优先，和后台一致 | 轻快、单手可达 | 沉浸、贴近原生应用 |
+| 启动时长 | 回访 1.3s / 首见 1.9s | 回访 1.0s / 首见 1.45s | 回访 0.9s / 首见 1.2s |
+| 启动页底部说明 | `FISCO-BCOS 联盟链 · 全流程上链存证` | `微信小程序 · 无需下载安装` | `正在进入应用 · AGRI-ORIGIN` |
+| 首屏 | `pages/tabbar/home` 或 PC 控制台 | `pages/tabbar/home` | `pages/app/home`（自绘 Dock） |
+
+判定方式：小程序端用 `#ifdef MP-WEIXIN`（**编译期真生效**，已核对产物里只剩 `plate="mp"` 分支）；App 壳用 `isAppShell()`；其余一律按浏览器处理。三者只影响 `plate` 这个视觉变量和 `holdMs` 这个时长，跳转目标仍由原来的 `isPcWidth()` / `isAppShell()` 决定。
+
+**官网 → 业务系统的过渡**：`portal/index.html` 拦截站内 `/pages/` 链接，先播一屏品牌遮罩（logo + 进度条，约 0.58s）再跳转，避免白屏硬切；下载页、锚点、外链一律不拦。过渡会在 `sessionStorage` 留一个 `agri_portal_hop` 标记，启动页读到后把开场缩短一档——用户刚看过一次过场，再完整播一遍品牌会像"卡住了"。
+
+**App 点开瞬间的衔接**（这三处必须同时成立，缺一个就会闪）：
+1. `styles.xml` 的 `windowBackground` 是启动图：品牌深绿底 + 居中标识；
+2. `WebView` 背景色设为同一个深绿（原来留的是浅灰 `#F4F7F5`，页面没渲染出来前会白一下）；
+3. 启动页首帧底色也是 `#0B3D26`，渐变由单独一层淡入；`plate === 'app'` 时标识固定 120px 且**中点落在屏幕中线**，与启动图的位置和尺寸完全一致，所以看到的是"标识没动，周围亮了起来"，而不是"网页重新加载一次"。
+
+**App 首页进场**：品牌栏 → 问候 → 统计 → 待办 → 宫格 → 批次 → Dock 依次淡入上浮，只动 `opacity` 与 `transform`，不占位、不拦点击；`prefers-reduced-motion: reduce` 下直接给终点状态。
+
+> 顺手修掉一处旧问题：`pages/tabbar/home.vue` 右上角光斑用 `right:-100rpx` 探出容器，把手机端的文档撑到 442px（390 屏），页面能左右拖、底部错位。给 `.header` 加 `overflow: hidden` 裁掉探出部分后，`scrollWidth` 回到 390。
+
 
 ---
 

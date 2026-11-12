@@ -1703,5 +1703,103 @@ section{position:relative}
   });
 })();
 </script>
+<!-- 内链过渡层：从官网进入业务系统时不再整页白屏硬切 -->
+<div class="route-veil" id="routeVeil" aria-hidden="true">
+  <div class="rv-box">
+    <svg class="rv-mark" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><use href="#brandMark" xlink:href="#brandMark"></use></svg>
+    <div class="rv-name">农安链溯源</div>
+    <div class="rv-bar"><i></i></div>
+    <div class="rv-tip">正在进入业务系统</div>
+  </div>
+</div>
+
+<style>
+/* 过渡层独立成段：不参与页面的 3D/视差动画，也不改写任何既有选择器 */
+.route-veil{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 100% at 50% 0%,#123528 0%,#0B1E17 58%,#070F0C 100%);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .26s var(--ease),visibility 0s linear .26s;
+}
+.route-veil.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .26s var(--ease),visibility 0s}
+.rv-box{display:flex;flex-direction:column;align-items:center;transform:translateY(8px) scale(.985);transition:transform .56s var(--ease)}
+.route-veil.on .rv-box{transform:none}
+/* 尺寸随视口走：手机上是小标识，宽屏上不至于缩成一个小点 */
+.rv-mark{
+  width:clamp(72px,9vw,104px);height:clamp(72px,9vw,104px);
+  filter:drop-shadow(0 14px 30px rgba(0,0,0,.5));
+}
+.rv-name{
+  margin-top:20px;font-size:clamp(15px,1.5vw,19px);letter-spacing:.18em;
+  font-weight:600;color:#E8FFF3;
+}
+.rv-bar{
+  margin-top:28px;width:clamp(150px,17vw,212px);height:3px;border-radius:3px;
+  background:rgba(255,255,255,.16);overflow:hidden;
+}
+.rv-bar i{
+  display:block;width:100%;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,#45E0A6,#D6FFE9);
+  box-shadow:0 0 12px rgba(69,224,166,.55);
+  transform:scaleX(0);transform-origin:left center;
+}
+.route-veil.on .rv-bar i{animation:rvFill .62s cubic-bezier(.4,0,.2,1) forwards}
+.rv-tip{margin-top:16px;font-size:clamp(11px,1vw,12.5px);letter-spacing:.16em;color:rgba(224,255,238,.55)}
+@keyframes rvFill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media (prefers-reduced-motion:reduce){
+  .route-veil,.rv-box{transition:none}
+  .rv-box{transform:none}
+  .route-veil.on .rv-bar i{animation:none;transform:scaleX(1)}
+}
+</style>
+
+<script>
+/* ============================================================
+   去业务系统时的过场：只拦站内 /pages/ 链接，下载页与锚点不动
+   ============================================================ */
+(function () {
+  "use strict";
+  var veil = document.getElementById("routeVeil");
+  if (!veil) return;
+
+  var reduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var jumping = false;
+
+  function hide() {
+    veil.className = veil.className.replace(/\s*on/g, "");
+  }
+
+  function go(href) {
+    if (jumping) return;
+    jumping = true;
+    /* 留给业务系统启动页读取：从官网过来的用户已经看过一次过场，开场可以短一些 */
+    try { sessionStorage.setItem("agri_portal_hop", "1"); } catch (e) {}
+    if (reduced) { window.location.href = href; return; }
+    veil.className += " on";
+    /* 等遮罩淡入与进度条走完再切页，避免遮罩刚出现就被卸载 */
+    window.setTimeout(function () { window.location.href = href; }, 580);
+  }
+
+  document.addEventListener("click", function (ev) {
+    if (ev.defaultPrevented || ev.button !== 0) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+    if (!a) return;
+    if (a.target && a.target !== "_self") return;
+    var href = a.getAttribute("href") || "";
+    if (href.indexOf("/pages/") !== 0) return;
+    ev.preventDefault();
+    go(href);
+  }, false);
+
+  /* 从业务系统按浏览器返回：页面常被 bfcache 还原，必须把遮罩收回去 */
+  window.addEventListener("pageshow", function () {
+    jumping = false;
+    hide();
+  });
+})();
+</script>
+
 </body>
 </html>

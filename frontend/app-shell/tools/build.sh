@@ -22,7 +22,7 @@ OUTDIR="$PROJ/out"
 
 APP_NAME="agritrace"
 VER_NAME="1.0.0"
-VER_CODE="2"  # 递增才能覆盖安装：签名不变、版本名不变，仅内部行为更新
+VER_CODE="3"  # 递增才能覆盖安装：签名不变、版本名不变，仅内部行为更新
 
 rm -rf "$SRC"
 mkdir -p "$SRC" "$OUTDIR"

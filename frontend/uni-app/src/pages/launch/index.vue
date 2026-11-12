@@ -1,7 +1,8 @@
 <template>
-  <view class="launch" :class="{ leaving }">
-    <!-- 背景层：两团柔光 + 细网格 + 同心弧，纯 CSS，小程序也能画 -->
+  <view class="launch" :class="[plate, { leaving }]">
+    <!-- 背景层：底色 → 渐变 → 两团柔光 + 细网格 + 同心弧，纯 CSS，小程序也能画 -->
     <view class="bg">
+      <view class="grad"></view>
       <view class="glow g1"></view>
       <view class="glow g2"></view>
       <view class="grid"></view>
@@ -32,31 +33,71 @@
       <view class="progress">
         <view class="bar" :style="{ animationDuration: holdMs + 'ms' }"></view>
       </view>
-      <text class="chain">FISCO-BCOS 联盟链 · 全流程上链存证</text>
+      <text class="chain">{{ footNote }}</text>
     </view>
   </view>
 </template>
 
 <script setup>
 import { onLoad, onUnload } from '@dcloudio/uni-app'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { getToken } from '@/utils/auth'
 import { isAppShell, isPcWidth } from '@/config/platform'
 import { ROUTES } from '@/config/routes'
 
 /**
+ * 端标识，只用来切换视觉与节奏，不参与任何跳转判断。
+ * web：浏览器（手机/电脑同一套）；app：安装包壳内；mp：微信小程序
+ */
+const plate = ref('web')
+
+/**
  * 开场动画的时长。
- * 已登录的用户是"回访"，看一眼就走，给 1.3s；
- * 未登录的用户第一次见这个系统，留 1.9s 把品牌讲完再进登录页。
+ * App 是"点开一瞬间"，比网页短；小程序有微信自己的加载，也偏快；
+ * 浏览器端保留完整的品牌叙事——已登录是回访，1.3s；未登录第一次见，1.9s。
  */
 const holdMs = ref(1900)
 const leaving = ref(false)
 let t1 = null
 let t2 = null
 
+/** 底部那行小字，三端各说各的：App 说"进入应用"，小程序说"无需安装" */
+const footNote = computed(() => {
+  if (plate.value === 'app') return '正在进入应用 · AGRI-ORIGIN'
+  if (plate.value === 'mp') return '微信小程序 · 无需下载安装'
+  return 'FISCO-BCOS 联盟链 · 全流程上链存证'
+})
+
 onLoad(() => {
   const hasToken = !!getToken()
-  holdMs.value = hasToken ? 1300 : 1900
+
+  // #ifdef MP-WEIXIN
+  plate.value = 'mp'
+  // #endif
+  // #ifdef H5
+  if (isAppShell()) plate.value = 'app'
+  // #endif
+
+  if (plate.value === 'app') {
+    holdMs.value = hasToken ? 900 : 1200
+  } else if (plate.value === 'mp') {
+    holdMs.value = hasToken ? 1000 : 1450
+  } else {
+    holdMs.value = hasToken ? 1300 : 1900
+    // #ifdef H5
+    /*
+     * 从官网点"进入业务系统"过来的，入口已经播过一次过场（logo + 进度条），
+     * 这里再完整讲一遍品牌会让人觉得"卡住了"，所以缩短一档。
+     * 标记读完即删，避免影响后续正常打开。
+     */
+    try {
+      if (sessionStorage.getItem('agri_portal_hop') === '1') {
+        sessionStorage.removeItem('agri_portal_hop')
+        holdMs.value = hasToken ? 820 : 1080
+      }
+    } catch (e) {}
+    // #endif
+  }
 
   // 先淡出，再跳转：直接 reLaunch 会"啪"地切走，动画等于白做
   t1 = setTimeout(() => {
@@ -99,7 +140,11 @@ onUnload(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(158deg, #072b1c 0%, #0c3f29 46%, #11553a 100%);
+  /*
+    首帧底色取原生启动图的品牌深绿（#0B3D26），渐变由 .grad 单独一层淡入。
+    App 的启动图是纯色 + 居中标识，如果这里首帧直接铺渐变，点开瞬间会闪一下色差。
+  */
+  background: #0b3d26;
   opacity: 1;
   transition: opacity 0.24s ease;
 }
@@ -112,6 +157,11 @@ onUnload(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+.grad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(158deg, #072b1c 0%, #0c3f29 46%, #11553a 100%);
 }
 .glow {
   position: absolute;
@@ -341,6 +391,121 @@ onUnload(() => {
   to {
     transform: scaleX(1);
   }
+}
+/* 渐变层淡入：首帧先给纯色，与原生启动图接上 */
+@keyframes gradIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------------- 三端各自的节奏 ---------------- */
+
+/*
+  App：原生启动图里已经有一个居中的标识，这里把尺寸与位置对齐，
+  并且不做位移与缩放 —— 用户看到的是"标识没动，周围亮了起来"。
+  这是安装包该有的启动感：不是网页重新加载一次，而是同一个画面接着往下走。
+*/
+.launch.app .grad {
+  animation: gradIn 0.6s ease both;
+}
+/*
+  启动图里标识是"屏幕正中"，这里也必须让标识的中点落在中线，
+  不能沿用"整个内容块居中"——内容块下方还有标题与标语，
+  整体居中会把标识顶到中线上方八十多像素，从启动图切过来时明显往上跳一截。
+  120px 的标识，所以中线减去一半高度。
+*/
+.launch.app {
+  justify-content: flex-start;
+  padding-top: calc(50vh - 60px);
+}
+/*
+  启动图里标识是"屏幕正中"，这里也必须让标识的中点落在中线，
+  不能沿用"整个内容块居中"——内容块下方还有标题与标语，
+  整体居中会把标识顶到中线上方八十多像素，从启动图切过来时明显往上跳一截。
+  120px 的标识，所以中线减去一半高度。
+*/
+.launch.app {
+  justify-content: flex-start;
+  padding-top: calc(50vh - 60px);
+}
+.launch.app .mark-wrap {
+  width: 120px;
+  height: 120px;
+  animation: none;
+}
+.launch.app .mark {
+  width: 120px;
+  height: 120px;
+  /* 启动图里没有投影，这里也去掉，避免同一枚标识在两层之间"跳"一下 */
+  filter: none;
+}
+.launch.app .ripple {
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+}
+.launch.app .title {
+  margin-top: 18px;
+  animation-duration: 0.44s;
+  animation-delay: 0.06s;
+}
+.launch.app .sub {
+  animation-duration: 0.44s;
+  animation-delay: 0.14s;
+}
+.launch.app .divider {
+  animation-duration: 0.46s;
+  animation-delay: 0.22s;
+}
+.launch.app .slogan {
+  animation-duration: 0.44s;
+  animation-delay: 0.3s;
+}
+.launch.app .foot {
+  animation-duration: 0.46s;
+  animation-delay: 0.4s;
+}
+
+/* 小程序：微信自带加载与右上角胶囊，内容略上移，节奏比浏览器紧一档 */
+.launch.mp .center {
+  transform: translateY(-14px);
+}
+.launch.mp .mark-wrap {
+  width: 82px;
+  height: 82px;
+}
+.launch.mp .mark {
+  width: 76px;
+  height: 76px;
+}
+.launch.mp .ripple {
+  width: 82px;
+  height: 82px;
+  margin: -41px 0 0 -41px;
+}
+.launch.mp .title {
+  margin-top: 18px;
+  animation-duration: 0.46s;
+  animation-delay: 0.16s;
+}
+.launch.mp .sub {
+  animation-duration: 0.46s;
+  animation-delay: 0.24s;
+}
+.launch.mp .divider {
+  animation-duration: 0.5s;
+  animation-delay: 0.32s;
+}
+.launch.mp .slogan {
+  animation-duration: 0.46s;
+  animation-delay: 0.4s;
+}
+.launch.mp .foot {
+  animation-delay: 0.5s;
 }
 
 /* PC：屏幕大，标识和标题都放大一点，否则居中会显得空 */

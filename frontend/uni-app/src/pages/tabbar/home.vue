@@ -200,6 +200,12 @@ onPullDownRefresh(() => load())
   background: $brand-grad;
   padding-bottom: 90rpx;
   position: relative;
+  /*
+    header-bg 是右上角那团光斑，故意做成 right:-100rpx 探出容器。
+    探出去会把整个文档撑宽（手机 390 的屏会变成 442），用户能左右拖，
+    底部内容也跟着错位——所以这里把探出的部分裁掉，只留视觉。
+  */
+  overflow: hidden;
 }
 .header-bg {
   position: absolute;

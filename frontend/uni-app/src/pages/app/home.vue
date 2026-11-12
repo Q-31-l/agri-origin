@@ -788,4 +788,78 @@ function openBatch(b) {
   color: $text-3;
   margin-bottom: 2rpx;
 }
+
+/* ================= 进场 ================= */
+/*
+  首屏一次性进场：只动 opacity 与 transform，不改布局、不拦点击。
+  顺序按视线落点铺开——品牌 → 问候 → 统计 → 待办 → 宫格 → 批次 → Dock，
+  看起来是"一层层亮起来"，而不是整页闪一下。
+  数据回来后才插入的节点（待办、宫格项）浏览器会重新播一次，天然错峰。
+*/
+@keyframes ahIn {
+  from {
+    opacity: 0;
+    transform: translateY(16rpx);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ahDock {
+  from {
+    opacity: 0;
+    transform: translateY(100rpx);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.brand-row {
+  animation: ahIn 0.46s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+.greet-row {
+  animation: ahIn 0.46s 0.06s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+.glass {
+  animation: ahIn 0.5s 0.12s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+.sheet .todo {
+  animation: ahIn 0.46s 0.16s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+.sheet .panel {
+  animation: ahIn 0.5s 0.2s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+.sheet .bsec {
+  animation: ahIn 0.5s 0.26s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+.grid-item {
+  animation: ahIn 0.4s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+/* 前四格逐格错开；第五格起不再叠加延迟，避免入口等太久才可点 */
+.grid-item:nth-child(1) { animation-delay: 0.32s; }
+.grid-item:nth-child(2) { animation-delay: 0.36s; }
+.grid-item:nth-child(3) { animation-delay: 0.4s; }
+.grid-item:nth-child(4) { animation-delay: 0.44s; }
+.grid-item:nth-child(n + 5) { animation-delay: 0.48s; }
+/* Dock 从底部托上来，落点是最终位置，不占额外高度 */
+.dock {
+  animation: ahDock 0.5s 0.1s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+
+/* 系统开了"减少动态效果"：直接给终点状态 */
+@media (prefers-reduced-motion: reduce) {
+  .brand-row,
+  .greet-row,
+  .glass,
+  .sheet .todo,
+  .sheet .panel,
+  .sheet .bsec,
+  .grid-item,
+  .dock {
+    animation: none !important;
+  }
+}
 </style>
