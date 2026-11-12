@@ -7,7 +7,10 @@
       "path": "pages/launch/index",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "农安链溯源"
+        "navigationBarTitleText": "农安链溯源",
+        "backgroundColor": "#0B3D26",
+        "backgroundColorTop": "#0B3D26",
+        "backgroundColorBottom": "#0B3D26"
       }
     },
     {

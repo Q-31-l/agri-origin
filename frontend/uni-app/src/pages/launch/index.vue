@@ -28,8 +28,10 @@
         <view class="mark-wrap">
           <view class="ripple r1"></view>
           <view class="ripple r2"></view>
-          <!-- App 专属：标识外一圈匀速旋转的弧线，像系统级启动动画 -->
+          <!-- App 专属：光晕 + 一正一反两道弧线，像系统级启动动画 -->
+          <view v-if="plate === 'app'" class="app-halo"></view>
           <view v-if="plate === 'app'" class="app-ring"></view>
+          <view v-if="plate === 'app'" class="app-ring2"></view>
           <image class="mark" src="/static/logo/mark.png" mode="aspectFit" />
         </view>
 
@@ -154,6 +156,13 @@ onLoad(() => {
       sessionStorage.removeItem('agri_portal_hop')
       hop.value = true
     }
+    /*
+     * index.html 在解析阶段给 html 打了 agri-boot（只在这一跳生效），
+     * 现在启动页已经画出来了，摘掉它，免得后续浅色页面在透明处透出深绿。
+     */
+    document.documentElement.className = document.documentElement.className
+      .replace(/\s*\bagri-boot\b/g, '')
+      .trim()
   } catch (e) {}
   // #endif
 
@@ -598,17 +607,58 @@ onUnload(() => {
   height: 120px;
   /* 启动图里没有投影，这里也去掉，避免同一枚标识在两层之间"跳"一下 */
   filter: none;
-  /* 极轻的呼吸：幅度 3.5%，肉眼是"活着"，不是"在抖" */
-  animation: markBreath 3.2s ease-in-out 1s infinite;
+  /*
+    标识本身只做一次"浮起对焦"，不再持续缩放：
+    呼吸感交给背后的光晕，标识保持清晰稳定 ——
+    两个都缩放会让人觉得画面在晃。
+  */
+  animation: markRise 0.58s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+@keyframes markRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 /*
-  App 专属的加载语汇：外圈一道匀速旋转的弧。
+  App 专属的加载语汇：一团缓慢呼吸的柔光 + 一正一反两道细弧。
   浏览器端继续用扩散涟漪，小程序端有自己的节奏——
   三端各有各的启动感，但标识、配色、文案仍是同一套。
   涟漪在 App 里收掉，避免"扩散 + 旋转"两种动势互相打架。
 */
 .launch.app .ripple {
   display: none;
+}
+.launch.app .app-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 268px;
+  height: 268px;
+  margin: -134px 0 0 -134px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(69, 224, 166, 0.3) 0%,
+    rgba(69, 224, 166, 0.11) 36%,
+    rgba(69, 224, 166, 0) 70%
+  );
+  animation: haloPulse 3.6s ease-in-out both infinite;
+}
+@keyframes haloPulse {
+  0%,
+  100% {
+    opacity: 0.52;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
 }
 .launch.app .app-ring {
   position: absolute;
@@ -620,7 +670,20 @@ onUnload(() => {
   border-radius: 50%;
   border: 1.5px solid rgba(139, 240, 181, 0.12);
   border-top-color: rgba(139, 240, 181, 0.85);
-  animation: ringSpin 1.4s linear infinite;
+  animation: ringSpin 1.4s linear both infinite;
+}
+/* 反向的第二道弧，更细更淡：让外圈看起来有"层次"而不是一根线在转 */
+.launch.app .app-ring2 {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 206px;
+  height: 206px;
+  margin: -103px 0 0 -103px;
+  border-radius: 50%;
+  border: 1px solid rgba(139, 240, 181, 0.08);
+  border-bottom-color: rgba(139, 240, 181, 0.46);
+  animation: ringSpin 2.8s linear both infinite reverse;
 }
 @keyframes ringSpin {
   to {
@@ -638,8 +701,23 @@ onUnload(() => {
 }
 .launch.app .title {
   margin-top: 18px;
-  animation-duration: 0.44s;
-  animation-delay: 0.06s;
+  /*
+    文字用"由虚到实"的对焦感进场，比单纯上浮更像原生启动动画。
+    blur 只在 App（WebView）里用，两端都能渲染，不会拖慢首帧。
+  */
+  animation: titleFocus 0.52s cubic-bezier(0.22, 0.9, 0.3, 1) 0.1s both;
+}
+@keyframes titleFocus {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
 }
 .launch.app .sub {
   animation-duration: 0.44s;
@@ -753,11 +831,21 @@ onUnload(() => {
   .foot,
   .ripple,
   .mark,
-  .app-ring {
+  .app-halo,
+  .app-ring,
+  .app-ring2 {
     animation: none !important;
   }
   .divider {
     transform: none;
+  }
+  /* 关掉动画后把被 keyframes 的初始态补回来，避免元素停在 opacity:0 */
+  .title {
+    opacity: 1;
+    filter: none;
+  }
+  .mark {
+    opacity: 1;
   }
 }
 </style>

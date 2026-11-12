@@ -14,6 +14,26 @@
       )
     </script>
     <title>农安链溯源</title>
+    <style>
+      /*
+        从官网点「进入业务系统」过来时，官网那层遮罩是深色的，
+        但新文档在 SPA 挂载前会先按页面配置的底色（#f4f6f8）刷一帧，
+        实测有 40~60ms 的浅色闪，肉眼看就是"两层之间闪了一下白"。
+        这里用 html 上的 agri-boot 标记，在解析阶段就把底色压成品牌深绿；
+        启动页挂载后自己摘掉这个 class，不会影响其他页面的正常底色。
+      */
+      html.agri-boot,
+      html.agri-boot body {
+        background: #0b3d26;
+      }
+    </style>
+    <script>
+      try {
+        if (sessionStorage.getItem('agri_portal_hop') === '1') {
+          document.documentElement.className += ' agri-boot'
+        }
+      } catch (e) {}
+    </script>
     <!-- 站点图标直接用品牌矢量产出的 PNG，避免额外维护一份 ico -->
     <link rel="icon" type="image/png" href="/static/logo/mark.png" />
     <link rel="apple-touch-icon" href="/static/logo/mark.png" />

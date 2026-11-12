@@ -13,8 +13,8 @@
     <view class="ad-space"></view>
 
     <view class="ad" :class="{ 'ad-in': animate }">
-      <view class="ad-item" :class="{ on: active === 'home' }" @click="toHome">
-        <app-icon name="farm" :color="colorOf('home')" :size="44" />
+      <view class="ad-item" :class="{ on: homeOn }" @click="toHome">
+        <app-icon name="farm" :color="homeOn ? ON : OFF" :size="44" />
         <text class="ad-t">首页</text>
       </view>
       <view class="ad-item" :class="{ on: active === 'batch' }" @click="toBatch">
@@ -64,6 +64,13 @@ const ON = '#1f7a4d'
 function colorOf(key) {
   return props.active === key ? ON : OFF
 }
+
+/**
+ * 工作台是"首页"下的二级页（首页右上角「工作台 ›」进去的），
+ * Dock 里没有它的位置，但也不能一格都不亮 —— 那样看起来像"当前不在任何页"。
+ * 归属到首页这一格，符合 iOS/Android 里"二级页沿用父 tab 高亮"的习惯。
+ */
+const homeOn = computed(() => props.active === 'home' || props.active === 'workbench')
 
 /**
  * 第 4 格：能审核的角色给"待办"，其余给"溯源"。
