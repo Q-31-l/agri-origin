@@ -26,6 +26,64 @@
       html.agri-boot body {
         background: #0b3d26;
       }
+
+      /*
+        从官网点「进入业务系统」过来时，门户那层过场已经播了一遍（标识 + 名称 + 进度条走满）。
+        但新文档从「HTML 到达」到「SPA 挂载」之间还有 300~500ms，这段时间 #app 是空的，
+        用户看到的就是：过场播完 → 黑一下 → 同一块画面再出来一遍，也就是"播了两遍"。
+
+        下面这张幕布是门户遮罩的静态同构版：尺寸、间距、颜色、渐变全部逐像素对齐，
+        解析到 body 就画出来（早于任何 JS），SPA 挂载后再由启动页摘掉。
+        它不参与任何逻辑，只在 html.agri-boot 存在时显示，其他情况 display:none。
+      */
+      #agri-curtain {
+        display: none;
+      }
+      html.agri-boot #agri-curtain {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        background: radial-gradient(120% 100% at 50% 0%, #123528 0%, #0b1e17 58%, #070f0c 100%);
+      }
+      #agri-curtain .ac-mark {
+        width: clamp(72px, 9vw, 104px);
+        height: clamp(72px, 9vw, 104px);
+        filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.5));
+      }
+      #agri-curtain .ac-name {
+        margin-top: 20px;
+        font-size: clamp(15px, 1.5vw, 19px);
+        letter-spacing: 0.18em;
+        font-weight: 600;
+        color: #e8fff3;
+      }
+      #agri-curtain .ac-bar {
+        margin-top: 28px;
+        width: clamp(150px, 17vw, 212px);
+        height: 3px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.16);
+        overflow: hidden;
+      }
+      #agri-curtain .ac-bar i {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #45e0a6, #d6ffe9);
+        box-shadow: 0 0 12px rgba(69, 224, 166, 0.55);
+      }
+      #agri-curtain .ac-tip {
+        margin-top: 16px;
+        font-size: clamp(11px, 1vw, 12.5px);
+        letter-spacing: 0.16em;
+        color: rgba(224, 255, 238, 0.55);
+      }
     </style>
     <script>
       try {
@@ -42,6 +100,13 @@
   </head>
   <body>
     <div id="app"><!--app-html--></div>
+    <!-- 从官网过来时的接续幕布：只在 html.agri-boot 时可见，启动页挂载后摘除 -->
+    <div id="agri-curtain" aria-hidden="true">
+      <img class="ac-mark" src="/static/logo/mark.png" alt="" />
+      <div class="ac-name">农安链溯源</div>
+      <div class="ac-bar"><i></i></div>
+      <div class="ac-tip">正在进入业务系统</div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

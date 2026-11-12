@@ -61,7 +61,7 @@
 
 <script setup>
 import { onLoad, onUnload } from '@dcloudio/uni-app'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getToken } from '@/utils/auth'
 import { isAppShell, isPcWidth } from '@/config/platform'
 import { ROUTES } from '@/config/routes'
@@ -156,19 +156,16 @@ onLoad(() => {
       sessionStorage.removeItem('agri_portal_hop')
       hop.value = true
     }
-    /*
-     * index.html 在解析阶段给 html 打了 agri-boot（只在这一跳生效），
-     * 现在启动页已经画出来了，摘掉它，免得后续浅色页面在透明处透出深绿。
-     */
-    document.documentElement.className = document.documentElement.className
-      .replace(/\s*\bagri-boot\b/g, '')
-      .trim()
   } catch (e) {}
   // #endif
 
   if (hop.value) {
-    // 官网那边遮罩 620ms 里进度条已经走满，这里只做收尾：补一点点、停一下、淡出
-    plan(600, 0, 200)
+    /*
+     * 官网那边 660ms 里进度条已经走满，接力块是"满格"状态接住的，
+     * 这里只要停一下让它被看清，然后淡出进系统。
+     * 总时长 = 官网 0.66s + 这里 0.42s ≈ 1.1s，全程只有一条进度条、一次过场。
+     */
+    plan(420, 0, 140)
   } else if (plate.value === 'app') {
     /*
      * App 是"点开一瞬间"，但也不能快到看不清：
@@ -207,6 +204,23 @@ onLoad(() => {
 onUnload(() => {
   if (t1) clearTimeout(t1)
   if (t2) clearTimeout(t2)
+})
+
+/**
+ * 摘掉 index.html 里那张「接续幕布」。
+ *
+ * 时机必须放在 mounted 之后：onLoad 阶段模板还没进 DOM，
+ * 这时把 agri-boot 摘掉的后果是幕布先消失、接力块后出现，中间空一帧黑，等于白做。
+ * 现在等接力块画好（下一帧），两者同构、位置一致，换下来肉眼看不出。
+ */
+onMounted(() => {
+  // #ifdef H5
+  requestAnimationFrame(() => {
+    document.documentElement.classList.remove('agri-boot')
+    const curtain = document.getElementById('agri-curtain')
+    if (curtain && curtain.parentNode) curtain.parentNode.removeChild(curtain)
+  })
+  // #endif
 })
 </script>
 
@@ -542,32 +556,23 @@ onUnload(() => {
   background: rgba(255, 255, 255, 0.16);
   overflow: hidden;
 }
+/*
+  官网那 660ms 已经把条推到满格，index.html 的幕布也是满格。
+  这里如果再给一段动画（哪怕只是 96.5% → 100%），跨页面交接时就是第二条进度条，
+  用户看到的就是"播了两遍"。所以接力块里的条固定满格、不参与任何动画。
+*/
 .relay-fill {
   width: 100%;
   height: 100%;
   border-radius: 3px;
   background: linear-gradient(90deg, #45e0a6, #d6ffe9);
   box-shadow: 0 0 12px rgba(69, 224, 166, 0.55);
-  transform-origin: left center;
-  animation: relayFill 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 .relay-tip {
   margin-top: 16px;
   font-size: clamp(11px, 1vw, 12.5px);
   letter-spacing: 0.16em;
   color: rgba(224, 255, 238, 0.55);
-}
-/*
-  官网那 620ms 已经把条推到满格，这里千万不能从 0 再走一遍（会看到条往回缩）。
-  起点只相差 3.5%，肉眼几乎看不出，观感是"条在这儿轻轻一顶就到底了"。
-*/
-@keyframes relayFill {
-  from {
-    transform: scaleX(0.965);
-  }
-  to {
-    transform: scaleX(1);
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .relay-fill {
