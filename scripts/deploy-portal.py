@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""部署官网总门户：上传静态页 + 更新 nginx（门户接管 / 与 /portal/，H5 保持原路径）。
+"""上传门户首页到 /opt/agri-origin/web/portal/index.html（先传 .new 再原子替换，保留上一版）。
 
 用法：
     export AGRI_HOST=1.2.3.4 AGRI_PWD='***'
     python scripts/deploy-portal.py
 
-做了什么：
-  1. 上传 portal/index.html → /opt/agri-origin/web/portal/index.html
-  2. 备份并替换 /etc/nginx/sites-available/default（含门户 location）
-  3. nginx -t 通过才 reload
-  4. 自检：/ 返回门户、/portal/ 返回门户、/pages/launch/index 仍返回 H5
+门户首页是独立静态页，不属于 H5 产物，所以单独一个脚本。
+只在改了 portal/index.html 时才需要跑；H5 发布用 scripts/deploy-h5.py。
 """
 import os
 import sys
@@ -22,87 +19,49 @@ HOST = os.environ.get("AGRI_HOST", "")
 PORT = int(os.environ.get("AGRI_PORT", "22"))
 USER = os.environ.get("AGRI_USER", "root")
 PWD = os.environ.get("AGRI_PWD", "")
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOCAL_HTML = os.path.join(ROOT, "portal", "index.html")
-LOCAL_NGINX = os.path.join(ROOT, "ops", "nginx-agri-origin.conf")
-
-REMOTE_DIR = "/opt/agri-origin/web/portal"
-REMOTE_HTML = REMOTE_DIR + "/index.html"
-NGINX_SITE = "/etc/nginx/sites-available/default"
+LOCAL = "C:/Users/30786/Desktop/毕设农产品/portal/index.html"
+DEST_DIR = "/opt/agri-origin/web/portal"
 
 
 def main():
     if not HOST or not PWD:
-        print("[ERR] 需要环境变量 AGRI_HOST / AGRI_PWD")
-        return 2
-    if not os.path.exists(LOCAL_HTML):
-        print("[ERR] 缺少 " + LOCAL_HTML)
+        print("[ERR] 需要 AGRI_HOST / AGRI_PWD")
         return 2
 
-    cli = paramiko.SSHClient()
-    cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    cli.connect(HOST, port=PORT, username=USER, password=PWD, timeout=25,
-                banner_timeout=30, auth_timeout=30, look_for_keys=False, allow_agent=False)
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    c.connect(HOST, port=PORT, username=USER, password=PWD, timeout=20)
+    s = c.open_sftp()
 
-    def run(cmd, timeout=120):
-        _i, out, err = cli.exec_command(cmd, timeout=timeout)
-        o = out.read().decode("utf-8", "replace")
-        e = err.read().decode("utf-8", "replace")
-        return out.channel.recv_exit_status(), (o + e).strip()
+    size = os.path.getsize(LOCAL)
+    print("[1/3] 上传 %.1f KB -> %s/index.html.new" % (size / 1024.0, DEST_DIR))
+    t = time.time()
+    s.put(LOCAL, DEST_DIR + "/index.html.new")
+    print("      完成，用时 %.1fs" % (time.time() - t))
 
-    try:
-        code, out = run("mkdir -p %s && echo ok" % REMOTE_DIR)
-        print("[%s] 目录: %s" % ("OK" if code == 0 else "ERR", out))
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    cmd = (
+        "set -e; cd %s; "
+        "if [ -f index.html ]; then cp -p index.html index.html.%s; fi; "
+        "mv index.html.new index.html; "
+        "ls -l index.html; "                                            
+        "ls -1t index.html.2* 2>/dev/null | tail -n +4 | xargs -r rm -f"
+    ) % (DEST_DIR, stamp)
+    print("[2/3] 原子替换并保留最近 3 份备份")
+    _in, out, err = c.exec_command(cmd)
+    print(out.read().decode("utf-8", "ignore").strip())
+    e = err.read().decode("utf-8", "ignore").strip()
+    if e:
+        print("      stderr:", e)
 
-        sftp = cli.open_sftp()
-        sftp.put(LOCAL_HTML, REMOTE_HTML)
-        sftp.close()
-        code, out = run("ls -l %s && md5sum %s" % (REMOTE_HTML, REMOTE_HTML))
-        print("[OK] 页面上传:\n%s" % out)
+    print("[3/3] 校验线上大小")
+    _in, out, err = c.exec_command("stat -c %%s %s/index.html" % DEST_DIR)
+    remote = out.read().decode().strip()
+    print("      本地 %d / 线上 %s %s" % (size, remote, "一致" if remote == str(size) else "不一致"))
 
-        stamp = time.strftime("%Y%m%d-%H%M%S")
-        run("cp -a %s %s.bak.%s" % (NGINX_SITE, NGINX_SITE, stamp))
-        print("[OK] nginx 配置已备份: %s.bak.%s" % (NGINX_SITE, stamp))
-
-        sftp = cli.open_sftp()
-        sftp.put(LOCAL_NGINX, NGINX_SITE)
-        sftp.close()
-
-        code, out = run("nginx -t")
-        print("[%s] nginx -t:\n%s" % ("OK" if code == 0 else "ERR", out))
-        if code != 0:
-            run("cp -a %s.bak.%s %s" % (NGINX_SITE, stamp, NGINX_SITE))
-            print("[ERR] 配置校验失败，已回滚，未 reload")
-            return 3
-
-        code, out = run("systemctl reload nginx && echo reloaded")
-        print("[%s] %s" % ("OK" if code == 0 else "ERR", out))
-
-        time.sleep(1)
-        print("\n=== 自检 ===")
-        failed = []
-        for name, path, expect in [
-            ("门户 /", "/", "农安链"),
-            ("门户 /portal/", "/portal/", "农安链"),
-            ("业务系统 H5", "/pages/launch/index", "html"),
-        ]:
-            code, out = run(
-                "curl -sk -o /tmp/p.html -w '%%{http_code}\\n' https://127.0.0.1%s "
-                "-H 'Host: 8-130-105-150.sslip.io' && grep -c '%s' /tmp/p.html" % (path, expect))
-            parts = out.split()
-            status = parts[0] if parts else "?"
-            hits = parts[1] if len(parts) > 1 else "0"
-            # 两个条件都要成立：HTTP 200 且页面里确实命中了期望内容，
-            # 只看到 200 不算通过（可能 200 但返回的是别的页面）
-            ok = status == "200" and hits.isdigit() and int(hits) > 0
-            if not ok:
-                failed.append(name)
-            print("  %-16s -> %s %s (命中 %s)" % (name, status, "OK" if ok else "FAIL", hits))
-
-        return 1 if failed else 0
-    finally:
-        cli.close()
+    s.close()
+    c.close()
+    return 0
 
 
 if __name__ == "__main__":
