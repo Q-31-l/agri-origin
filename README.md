@@ -25,14 +25,14 @@
 | [一](#一这是个什么系统) | 这是个什么系统 |
 | [二](#二界面预览) | 界面预览（含一条批次的完整旅程） |
 | [三](#三项目背景与要解决的问题) | 项目背景与要解决的问题 |
-| [四](#四系统架构) | 系统架构 |
+| [四](#四系统架构) | 系统架构：分层架构图 · 功能模块图 · 数据流向 |
 | [五](#五技术栈) | 技术栈 |
-| [六](#六角色权限与数据范围) | 角色、权限与数据范围 |
-| [七](#七业务流程与状态机) | 业务流程与状态机 |
+| [六](#六角色权限与数据范围) | 角色与权限：组织图 · 用例图 · 权限矩阵 |
+| [七](#七业务流程与状态机) | 业务流程：主流程 · 异常熔断 · 审核闭环 · 状态机 |
 | [八](#八提交审核闭环) | 提交—审核闭环（本项目重点） |
 | [九](#九链上存证设计) | 链上存证设计 |
 | [十](#十溯源可信度评分-agritrust5d) | 溯源可信度评分 AgriTrust-5D |
-| [十一](#十一数据模型) | 数据模型 |
+| [十一](#十一数据模型) | 数据模型：ER 图 · 19 张表 · 字段设计 |
 | [十二](#十二接口概览) | 接口概览 |
 | [十三](#十三部署与运维) | 部署与运维 |
 | [十四](#十四测试与验收) | 测试与验收 |
@@ -253,30 +253,105 @@ PC 端同一份数据，宽屏排成左右两栏：
 
 ## 四、系统架构
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│  客户端（uni-app 一套代码，三个产物）                                  │
-│  PC 管理端（≥768px 自动进入）  ·  移动 H5  ·  微信小程序  ·  Android/iOS │
-└───────────────────────────┬──────────────────────────────────────────┘
-                            │ HTTPS / WebSocket（同一套 REST 接口，无本地库）
-┌───────────────────────────▼──────────────────────────────────────────┐
-│  Spring Boot 2.7.18                                                   │
-│  ├─ Controller  接口层：@RequireRoles / @RequirePerm 双注解            │
-│  ├─ Service     业务层：流程顺序校验、数据范围收窄、审核状态机          │
-│  ├─ Workflow    审核流：进度 / 待办 / 提交提示（本项目的"闭环"）        │
-│  ├─ Mapper      MyBatis-Plus：逻辑删除 + 乐观锁 @Version               │
-│  └─ sdk.BcosClient  唯一链交互出口：健康探测、断连重建、ABI 从 classpath 读│
-└──────┬───────────────────────────────────────┬────────────────────────┘
-       │ JDBC                                   │ JSON-RPC（channel 长连接）
-┌──────▼──────────────┐              ┌─────────▼───────────────────────┐
-│  MySQL 8.0          │              │  FISCO-BCOS 2.9.1               │
-│  业务明细（可查询）  │              │  4 节点 PBFT 单群组              │
-│  权限 / 字典 / 日志  │              │  Traceability.sol 存证合约       │
-└─────────────────────┘              │  WeBASE-Front 区块浏览器         │
-                                     └─────────────────────────────────┘
+系统按 **七层** 组织，自下而上单向依赖：上层只调下层暴露的接口，跨层调用只在两个地方开口——
+所有链上操作走 `sdk.BcosClient`，所有文件读写走文件服务。这一节回答三个问题：
+**由哪些层组成、每层具体管什么、一个请求怎样走完全程。**
+
+### 4.1 总体分层架构
+
+```mermaid
+flowchart TB
+    L1["<b>① 应用层</b> · 一套代码，四个产物<br/>PC 管理端 · 移动 H5 · 微信小程序 · Android App · 溯源落地页"]
+    L2["<b>② 接入层</b> · Nginx<br/>HTTPS 终止 · 静态资源直出 · API 反向代理 · 门户与下载页"]
+    L3["<b>③ 接口层</b> · 18 个 Controller<br/>统一响应 R · JWT 过滤器 · RequireRoles / RequirePerm · 参数校验"]
+    L4["<b>④ 业务层</b> · Service + Workflow<br/>认证账号 · 批次 / 生产 / 质检 · 物流 / 销售 / 异常 · 审核状态机 · 统计评分"]
+    L5["<b>⑤ 支撑层</b> · 可复用能力<br/>BcosClient · 文件服务 SHA-256 · WebSocket · 二维码 / 天气 / 字典 / 日志"]
+    L6["<b>⑥ 数据与链</b><br/>MySQL 8.0（19 张表） · 文件存储 · FISCO-BCOS 2.9.1（4 节点 PBFT） · WeBASE-Front"]
+    L7["<b>⑦ 运行环境</b><br/>Linux + systemd · JDK 17 + Spring Boot 2.7 · logrotate 日志轮转"]
+
+    L1 ==> L2 ==> L3 ==> L4 ==> L5 ==> L6
+    L6 -.- L7
 ```
 
-**数据流向**（以提交一条农事记录为例）：
+> 图里每一层都能在仓库里找到对应目录：应用层 `frontend/uni-app/src`、接口与业务层 `backend/src/main/java`、
+> 数据与链 `sql/` + `ops/`、运行环境 `ops/systemd`。不是示意图，是代码结构本身。
+
+### 4.2 逐层职责与关键实现
+
+| 层 | 组成 | 关键职责 | 代码位置 |
+| --- | --- | --- | --- |
+| ① 应用层 | uni-app 3.0（Vue 3.4 + Vite 5.2 + Pinia） | 一份 `src/` 出 H5 / 小程序 / App；≥900px 自动切 PC 管理台，窄窗回落移动版；无本地业务库 | `frontend/uni-app/src` |
+| ② 接入层 | Nginx 1.18 | TLS 终止、静态资源直出、`/api` 反代、`location = /` 精确匹配门户（只吃根路径，不影响 `/pages/**`） | `ops/nginx/` |
+| ③ 接口层 | 18 个 Controller | 入参校验、JWT 解析、`@RequireRoles` + `@RequirePerm` 双注解鉴权、统一 `R<T>` 响应与错误分码 | `backend/.../controller` |
+| ④ 业务层 | Service + Workflow | 环节顺序校验、数据范围收窄、审核状态机、摘要组装、异常熔断 | `backend/.../service` |
+| ⑤ 支撑层 | BcosClient、文件服务、WebSocket | 链交互唯一出口（健康探测 / 断连重建 / ABI 从 classpath 读）、文件摘要与落盘、批次事件广播 | `backend/.../sdk`、`.../service` |
+| ⑥ 数据与链 | MySQL 8.0、文件盘、FISCO-BCOS 2.9.1 | 明细可查、摘要上链、区块浏览器只读（仅监听 127.0.0.1，反代 + Basic 认证） | `sql/`、`ops/chain` |
+| ⑦ 运行环境 | Linux + systemd | 4 个链节点 / 后端 / WeBASE 全部单元化，日志轮转，密钥抽到 `backend.env` | `ops/systemd/` |
+
+**三个"唯一出口"是这层的硬约束**（改代码时最容易被打破，所以写进架构）：
+
+1. **链只认一个口**：`sdk.BcosClient`。业务里不允许出现第二处 `Web3j` 调用，否则断连重建、重试、降级演示模式会各写一套。
+2. **文件只认一个口**：上传即算 SHA-256，摘要随业务摘要一起上链；文件被撤销后下载返回 403，而不是删库留空。
+3. **状态只认一个口**：批次状态由"已审核通过的记录"推导，任何界面都不自己拼状态字符串。
+
+### 4.3 功能模块结构
+
+平台功能按 **8 个模块** 划分，模块之间靠批次号（`batch_no`）串联，不共享内部状态：
+
+```mermaid
+flowchart LR
+    ROOT["农安链溯源平台"]
+
+    ROOT --> M1["① 认证与账号"]
+    ROOT --> M2["② 基础档案"]
+    ROOT --> M3["③ 批次管理"]
+    ROOT --> M4["④ 生产管理"]
+    ROOT --> M5["⑤ 质量检测"]
+    ROOT --> M6["⑥ 物流与销售"]
+    ROOT --> M7["⑦ 溯源与存证"]
+    ROOT --> M8["⑧ 异常与监管"]
+
+    M1 --> M1a["登录 / 注册 / 微信绑定"]
+    M1 --> M1b["改密 / 资料 / 注册审核"]
+
+    M2 --> M2a["行政村 · 地块 · 产品品类"]
+    M2 --> M2b["用户与角色授权"]
+
+    M3 --> M3a["批次建档（唯一编码）"]
+    M3 --> M3b["村级核验 / 编辑 / 关闭"]
+
+    M4 --> M4a["农事登记 + 现场实证"]
+    M4 --> M4b["采收登记 + 村管审核"]
+
+    M5 --> M5a["质检报告上传 + 文件摘要"]
+    M5 --> M5b["不合格判定 → 熔断"]
+
+    M6 --> M6a["物流交接 + 温控回单"]
+    M6 --> M6b["销售登记 + 批次核销"]
+
+    M7 --> M7a["扫码溯源 / 报告摘要"]
+    M7 --> M7b["链上校验 / 可信度评分"]
+
+    M8 --> M8a["异常处置 + 上下游追踪"]
+    M8 --> M8b["数据更正 / 违规撤销 / 审计日志"]
+```
+
+每个模块落到界面与接口上是一一对应的，排查问题可以按这张表定位：
+
+| 模块 | 主要界面 | 后端控制器 | 涉及数据表 |
+| --- | --- | --- | --- |
+| ① 认证与账号 | `auth/login`、`auth/register`、`auth/password`、`common/settings` | `AuthController`、`SystemController`、`AdminController` | `sys_user`、`sys_role` |
+| ② 基础档案 | PC 系统管理（用户与角色 / 农场档案 / 产品品类）、`batch/create` | `SystemController`、`PublicController` | `base_village`、`base_farm`、`base_product`、`sys_dict` |
+| ③ 批次管理 | `batch/list`、`batch/create`、`batch/detail`、`tabbar/batch` | `BatchController` | `biz_batch` |
+| ④ 生产管理 | `planting/list`、`planting/form`、`harvest/form` | `PlantingController`、`HarvestController` | `biz_planting_record`、`biz_harvest_record` |
+| ⑤ 质量检测 | `quality/list`、`quality/form` | `QualityController` | `biz_quality_report` |
+| ⑥ 物流与销售 | `logistics/form`、`sales/form` | `LogisticsController`、`SalesController` | `biz_logistics_record`、`biz_sales_record` |
+| ⑦ 溯源与存证 | `trace/index`（免登录）、`chain/index`、`tabbar/trace` | `TraceController`、`ChainController` | `chain_record`、`sys_file` |
+| ⑧ 异常与监管 | `abnormal/index`、`workflow/todo` | `AbnormalController`、`CorrectionController`、`WorkflowController`、`StatsController` | `biz_abnormal_disposal`、`biz_correction`、`sys_operation_log` |
+
+### 4.4 一条农事记录的数据流向
+
+写路径（提交）：
 
 ```
 农户 H5 填表 → 上传现场实证（算文件 SHA-256）
@@ -285,6 +360,15 @@ PC 端同一份数据，宽屏排成左右两栏：
    → BcosClient 调合约存证 → 返回 txHash / blockNumber
    → 写 biz_planting_record（含 dataHash / audit_status=PENDING）+ chain_record
    → WebSocket 广播事件 → 村管的待办与工作台角标自动刷新
+```
+
+读路径（查询 / 溯源）：
+
+```
+扫码或列表请求 → 按数据范围收窄 SQL（SELF / VILLAGE / ORG / ALL）
+   → 只取 audit_status=APPROVED 的记录（溯源页连未审核的都看不到）
+   → 需要证明"没被改过"时：按同一规则重算 dataHash → 调 /chain/verify 比对链上摘要
+   → 一致返回 verified=true，不一致如实返回失败，不改写任何本地数据
 ```
 
 ---
@@ -315,20 +399,137 @@ PC 端同一份数据，宽屏排成左右两栏：
 
 ## 六、角色、权限与数据范围
 
-### 6.1 八种角色
+### 6.1 角色架构组织图
 
-| 角色编码 | 角色 | 核心职责 | 主用端 |
-| --- | --- | --- | --- |
-| `FARMER` | 农户 | 农事记录、采收提交、现场拍照 | 移动 H5 |
-| `VILLAGE_ADMIN` | 村级管理员 | 辖区农户管理、批次核验、农事/采收审核 | PC / H5 |
-| `PRODUCER` | 生产主体 | 地块登记、产品与批次建档、全流程跟踪 | PC |
-| `INSPECTOR` | 检测机构 | 质检报告上传、合格/不合格判定 | PC |
-| `LOGISTICS` | 物流企业 | 运输交接登记、温控与回单上传 | PC |
-| `SELLER` | 销售商 | 销售登记、批次核销 | PC |
-| `REGULATOR` | 监管人员 | 全量监管、质检/物流/销售复核、异常处置 | PC |
-| `ADMIN` | 系统管理员 | 全权限：用户治理、流程兜底、违规撤销、链账户与存量补注册 | PC |
+平台按 **"一个产地侧、一个流通侧、一个治理侧"** 三段划分角色域：产地侧负责"东西是怎么种出来的"，
+流通侧负责"东西怎么检、怎么运、怎么卖"，治理侧负责"出了事谁来管"。八种角色挂在三个域下：
 
-### 6.2 权限模型
+```mermaid
+flowchart TD
+    P["农安链溯源平台<br/>一套权限模型 · 八种角色"]
+
+    P --> G1["生产端 · 产地"]
+    P --> G2["流通端 · 检测 / 物流 / 销售"]
+    P --> G3["治理端 · 监管"]
+
+    G1 --> R1["农户<br/>FARMER · SELF"]
+    G1 --> R2["村级管理员<br/>VILLAGE_ADMIN · VILLAGE"]
+    G1 --> R3["生产主体<br/>PRODUCER · ORG"]
+
+    G2 --> R4["检测机构<br/>INSPECTOR · ORG"]
+    G2 --> R5["物流企业<br/>LOGISTICS · ORG"]
+    G2 --> R6["销售商<br/>SELLER · ORG"]
+
+    G3 --> R7["监管人员<br/>REGULATOR · ALL"]
+    G3 --> R8["系统管理员<br/>ADMIN · ALL"]
+
+    R1 -.-> N1["一个账号只有一种角色<br/>sys_user.role_code 单值"]
+    R3 -.-> N1
+    R8 -.-> N2["唯一不受权限点约束<br/>兜底与治理"]
+```
+
+| 角色编码 | 角色 | 所属域 | 核心职责 | 数据范围 | 主用端 |
+| --- | --- | --- | --- | --- | --- |
+| `FARMER` | 农户 | 生产端 | 农事记录、采收提交、现场拍照 | `SELF` | 移动 H5 |
+| `VILLAGE_ADMIN` | 村级管理员 | 生产端 | 辖区农户管理、批次核验、农事/采收审核 | `VILLAGE` | PC / H5 |
+| `PRODUCER` | 生产主体 | 生产端 | 地块登记、产品与批次建档、全流程跟踪 | `ORG` | PC |
+| `INSPECTOR` | 检测机构 | 流通端 | 质检报告上传、合格/不合格判定 | `ORG` | PC |
+| `LOGISTICS` | 物流企业 | 流通端 | 运输交接登记、温控与回单上传 | `ORG` | PC |
+| `SELLER` | 销售商 | 流通端 | 销售登记、批次核销 | `ORG` | PC |
+| `REGULATOR` | 监管人员 | 治理端 | 全量监管、质检/物流/销售复核、异常处置 | `ALL` | PC |
+| `ADMIN` | 系统管理员 | 治理端 | 用户治理、流程兜底、违规撤销、链账户与存量补注册 | `ALL` | PC |
+
+> **为什么一个账号只能有一种角色**：批次记录里冗余了操作人姓名与角色，一旦允许"兼岗"，
+> "这条农事是农户报的还是村管代报的"就说不清了。需要兼岗时开两个账号，责任链反而是清楚的。
+
+### 6.2 角色用例图
+
+下图是八种角色与平台主要用例的关系，也是答辩演示时"谁登录、点什么"的顺序依据：
+
+```mermaid
+flowchart LR
+    FARMER["农户"]
+    VA["村级管理员"]
+    PROD["生产主体"]
+    INSP["检测机构"]
+    LOG["物流企业"]
+    SELL["销售商"]
+    REG["监管人员"]
+    ADMIN["系统管理员"]
+
+    FARMER --> U1["登记农事记录"]
+    FARMER --> U2["提交采收"]
+    FARMER --> U3["扫码 / 查看批次"]
+
+    VA --> U4["核验批次"]
+    VA --> U5["审核农事 / 采收"]
+    VA --> U6["管理本村农户"]
+
+    PROD --> U7["建立产品与批次"]
+    PROD --> U8["维护地块档案"]
+
+    INSP --> U9["上传质检报告"]
+    LOG --> U10["登记物流交接"]
+    SELL --> U11["登记销售"]
+
+    REG --> U12["复核质检 / 物流 / 销售"]
+    REG --> U13["异常处置与上下游追踪"]
+    REG --> U14["查看存证与操作日志"]
+
+    ADMIN --> U15["用户与角色治理"]
+    ADMIN --> U16["违规记录撤销"]
+    ADMIN --> U17["存量批次补注册"]
+```
+
+| 用例 | 前置条件 | 产出 |
+| --- | --- | --- |
+| 建立产品与批次 | 登录、有产品档案 | `biz_batch` 一行、批次号与溯源码、`BATCH_REGISTER` 存证 |
+| 核验批次 | 批次处于待核验 | `audit_status=APPROVED`，农户才能录农事 |
+| 登记农事记录 | 批次已通过核验 | `biz_planting_record` + `PLANTING_RECORD` 存证，进入村管待办 |
+| 提交采收 | 该批次无待审农事 | `biz_harvest_record`，审核通过后批次转 `HARVESTED` |
+| 上传质检报告 | 批次已采收 | 文件 SHA-256 + `dataHash`，合格转 `QUALIFIED`、不合格转 `ABNORMAL` |
+| 登记物流交接 | 批次已质检合格 | 运单与温控记录，复核通过转 `IN_TRANSIT` |
+| 登记销售 | 批次已发运 | 销售记录，复核通过转 `ON_SALE` / `SOLD` |
+| 扫码溯源 | 无（免登录） | 按时间序的完整履历、报告摘要、交易凭证 |
+| 异常处置与追踪 | 批次已判不合格 | 处置结果上链，支持上下游双向追溯 |
+
+### 6.3 角色权限矩阵
+
+`✓` 可操作 · `只读` 仅能查看 · `—` 无权限。括号内是该角色的数据边界，
+权限点共 **46 个**、角色授权 **148 条**，全部落在 `sys_role_permission` 里，代码里不写死角色名。
+
+| 能力 | 农户 | 村级管理员 | 生产主体 | 检测机构 | 物流企业 | 销售商 | 监管人员 | 系统管理员 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 批次建档 / 编辑 | — | — | ✓ 本人 | — | — | — | — | ✓ |
+| 批次核验 | — | ✓ 本村 | — | — | — | — | ✓ | ✓ |
+| 批次查询 | 只读 本人 | 只读 本村 | 只读 本人 | 只读 关联 | 只读 关联 | 只读 关联 | 只读 全量 | ✓ 全量 |
+| 农事登记 | ✓ 本人 | — | — | — | — | — | — | ✓ |
+| 农事审核 | — | ✓ 本村 | — | — | — | — | — | ✓ |
+| 采收登记 | ✓ 本人 | — | — | — | — | — | — | ✓ |
+| 采收审核 | — | ✓ 本村 | — | — | — | — | — | ✓ |
+| 质检报告上传 | — | — | — | ✓ 本机构 | — | — | — | ✓ |
+| 质检复核 | — | — | — | — | — | — | ✓ | ✓ |
+| 物流交接登记 | — | — | — | — | ✓ 本人承运 | — | — | ✓ |
+| 物流复核 | — | — | — | — | — | — | ✓ | ✓ |
+| 销售登记 | — | — | — | — | — | ✓ 本人 | — | ✓ |
+| 销售复核 | — | — | — | — | — | — | ✓ | ✓ |
+| 异常查看 / 上下游追溯 | — | — | 只读 | — | — | — | ✓ | ✓ |
+| 异常处置 | — | — | — | — | — | — | ✓ | ✓ |
+| 提交更正说明 | — | ✓ | ✓ | — | — | — | ✓ | ✓ |
+| 行政村 / 地块档案 | — | ✓ 本村 | ✓ 本人地块 | — | — | — | 只读 | ✓ |
+| 产品品类 | — | 只读 | ✓ | 只读 | 只读 | 只读 | 只读 | ✓ |
+| 存证一致性校验 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 存证流水 / 存量补注册 | — | — | — | — | — | — | ✓ | ✓ |
+| 用户管理 | — | ✓ 本村农户 | — | — | — | — | 只读 | ✓ |
+| 操作日志 | — | — | — | — | — | — | 只读 | ✓ |
+| 违规记录 / 文件撤销 | — | — | — | — | — | — | — | ✓ |
+| 统计看板 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+> 矩阵里"只读"和"✓"的区别在代码里是真实存在的：只读角色拿到的是 `*:list` / `*:detail`，
+> 没有 `*:create` / `*:audit`。前端按权限点隐藏按钮，后端 `@RequirePerm` 再拦一次——
+> 即使手工拼请求也进不去，这一点在 [§14](#十四测试与验收) 的越权用例里有验证。
+
+### 6.4 权限模型
 
 **RBAC（角色-权限）+ 数据范围**，接口层用 `@RequireRoles`、`@RequirePerm` 双注解校验，越权统一 `403 / 40301`。
 
@@ -339,7 +540,7 @@ PC 端同一份数据，宽屏排成左右两栏：
   且 `sys_role_permission` 里始终持有全部权限点（新增权限点时由补丁脚本补齐差量）。
   这样"加一个权限点"不会出现"接口通了、菜单却看不见"的半截状态。
 
-### 6.3 数据范围
+### 6.5 数据范围
 
 | 角色 | 范围 | 实际可见 | 审核职责 |
 | --- | --- | --- | --- |
@@ -355,7 +556,7 @@ PC 端同一份数据，宽屏排成左右两栏：
 > 数据范围不是前端过滤：分页查询、详情、看板统计、更正记录、上下游追溯全部按上表收窄。
 > 农户的 `/stats/overview` 批次总量与 `/batch/page` 的 total 恒等；村管核验其他村批次直接 403。
 
-### 6.4 管理员兜底能力
+### 6.6 管理员兜底能力
 
 流程之外的两种"事故处理"，只有系统管理员能做。它们不是新增的业务环节，
 而是给已经出错的流程留一条可追责的退路。
@@ -400,7 +601,41 @@ PC 端同一份数据，宽屏排成左右两栏：
 
 ## 七、业务流程与状态机
 
-### 7.1 七个环节、谁做、做完变成什么
+### 7.1 主流程：种植 → 采收 → 检测 → 运输 → 销售
+
+任务书要求的主流程，在系统里不是"五个页面挨着点一遍"，而是**被审核卡点串起来的一条链**：
+每个环节都有一道审核，审核通过才放行。这也是"批次状态"唯一可信的来源。
+
+```mermaid
+flowchart TD
+    S(["生产主体建档<br/>批次号 + 溯源码"]) --> V{"村级核验"}
+    V -- 驳回 --> S
+    V -- 通过 --> P["农户登记农事<br/>整地 / 播种 / 施肥 / 灌溉 / 用药"]
+    P --> PA{"村管审核农事"}
+    PA -- 驳回重提 --> P
+    PA -- 通过 --> H["农户提交采收<br/>产量 · 等级 · 现场照片"]
+    H --> HA{"村管审核采收"}
+    HA -- 通过 --> Q["检测机构上传报告<br/>报告文件 SHA-256"]
+    Q --> QA{"监管复核"}
+    QA -- 不合格 --> AB["批次转 ABNORMAL<br/>冻结物流与销售"]
+    QA -- 合格 --> L["物流交接登记<br/>温控 · 交接回单"]
+    L --> LA{"监管复核"}
+    LA -- 通过 --> SL["销售登记<br/>市场 · 价格 · 数量"]
+    SL --> SLA{"监管复核"}
+    SLA -- 通过 --> DONE(["批次可查<br/>扫码看到完整履历"])
+    AB --> DISP["监管处置与追踪<br/>处置结果上链"]
+    DISP --> CLOSE(["批次关闭 CLOSED"])
+```
+
+这条流程有三个特点，决定了它和"能录入就行"的系统不一样：
+
+1. **顺序强制**：每一环都要求前一环**审核通过**才放行，而不是"上一步提交了"就放行。
+   采收没审完，检测机构点上传会被 400 拒绝。
+2. **审核留痕**：每次审核都记 `audit_status` + 审核人 + 时间 + 理由，驳回必须写理由，提交方可修改重提。
+3. **每步上链**：提交时即存证（此时记录已是 `PENDING`），审核通过推进状态。存证与审核是两件事，
+   不会因为"还没审"就没有链上凭证。
+
+#### 七个环节：谁做、做完变成什么
 
 | # | 环节 | 提交方 | 审核方 | 上链事件 | 完成后批次状态 |
 | --- | --- | --- | --- | --- | --- |
@@ -457,6 +692,67 @@ PLANTING ──采收──> HARVESTED ──质检合格──> QUALIFIED ─�
 
 配套的数据订正脚本：`sql/versions/patch-stage-consistency*.sql`——按"已通过记录"重算历史批次状态，
 并给早期演示数据里"流程已走完、审核却挂着待审"的记录补上审核留痕（`audit_by=system`），幂等可重复执行。
+
+### 7.4 异常批次：熔断、处置与双向追踪
+
+任务书里那条"不合格批次不得进入正常销售"，在系统里是一整套链路，不只是页面上的一个红标签：
+
+```mermaid
+flowchart TD
+    Q["质检判定 FAIL"] --> AB["批次 abnormal_flag=1<br/>status=ABNORMAL"]
+    AB --> BLOCK["后续动作前置拦截<br/>物流发运 / 销售登记直接返回 400"]
+    AB --> REC["写入 biz_abnormal_disposal<br/>异常判定摘要 abnormal_hash 上链"]
+    REC --> DISP["监管登记处置措施与结果<br/>disposal_hash 上链"]
+    DISP --> DONE{"处置完结？"}
+    DONE -- 否 --> DISP
+    DONE -- 是 --> REL["解除冻结<br/>按处置结果关闭批次 CLOSED"]
+
+    AB --> TRACE["上下游双向追踪"]
+    TRACE --> UP["上游：同地块 / 同农户的关联批次"]
+    TRACE --> DOWN["下游：已交接的运单与销售记录"]
+    UP --> FREEZE["关联批次一并冻结待查"]
+```
+
+这条链上有三个容易被忽略的点，也是答辩时最能说明"不是摆设"的地方：
+
+1. **拦截在后端，不在按钮上**。批次处于 `ABNORMAL` 时，`POST /logistics`、`POST /sales` 在 Service 层就被拒，
+   返回业务错误码而不是静默失败；前端按钮只是"提前告诉你会被拒"。
+2. **处置不是改状态**。处置写入 `biz_abnormal_disposal`，带处置措施、结果、处理人、时间，
+   并且 `abnormal_hash` 与 `disposal_hash` 分别上链——"谁判的异常"和"谁处理的、怎么处理的"是两条不可变记录。
+3. **追踪要能反向走**。按 `batch_no` 找上游看"这批货是从哪块地出来的"，
+   找下游看"已经发给了谁"。这一步走的是同一张 `chain_record`，不额外建索引表。
+
+### 7.5 提交—审核闭环（一次完整往返）
+
+八个业务环节共用同一套闭环，以农事记录为例：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 提交方（农户）
+    participant S as 后端 Service
+    participant C as FISCO-BCOS
+    participant A as 审核方（村管）
+
+    U->>S: POST /planting（含现场照片）
+    S->>S: 校验：批次已核验 + 本人有权 + 当日同类未重复
+    S->>S: 文件 SHA-256 → 业务摘要 dataHash
+    S->>C: 调合约存证 dataHash
+    C-->>S: txHash / blockNumber
+    S->>S: 写 biz_planting_record（audit_status=PENDING）
+    S-->>A: WebSocket 推送，待办角标 +1
+    A->>S: POST /planting/{id}/audit（通过 / 驳回 + 理由）
+    alt 审核通过
+        S->>S: 按已审核记录重算批次阶段
+        S-->>U: 通知"已通过"
+    else 审核驳回
+        S->>S: 保留原记录，标记 REJECTED + 理由
+        S-->>U: 通知"被驳回"，可修改后重提
+    end
+```
+
+> 这套闭环为什么值得单独讲，见 [§八](#八提交审核闭环)：它解决了"提交完不知道谁来审、
+> 审核完不知道提交方有没有收到"的断头路，也让每个环节的待办数量可以被准确统计。
 
 ---
 
@@ -579,23 +875,161 @@ function getRecord(string batchNo, uint256 index) public view returns (...);
 
 ## 十一、数据模型
 
-核心 14 张表（完整 DDL 见 `sql/init.sql`）：
+数据库按 **"权限 / 档案 / 业务 / 存证 / 支撑" 五个域** 组织，共 **19 张表**。
+设计上的一条主线是：**批次是唯一主线，其余全是从属于批次的记录**——
+所有业务表都冗余 `batch_no`，任何一条记录的归属不用连表就能确定。
 
-| 表 | 作用 | 关键字段 |
+### 11.1 实体关系图
+
+```mermaid
+erDiagram
+    SYS_ROLE ||--o{ SYS_ROLE_PERMISSION : grants
+    SYS_PERMISSION ||--o{ SYS_ROLE_PERMISSION : granted
+    SYS_ROLE ||--o{ SYS_USER : assigns
+    BASE_VILLAGE ||--o{ SYS_USER : contains
+    BASE_VILLAGE ||--o{ BASE_FARM : has
+    BASE_FARM ||--o{ BIZ_BATCH : produces
+    BASE_PRODUCT ||--o{ BIZ_BATCH : typed
+    SYS_USER ||--o{ BIZ_BATCH : creates
+
+    BIZ_BATCH ||--o{ BIZ_PLANTING_RECORD : planting
+    BIZ_BATCH ||--o{ BIZ_HARVEST_RECORD : harvest
+    BIZ_BATCH ||--o{ BIZ_QUALITY_REPORT : quality
+    BIZ_BATCH ||--o{ BIZ_LOGISTICS_RECORD : logistics
+    BIZ_BATCH ||--o{ BIZ_SALES_RECORD : sales
+    BIZ_BATCH ||--o{ BIZ_CORRECTION : correction
+    BIZ_BATCH ||--o| BIZ_ABNORMAL_DISPOSAL : disposal
+    BIZ_QUALITY_REPORT ||--o| BIZ_ABNORMAL_DISPOSAL : triggers
+
+    BIZ_BATCH ||--o{ CHAIN_RECORD : anchors
+    BIZ_BATCH ||--o{ SYS_FILE : attaches
+
+    BIZ_BATCH {
+        bigint id PK
+        varchar batch_no UK
+        varchar trace_code UK
+        varchar status
+        varchar audit_status
+        tinyint abnormal_flag
+        varchar chain_status
+        varchar chain_tx_hash
+    }
+    CHAIN_RECORD {
+        bigint id PK
+        varchar batch_no
+        varchar biz_type
+        varchar event_type
+        varchar data_hash
+        varchar tx_hash
+        bigint block_number
+        varchar status
+        tinyint revoked
+    }
+    SYS_USER {
+        bigint id PK
+        varchar username UK
+        varchar role_code
+        varchar org_name
+        bigint village_id
+        bigint farm_id
+        tinyint status
+    }
+```
+
+### 11.2 表清单
+
+完整 DDL 见 [`sql/init.sql`](sql/init.sql)，种子数据见 [`sql/data.sql`](sql/data.sql)。
+
+| 域 | 表 | 作用 | 关键字段 |
+| --- | --- | --- | --- |
+| **权限** | `sys_user` | 账号 | `username`、`role_code`、`org_name`、`village_id`、`farm_id`、`wx_openid`、`status`、`deleted` |
+| | `sys_role` | 角色 | `role_code`、`data_scope`（`SELF/VILLAGE/ORG/ALL`） |
+| | `sys_permission` | 权限点 | `perm_code`（如 `batch:create`）、`perm_type`（`MENU/BUTTON/API`）、`module` |
+| | `sys_role_permission` | 角色-权限关联 | `role_code` + `perm_code` 唯一 |
+| **档案** | `base_village` | 行政村 | `village_code`、`region_code`、`manager_id` |
+| | `base_farm` | 农场 / 地块 | `farm_code`、`farmer_id`、`village_id`、`area`、`soil_type`、`version` |
+| | `base_product` | 产品品类 | `product_code`、`category`、`variety`、`shelf_life_days` |
+| **业务** | `biz_batch` | 批次主表（主线） | `batch_no`、`trace_code`、`status`、`audit_status`、`abnormal_flag`、`chain_status` |
+| | `biz_planting_record` | 农事记录 | `record_type`、`operation_date`、`content`、`images`、`gps`、`location`、`audit_status`、`data_hash` |
+| | `biz_harvest_record` | 采收记录 | `harvest_date`、`quantity`、`quality_level`、`weather`、`audit_status` |
+| | `biz_quality_report` | 质检报告 | `report_no`、`inspect_result`、`standard_no`、`items_json`、`file_hash` |
+| | `biz_logistics_record` | 物流交接 | `logistics_no`、`from_org`/`to_org`、`temperature`、`handover_file`、`status` |
+| | `biz_sales_record` | 销售登记 | `market_name`、`price`、`quantity`、`buyer_name` |
+| | `biz_abnormal_disposal` | 异常处置 | `abnormal_type`、`disposal_measure`、`disposal_result`、`abnormal_hash`、`disposal_hash`、`status` |
+| **存证** | `chain_record` | 链上存证流水 | `batch_no`、`biz_type`、`event_type`、`data_hash`、`tx_hash`、`block_number`、`status`、`revoked` |
+| | `biz_correction` | 数据更正说明 | `biz_type`、`biz_id`、`reason`、`content`（追加不覆盖） |
+| **支撑** | `sys_file` | 文件元数据 | `file_path`、`file_hash`（SHA-256）、`biz_type`/`biz_id`、`revoked` |
+| | `sys_operation_log` | 操作审计 | `user_id`、`module`、`action`、`request_uri`、`params`、`ip`、`cost_ms` |
+| | `sys_dict` | 数据字典 | `dict_type` + `dict_code` 唯一 |
+
+### 11.3 核心表字段设计
+
+**（1）`biz_batch` —— 批次主表**
+
+| 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `biz_batch` | 批次档案 | `batch_no`（`AG+yyyyMMdd+3位`）、`trace_code`、`status`、`audit_status`、`farmer_id`、`village_id`、`chain_status` |
-| `biz_planting_record` | 农事记录 | `record_type`、`operation_date`、`content`、`evidence`、`audit_status/audit_by/audit_time` |
-| `biz_harvest_record` | 采收登记 | `harvest_date`、`quantity`、`quality_level`、`weather`、`audit_*` |
-| `biz_quality_report` | 质检报告 | `report_no`、`inspect_result`、`standard_no`、`file_hash`、`audit_*` |
-| `biz_logistics_record` | 物流交接 | `logistics_no`、`from_org/to_org`、`depart_time`、`temperature`、`audit_*` |
-| `biz_sales_record` | 销售登记 | `market_name`、`price`、`quantity`、`buyer_name`、`audit_*` |
-| `biz_abnormal_disposal` | 异常处置 | `disposal_type`、`result`、`handler` |
-| `biz_correction` | 更正记录 | `biz_type`、`biz_id`、`reason`、`before/after` |
-| `chain_record` | 存证索引 | `tx_hash`、`block_number`、`data_hash`、`status` |
-| `sys_user` / `sys_role` / `sys_permission` / `sys_role_permission` | RBAC | `role_code`、`perm_code`、`data_scope` |
-| `sys_oper_log` | 操作日志 | `module`、`action`、`params`、`ip` |
+| `id` | BIGINT PK | 主键 |
+| `batch_no` | VARCHAR(40) UK | 批次唯一编码，`AG + yyyyMMdd + 3 位当日序号` |
+| `trace_code` | VARCHAR(64) UK | 溯源唯一码，二维码内容，与批次号一一对应 |
+| `product_id` / `product_name` / `variety` | BIGINT / VARCHAR | 品类与品种（冗余名称，列表免连表） |
+| `farm_id` / `farm_name` | BIGINT / VARCHAR | 产地地块 |
+| `farmer_id` / `farmer_name` | BIGINT / VARCHAR | 责任农户 |
+| `village_id` / `village_name` | BIGINT / VARCHAR | 所属行政村（数据范围 `VILLAGE` 的依据） |
+| `planting_date` / `harvest_date` | DATE | 种植 / 采收日期 |
+| `quantity` / `unit` | DECIMAL(12,2) / VARCHAR(16) | 数量与单位 |
+| `status` | VARCHAR(24) | `PLANTING / HARVESTED / QUALIFIED / IN_TRANSIT / ON_SALE / SOLD / ABNORMAL / CLOSED` |
+| `audit_status` / `audit_by` / `audit_time` / `audit_remark` | — | 村级核验的留痕 |
+| `abnormal_flag` | TINYINT | 1 = 异常批次，熔断判断只看这一位 |
+| `chain_status` / `chain_tx_hash` / `block_number` | — | 建档存证结果，`NONE/SUCCESS/FAILED` |
+| `create_by` / `create_time` / `update_time` / `version` / `deleted` | — | 审计字段 + 乐观锁 + 逻辑删除 |
 
-**批次编码规则**：`AG + yyyyMMdd + 3 位当日序号`（如 `AG20261109011`），溯源码 `TC + 同序号`，两者一一对应。
+**（2）五张业务记录表的公共字段**
+
+`biz_planting_record`、`biz_harvest_record`、`biz_quality_report`、`biz_logistics_record`、`biz_sales_record`
+结构不同，但下面这组字段**每张表都有**，这是"审核闭环 + 存证"能统一实现的原因：
+
+| 字段 | 说明 |
+| --- | --- |
+| `batch_id` / `batch_no` | 归属批次（`batch_no` 冗余，支持按码直查） |
+| `operator_id` / `operator_name` / `提交人` | 谁提交的（质检为 `inspector_*`、物流为 `carrier_*`、销售为 `seller_*`） |
+| `audit_status` / `audit_remark` | `PENDING / APPROVED / REJECTED`，驳回必须带理由 |
+| `data_hash` | 业务摘要 SHA-256，字段按固定顺序序列化后计算 |
+| `chain_status` / `chain_tx_hash` / `block_number` | 本条记录的存证结果 |
+| `images` / `file_path` / `file_hash` | 现场实证或报告文件（质检报告另存 `file_hash`） |
+| `create_time` / `deleted` | 审计与逻辑删除 |
+
+**（3）`chain_record` —— 链上存证流水**
+
+| 字段 | 说明 |
+| --- | --- |
+| `batch_no` | 批次号（跨批次查询的主键） |
+| `biz_type` | `BATCH / PLANTING / HARVEST / QUALITY / LOGISTICS / SALES / ABNORMAL / DISPOSAL / CORRECTION` |
+| `event_type` | 链上事件名，与合约事件一一对应 |
+| `data_hash` / `file_hash` | 业务摘要与文件摘要 |
+| `tx_hash` / `block_number` / `gas_used` | 交易回执，**写入成功以回执为准**，不看 HTTP 200 |
+| `chain_index` | 记录在合约中的下标，一致性校验按它对位 |
+| `contract_address` | 合约地址，支持多版本合约路由 |
+| `status` | `SUCCESS / FAILED / SKIPPED`；`revoked` 标记"不再采信" |
+| `error_msg` | 失败原因原文，演示模式下的真实凭据 |
+
+### 11.4 建表约定
+
+| 约定 | 做法 | 为什么 |
+| --- | --- | --- |
+| 逻辑删除 | 业务表统一 `deleted TINYINT`，MyBatis-Plus 自动拼接 | 溯源的"历史"不能被物理抹掉 |
+| 乐观锁 | 批次、地块、异常处置带 `version` | 两个村管同时审核同一批次，后提交的会失败而不是覆盖 |
+| 名称冗余 | 批次表存 `farmer_name` / `village_name` / `product_name` | 列表与溯源页免连表，且主体改名后历史记录仍显示当时的名字 |
+| 索引 | `idx_batch`、`idx_status`、`idx_village`、`idx_batch_no` | 覆盖"按批次查、按状态筛、按村过滤"三类主查询 |
+| 唯一键 | `batch_no`、`trace_code`、`report_no`、`username` | 重复批次在这里就被数据库挡住，不靠代码判断 |
+| 金额与数量 | `DECIMAL(12,2)`，不用 FLOAT | 避免浮点误差导致"同一批次两次统计对不上" |
+
+### 11.5 批次编码规则
+
+**批次号**：`AG + yyyyMMdd + 3 位当日序号`（如 `AG20261109011`）。
+**溯源码**：`TC + 同序号`（如 `TC20261109011`），与批次号一一对应，二维码内容就是溯源码。
+
+两者都建了唯一键——**重复批次不需要业务代码判断，数据库直接拒绝**。
+这一点在 [§14](#十四测试与验收) 的"重复批次"用例里验证过：并发提交同一天第 11 个批次，只有一个能成功。
 
 ---
 
@@ -615,7 +1049,7 @@ function getRecord(string batchNo, uint256 index) public view returns (...);
 | 链 | `GET /chain/status`、`/chain/page`、`/chain/verify/{batchNo}`、`POST /chain/repair` | 状态、流水、校验、补注册 |
 | 统计 | `GET /stats/overview` | 按数据范围收窄 |
 | 文件 | `POST /file/upload`、`GET /file/download/{id}`、`GET /file/evidence` | 落盘 + 摘要；撤销后下载返回 403 |
-| 账号治理 | `PUT /user/{id}/status`、`DELETE /user/{id}`、`GET /user/pending`、`POST /user/{id}/audit` | 启停、删除、注册审核，见 [§6.4](#64-管理员兜底能力) |
+| 账号治理 | `PUT /user/{id}/status`、`DELETE /user/{id}`、`GET /user/pending`、`POST /user/{id}/audit` | 启停、删除、注册审核，见 [§6.6](#66-管理员兜底能力) |
 | 兜底处置 | `POST /admin/revoke`、`POST /admin/file/{id}/revoke` | 撤销违规记录与证据，仅系统管理员 |
 
 完整入参/出参/权限见 [`docs/api.md`](docs/api.md)，在线文档 `/api/doc.html`（Knife4j）。
