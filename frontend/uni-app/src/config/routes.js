@@ -11,6 +11,15 @@ export const ROUTES = {
   TAB_TRACE: '/pages/tabbar/trace',
   TAB_MINE: '/pages/tabbar/mine',
 
+  /*
+   * App 壳内专属页（pages/app/*）。
+   * 只在 isAppShell() 为真时进入，浏览器与小程序始终走上面的通用页，
+   * 因此这几个路由出现"打不开"的情况只可能是 UA 标识丢了，不是权限问题。
+   */
+  APP_HOME: '/pages/app/home',
+  APP_LOGIN: '/pages/app/login',
+  APP_REGISTER: '/pages/app/register',
+
   BATCH_LIST: '/pages/batch/list',
   BATCH_DETAIL: '/pages/batch/detail',
   BATCH_CREATE: '/pages/batch/create',

@@ -341,59 +341,16 @@ import AppIcon from '@/components/common/app-icon.vue'
 import { useUserStore } from '@/store/user'
 import { publicVillages } from '@/api'
 import { locate, explainLocationError } from '@/utils/geo'
-import { isPcWidth } from '@/config/platform'
+import { isAppShell, isPcWidth } from '@/config/platform'
 import { ROUTES } from '@/config/routes'
 import { toast } from '@/utils/ui'
 
 /**
- * 可自助注册的五个身份，顺序按溯源链走：
- * 农户先记农事 → 生产主体建批次 → 检测 → 物流 → 销售。
- * 最后一块是"治理身份"占位，只做说明、不能选——避免用户以为漏做了。
+ * 可自助注册的身份列表已抽到 config/roles.js：
+ * App 端有一张专属的"选择身份"页，两处必须用同一份定义，否则角色会飘。
+ * 顺序按溯源链走：农户先记农事 → 生产主体建批次 → 检测 → 物流 → 销售。
  */
-const ROLES = [
-  {
-    code: 'FARMER',
-    name: '农户',
-    icon: 'planting',
-    hint: '填报农事与采收，只能看到被指派给自己的批次'
-  },
-  {
-    code: 'PRODUCER',
-    name: '生产主体',
-    icon: 'farm',
-    hint: '登记地块、建立批次，把农户和产品组织起来；需填合作社或家庭农场名称'
-  },
-  {
-    code: 'INSPECTOR',
-    name: '检测机构',
-    icon: 'quality',
-    hint: '上传质检报告并给出结论，决定批次能否流入市场；需填机构名称'
-  },
-  {
-    code: 'LOGISTICS',
-    name: '物流企业',
-    icon: 'logistics',
-    hint: '登记运输交接与冷链温度，运输环节逐条上链；需填企业名称'
-  },
-  {
-    code: 'SELLER',
-    name: '销售商',
-    icon: 'sales',
-    hint: '登记销售与批次核销，售出即完成溯源闭环；需填门店或企业名称'
-  },
-  {
-    code: 'VILLAGE_ADMIN',
-    name: '村级管理员',
-    icon: 'lock',
-    hint: '管理本村账号、审核农事与批次。需填真实身份证号，提交后由系统管理员审核通过才能启用'
-  },
-  {
-    code: 'REGULATOR',
-    name: '监管人员',
-    icon: 'chain',
-    hint: '全量监管与异常处置。需实名认证 + 所属监管部门，提交后由系统管理员审核通过才能启用'
-  }
-]
+import { REGISTER_ROLES as ROLES } from '@/config/roles'
 
 const BENEFITS = [
   { t: '一环节一存证', d: '农事、采收、销售逐条上链，哈希与区块号可复核' },
@@ -593,6 +550,12 @@ onUnmounted(() => {
 
 onLoad((opt) => {
   redirect.value = opt && opt.redirect ? decodeURIComponent(opt.redirect) : ''
+  /*
+   * App 端先走"选择身份"页，选中后把 role 带进来预选，
+   * 省掉在表单里再翻一遍角色卡。非法值直接忽略，回落到默认角色。
+   */
+  const preset = opt && opt.role ? String(opt.role) : ''
+  if (preset && ROLES.some((r) => r.code === preset)) form.roleCode = preset
   // 先拿到村庄列表，再尝试用定位匹配最近村自动填入
   loadVillages().then(() => tryAutoLocate())
 })
@@ -619,7 +582,24 @@ function afterRegister() {
   // #ifdef H5
   if (isPcWidth()) return uni.reLaunch({ url: ROUTES.PC_DASHBOARD })
   // #endif
-  uni.reLaunch({ url: ROUTES.HOME })
+  uni.reLaunch({ url: entryHome() })
+}
+
+/**
+ * 壳内 App 有专属首页与登录页，注册完成/待审核后要落在专属页上，
+ * 否则用户会突然掉回浏览器版首页。浏览器与小程序不受影响。
+ */
+function entryHome() {
+  // #ifdef H5
+  if (isAppShell()) return ROUTES.APP_HOME
+  // #endif
+  return ROUTES.HOME
+}
+function entryLogin() {
+  // #ifdef H5
+  if (isAppShell()) return ROUTES.APP_LOGIN
+  // #endif
+  return ROUTES.LOGIN
 }
 
 async function submit() {
@@ -647,7 +627,7 @@ async function submit() {
         content: '注册申请已提交，请等待系统管理员审核通过后再登录。',
         showCancel: false
       })
-      setTimeout(() => uni.reLaunch({ url: ROUTES.LOGIN }), 400)
+      setTimeout(() => uni.reLaunch({ url: entryLogin() }), 400)
       return
     }
     uni.showToast({ title: '注册成功', icon: 'success' })

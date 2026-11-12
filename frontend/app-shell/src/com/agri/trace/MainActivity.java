@@ -41,8 +41,16 @@ import android.widget.Toast;
  */
 public class MainActivity extends Activity {
 
-    /** 线上站点地址：与 nginx 中 8-130-105-150.sslip.io 的 H5 站点一致 */
-    private static final String APP_URL = "https://8-130-105-150.sslip.io/";
+    /**
+     * 启动地址：直接进 H5 应用的启动页，而不是站点根目录的门户宣传页。
+     * 门户页是给电脑浏览器看的介绍页，App 打开它会有很强的"网页感"，
+     * 启动页则会在识别到 UA 标识后跳到 App 专属首页。
+     */
+    private static final String APP_URL = "https://8-130-105-150.sslip.io/pages/launch/index";
+    /** 版本号同时用于 UA 标识与页面展示，发版时与 build.sh 的 VERSION_NAME 保持一致 */
+    private static final String APP_VERSION = "1.0.0";
+    /** UA 尾巴：前端 isAppShell() 靠它识别"运行在壳里"，浏览器与小程序的 UA 不含这段 */
+    private static final String UA_TAG = "AgriTraceApp/" + APP_VERSION;
     private static final String APP_HOST = "8-130-105-150.sslip.io";
     private static final String BRAND_DEEP = "#0B3D26";
     private static final String PAGE_BG = "#F4F7F5";
@@ -95,6 +103,12 @@ public class MainActivity extends Activity {
 
     private void configureWebView() {
         WebSettings s = web.getSettings();
+        /*
+         * 在默认 UA 后追加标识。uni-app 的 H5 产物与浏览器版是同一份包，
+         * 编译期无法区分，前端只能靠 UA（以及下面的 JS 桥）判断是否在 App 里，
+         * 从而决定进入 App 专属首页/登录页。
+         */
+        s.setUserAgentString(s.getUserAgentString() + " " + UA_TAG);
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
@@ -192,6 +206,13 @@ public class MainActivity extends Activity {
                 callback.invoke(origin, true, false);
             }
         });
+
+        /*
+         * JS 桥：UA 被某些定制 ROM 的 WebView 设置覆盖时的兜底。
+         * 前端只会读 isApp / version 两个字段，不通过它做任何写操作，
+         * 所以即使页面被注入脚本也拿不到额外能力。
+         */
+        web.addJavascriptInterface(new JsBridge(), "AgriTraceNative");
 
         web.setDownloadListener(new DownloadListener() {
             @Override
@@ -375,5 +396,18 @@ public class MainActivity extends Activity {
 
     private void toast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
+    /** 暴露给页面脚本的只读标识，命名直白，便于前端一眼看懂 */
+    public class JsBridge {
+        @android.webkit.JavascriptInterface
+        public boolean isApp() {
+            return true;
+        }
+
+        @android.webkit.JavascriptInterface
+        public String version() {
+            return APP_VERSION;
+        }
     }
 }

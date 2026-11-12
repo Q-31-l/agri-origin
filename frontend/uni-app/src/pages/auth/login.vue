@@ -136,7 +136,7 @@ import PcLogin from '@/components/auth/pc-login.vue'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import AppIcon from '@/components/common/app-icon.vue'
-import { isPcWidth } from '@/config/platform'
+import { isAppShell, isPcWidth } from '@/config/platform'
 import { ENV } from '@/config/env'
 import { storage } from '@/utils/storage'
 import { toast } from '@/utils/ui'
@@ -171,6 +171,17 @@ onUnmounted(() => {
 
 onLoad((opt) => {
   redirect.value = opt && opt.redirect ? decodeURIComponent(opt.redirect) : ''
+  /*
+   * 壳内 App 有自己的登录页。退出登录、权限失效等入口都会 reLaunch 到
+   * 通用登录页，在这里统一改道，避免用户突然看到浏览器版登录界面；
+   * redirect 原样带过去，登录后仍落回原来要去的地方。
+   */
+  // #ifdef H5
+  if (isAppShell()) {
+    const q = redirect.value ? '?redirect=' + encodeURIComponent(redirect.value) : ''
+    return uni.reLaunch({ url: ROUTES.APP_LOGIN + q })
+  }
+  // #endif
 })
 
 function fill(a) {
@@ -184,6 +195,7 @@ function afterLogin() {
     return
   }
   // #ifdef H5
+  if (isAppShell()) return uni.reLaunch({ url: ROUTES.APP_HOME })
   if (isPcWidth()) return uni.reLaunch({ url: ROUTES.PC_DASHBOARD })
   // #endif
   uni.reLaunch({ url: ROUTES.HOME })
@@ -245,6 +257,10 @@ function toTrace() {
 /** 带上 redirect：注册前想去哪一页，注册成功后直接落回那一页 */
 function toRegister() {
   const q = redirect.value ? `?redirect=${encodeURIComponent(redirect.value)}` : ''
+  // #ifdef H5
+  // 壳内先走"选择身份"页，再进表单
+  if (isAppShell()) return uni.navigateTo({ url: ROUTES.APP_REGISTER + q })
+  // #endif
   uni.navigateTo({ url: ROUTES.REGISTER + q })
 }
 </script>

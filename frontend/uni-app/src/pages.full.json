@@ -36,6 +36,29 @@
       }
     },
     {
+      "path": "pages/app/home",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "农安链溯源",
+        "enablePullDownRefresh": true,
+        "backgroundColor": "#0B3D26"
+      }
+    },
+    {
+      "path": "pages/app/login",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/app/register",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "创建账号"
+      }
+    },
+    {
       "path": "pages/tabbar/home",
       "style": {
         "navigationStyle": "custom",

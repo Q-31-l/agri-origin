@@ -41,7 +41,7 @@
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 import { getToken } from '@/utils/auth'
-import { isPcWidth } from '@/config/platform'
+import { isAppShell, isPcWidth } from '@/config/platform'
 import { ROUTES } from '@/config/routes'
 
 /**
@@ -64,6 +64,13 @@ onLoad(() => {
   }, holdMs.value - 240)
   t2 = setTimeout(() => {
     // #ifdef H5
+    /*
+     * 壳内 App 走专属首页/登录页；浏览器（含 PC 宽屏）与小程序完全不变。
+     * 判断放在宽屏判断之前：App 一定是手机宽度，先分流可以少算一次窗口尺寸。
+     */
+    if (isAppShell()) {
+      return uni.reLaunch({ url: hasToken ? ROUTES.APP_HOME : ROUTES.APP_LOGIN })
+    }
     if (isPcWidth()) {
       return uni.reLaunch({ url: hasToken ? ROUTES.PC_DASHBOARD : ROUTES.LOGIN })
     }

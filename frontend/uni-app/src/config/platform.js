@@ -126,6 +126,34 @@ export function isPcWidth() {
   // #endif
 }
 
+/**
+ * 是否运行在本项目自建的 Android 壳（WebView）里。
+ *
+ * 与上面的 isApp（APP-PLUS 编译期常量）不是一回事：
+ * 本项目的"App"是壳工程 frontend/app-shell 用 WebView 加载同一份 H5 产物，
+ * 编译期与浏览器版完全一致，无法用条件编译区分，只能运行时识别。
+ * 壳在 UA 末尾追加 AgriTraceApp/<版本>，并注入 window.AgriTraceNative 兜底
+ * （UA 被系统 WebView 设置覆盖时仍能识别）。
+ *
+ * 只影响 H5 产物：小程序与非壳浏览器一律返回 false，行为完全不变。
+ */
+export function isAppShell() {
+  // #ifdef H5
+  try {
+    if (typeof window !== 'undefined' && window.AgriTraceNative && window.AgriTraceNative.isApp) {
+      return true
+    }
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || ''
+    return /AgriTraceApp\//i.test(ua)
+  } catch (e) {
+    return false
+  }
+  // #endif
+  // #ifndef H5
+  return false
+  // #endif
+}
+
 /** 状态栏高度（自定义导航栏用） */
 export function statusBarHeight() {
   return sys().statusBarHeight || 0

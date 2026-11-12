@@ -22,11 +22,16 @@ OUTDIR="$PROJ/out"
 
 APP_NAME="agritrace"
 VER_NAME="1.0.0"
-VER_CODE="1"
+VER_CODE="2"  # 递增才能覆盖安装：签名不变、版本名不变，仅内部行为更新
 
 rm -rf "$SRC"
 mkdir -p "$SRC" "$OUTDIR"
 cp -r "$PROJ/res" "$PROJ/src" "$PROJ/AndroidManifest.xml" "$SRC/"
+
+# 版本号的唯一来源是上面的 VER_CODE / VER_NAME。
+# 清单里若写了固定的 versionCode，会盖掉 aapt2 的 --version-code，
+# 导致"改了脚本版本号、装上去还是旧版本号、无法覆盖安装"，所以构建时同步一次。
+sed -i "s/android:versionCode=\"[0-9]*\"/android:versionCode=\"$VER_CODE\"/; s/android:versionName=\"[^\"]*\"/android:versionName=\"$VER_NAME\"/" "$SRC/AndroidManifest.xml"
 
 rm -rf "$BUILD"
 mkdir -p "$BUILD/classes" "$BUILD/dex"

@@ -676,10 +676,26 @@ node frontend/app-shell/tools/render-icons.js   # 改图标时重跑：品牌 SV
 - 工具链与签名证书在仓库外：`C:\Users\30786\AppData\Local\agri-android`（JDK 17、`sdk/`、`agritrace.keystore`、`keystore.properties`）。**证书丢了就无法覆盖升级**，换机前先备份这两个文件。
 - 产物：`frontend/app-shell/out/agritrace-1.0.0.apk`（约 454 KB，`com.agri.trace`，minSdk 23 / targetSdk 34）。
 - 发布：把 `out/*.apk` 与 `frontend/app-shell/download/` 下的 `index.html`、`qr.svg`、`icon-192.png` 一并上传到 `/opt/agri-origin/web/portal/download/`。下载页由 nginx 的 `location /portal/` 直接托管，无需改配置。
-- App 内站点地址写死在 `MainActivity.APP_URL`，域名或端口变更需改常量后重新构建。
+- App 启动地址是 `MainActivity.APP_URL`，指向 `/pages/launch/index`（直接进应用，不再落到门户宣传页），域名变更需改常量后重新构建。
 - `Content-Type` 为 `application/octet-stream`（nginx 默认未登记 apk），浏览器按后缀下载与安装，不影响使用；微信内打开会拦截下载，下载页已给出"用浏览器打开"的提示。
 
-> 升级注意：`versionCode` 在 `build.sh` 顶部的 `VER_CODE`，每次发版递增，否则同版本号安装会被系统拒绝。
+> 升级注意：`versionCode` 只在 `build.sh` 顶部的 `VER_CODE` 改，构建时会自动写进 `AndroidManifest.xml`（清单里写死值会盖掉 aapt2 的 `--version-code`，改脚本却没生效）。每次发版递增，否则同版本号安装会被系统拒绝。签名必须沿用同一份证书。
+
+#### App 专属页面（与 H5 / 小程序分流）
+
+壳加载的是**同一份 H5 产物**，编译期无法用 `#ifdef APP-PLUS` 区分，因此改为运行时识别：壳在 UA 末尾追加 `AgriTraceApp/<版本>`，并注入 `window.AgriTraceNative` 兜底；前端 `config/platform.js` 的 `isAppShell()` 据此判断。
+
+| 页面 | 浏览器 / 小程序 | 壳内 App |
+|---|---|---|
+| 启动落地 | `pages/auth/login` → `pages/tabbar/home` | `pages/app/login` → `pages/app/home` |
+| 登录 | `pages/auth/login`（宽屏自动切 PC 版式） | `pages/app/login`（整屏品牌 + 上浮面板） |
+| 注册 | `pages/auth/register` | `pages/app/register`（先选身份）→ 复用原表单 |
+
+- App 首页是独立页而不是 tabBar 页：沉浸式头部 + 上浮白色面板 + 横向滑动批次卡 + 自绘 Dock（中间凸起扫码），没有系统标题栏，因此打开不像网页。
+- 分流点只有三处：`pages/launch/index.vue` 的落地跳转、`pages/auth/login.vue` 的 `onLoad`/`afterLogin`/`toRegister`、`pages/auth/register.vue` 的 `role` 预选与注册后落地。全部包在 `#ifdef H5` + `isAppShell()` 双条件里，**小程序与浏览器行为完全不变**（已验证：普通手机 UA 仍落 `pages/auth/login`，桌面 UA 仍进 PC 版式）。
+- App 专属页被浏览器直接访问时会自行退回通用页（`onLoad` 守卫），不会出现半成品界面。
+- 注册表单仍只有一份（`pages/auth/register.vue`），App 的"选择身份"页只负责传 `?role=`，避免两套校验逻辑走偏。身份清单统一在 `config/roles.js`。
+
 
 ---
 
@@ -786,7 +802,7 @@ agri-origin/
 │       └── common/             # 统一响应、异常、常量
 ├── frontend/
 │   ├── uni-app/                # 三端统一工程（H5 / 微信小程序 / App）
-│   │   ├── src/pages/          # 移动端页面（29 页）
+│   │   ├── src/pages/          # 移动端页面（含 App 壳内专属页 pages/app/）
 │   │   ├── src/pages-pc/       # PC 管理端页面（16 页）
 │   │   ├── src/components/     # 业务组件（workflow-steps、pc-workflow、evidence-uploader…）
 │   │   ├── src/composables/    # useForm / usePage 等通用逻辑
