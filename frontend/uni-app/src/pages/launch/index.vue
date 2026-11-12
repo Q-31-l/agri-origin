@@ -28,7 +28,7 @@
       reLaunch 那一瞬间底色已经完全一致，不会出现"唰"地换一张屏。
       PC 登录页是浅色底，手机登录页首屏是品牌绿。
     -->
-    <view v-if="hop && handoffTone" class="handoff" :class="handoffTone"></view>
+    <view v-if="hop" class="handoff" :class="handoffTone"></view>
 
     <template v-else>
       <view class="center">
@@ -83,8 +83,12 @@ const plate = ref('web')
 /** 是否"从官网过来"：官网已经播过一次过场，这里只接力，不再重播 */
 const hop = ref(false)
 
-/** 换手底色：light = PC 登录页浅色底，green = 手机登录页品牌绿 */
-const handoffTone = ref('')
+/** 换手底色：tall = 手机（顶部品牌绿 + 下方浅底），flat = 宽屏（整屏浅底） */
+const handoffTone = ref('flat')
+/** 收尾要跳去哪（onLoad 里算好，供 bfcache 恢复时兜底） */
+let targetUrl = ''
+/** pageshow 监听引用，卸载时摘掉 */
+let onPageShow = null
 
 /** 接力画面的标识（与门户 / 幕布同源的内联矢量，不额外发请求） */
 const markSvg = `<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false" style="display:block;width:100%;height:100%"><defs><linearGradient id="rlacbmBg" x1="18%" y1="0%" x2="82%" y2="100%"><stop offset="0%" stop-color="#3fae74"/><stop offset="46%" stop-color="#1a7c48"/><stop offset="100%" stop-color="#093a22"/></linearGradient><radialGradient id="rlacbmGlow" cx="26%" cy="12%" r="72%"><stop offset="0%" stop-color="#b9ffd6" stop-opacity="0.55"/><stop offset="58%" stop-color="#b9ffd6" stop-opacity="0.06"/><stop offset="100%" stop-color="#b9ffd6" stop-opacity="0"/></radialGradient><linearGradient id="rlacbmSoil" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#9df0be" stop-opacity="0.38"/><stop offset="46%" stop-color="#0b4a2b" stop-opacity="0.92"/><stop offset="100%" stop-color="#031a0e"/></linearGradient><linearGradient id="rlacbmLeafL" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8fe4b2"/><stop offset="55%" stop-color="#d6fbe6"/><stop offset="100%" stop-color="#ffffff"/></linearGradient><linearGradient id="rlacbmLeafR" x1="100%" y1="100%" x2="0%" y2="0%"><stop offset="0%" stop-color="#8fe4b2"/><stop offset="55%" stop-color="#d6fbe6"/><stop offset="100%" stop-color="#ffffff"/></linearGradient><linearGradient id="rlacbmStem" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#c2f4d8"/></linearGradient><clipPath id="rlacbmRound"><rect x="0" y="0" width="512" height="512" rx="150" ry="150"/></clipPath></defs><g clip-path="url(#rlacbmRound)"><rect width="512" height="512" fill="url(#rlacbmBg)"/><rect width="512" height="512" fill="url(#rlacbmGlow)"/><ellipse cx="120" cy="40" rx="250" ry="200" fill="#ffffff" opacity="0.10"/><path d="M-60 512 L-60 432 Q256 366 572 432 L572 512 Z" fill="url(#rlacbmSoil)"/><path d="M-60 432 Q256 366 572 432" fill="none" stroke="#b7f7d2" stroke-opacity="0.28" stroke-width="4"/><rect x="247" y="296" width="18" height="118" rx="9" fill="url(#rlacbmStem)"/><path d="M256 296 q9 0 9 9 v100 q0 9 -9 9 q-9 0 -9 -9 v-100 q0 -9 9 -9 z" fill="#ffffff" opacity="0.35"/><path d="M258 314 Q236 196 122 206 Q150 330 258 314 Z" fill="url(#rlacbmLeafL)"/><path d="M254 314 Q276 196 390 206 Q362 330 254 314 Z" fill="url(#rlacbmLeafR)"/><path d="M252 310 Q212 262 140 214" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/><path d="M260 310 Q300 262 372 214" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/><circle cx="402" cy="126" r="30" fill="none" stroke="#e6fff0" stroke-opacity="0.62" stroke-width="6"/><circle cx="402" cy="126" r="10" fill="#e6fff0" fill-opacity="0.92"/><rect x="3" y="3" width="506" height="506" rx="148" ry="148" fill="none" stroke="#ffffff" stroke-opacity="0.20" stroke-width="6"/></g></svg>`
@@ -148,6 +152,19 @@ const footNote = computed(() => {
   return 'FISCO-BCOS 联盟链 · 全流程上链存证'
 })
 
+/**
+ * 落点只算一次。
+ * 壳内 App 走专属首页/登录页；浏览器（含 PC 宽屏）与小程序完全不变。
+ * App 一定是手机宽度，先分流可以少算一次窗口尺寸。
+ */
+function resolveTarget(hasToken) {
+  // #ifdef H5
+  if (isAppShell()) return hasToken ? ROUTES.APP_HOME : ROUTES.APP_LOGIN
+  if (isPcWidth()) return hasToken ? ROUTES.PC_DASHBOARD : ROUTES.LOGIN
+  // #endif
+  return hasToken ? ROUTES.HOME : ROUTES.LOGIN
+}
+
 onLoad(() => {
   const hasToken = !!getToken()
 
@@ -180,9 +197,17 @@ onLoad(() => {
      * 现在挂载后 60ms 就开始淡出（FADE 240），300ms 完成换手；
      * 淡出期间 handoff 层同步铺到登录页的首屏色，reLaunch 时底色已经一致。
      */
-    holdMs.value = 280
+    /*
+     * 320 而不是贴着 FADE 走：目标页首帧只有底部 tabbar、内容区还是空的，
+     * 换手底色得先铺稳一帧，缩到最小时的"白一下"才不会撞上来。
+     */
+    holdMs.value = 320
     // #ifdef H5
-    handoffTone.value = isPcWidth() ? 'light' : 'green'
+    /*
+     * 手机落地页（工作台 / 登录页）顶部都是品牌绿 header，
+     * 整屏铺浅色会让画面"从深绿一下翻白"；这里做成上绿下浅，换手时顶部绿色是连续的。
+     */
+    handoffTone.value = isPcWidth() ? 'flat' : 'tall'
     // #endif
   } else if (plate.value === 'app') {
     /*
@@ -198,30 +223,47 @@ onLoad(() => {
     plan(hasToken ? 1300 : 1900, 950)
   }
 
+  targetUrl = resolveTarget(hasToken)
+
+  // #ifdef H5
+  /*
+   * 把启动页这条历史记录直接改写成目标页。
+   * 不改的话，用户按浏览器后退会回到这一页，而 bfcache 恢复时定时器已经被冻住丢弃，
+   * 画面就永远停在"正在进入业务系统"——手机录屏里那几秒死图就是这么来的。
+   */
+  try {
+    if (window.history && history.replaceState) history.replaceState(null, '', targetUrl)
+  } catch (e) {}
+
+  /*
+   * 双保险：万一历史记录没改写成功，用户按后退回到这一页时补一次跳转，
+   * 绝不停在加载画面。
+   */
+  onPageShow = (ev) => {
+    if (!ev.persisted || !targetUrl) return
+    location.replace(targetUrl)
+  }
+  window.addEventListener('pageshow', onPageShow)
+  // #endif
+
   // 先淡出，再跳转：直接 reLaunch 会"啪"地切走，动画等于白做
   t1 = setTimeout(() => {
     leaving.value = true
   }, holdMs.value - FADE)
   t2 = setTimeout(() => {
-    // #ifdef H5
-    /*
-     * 壳内 App 走专属首页/登录页；浏览器（含 PC 宽屏）与小程序完全不变。
-     * 判断放在宽屏判断之前：App 一定是手机宽度，先分流可以少算一次窗口尺寸。
-     */
-    if (isAppShell()) {
-      return uni.reLaunch({ url: hasToken ? ROUTES.APP_HOME : ROUTES.APP_LOGIN })
-    }
-    if (isPcWidth()) {
-      return uni.reLaunch({ url: hasToken ? ROUTES.PC_DASHBOARD : ROUTES.LOGIN })
-    }
-    // #endif
-    uni.reLaunch({ url: hasToken ? ROUTES.HOME : ROUTES.LOGIN })
+    uni.reLaunch({ url: targetUrl })
   }, holdMs.value)
 })
 
 onUnload(() => {
   if (t1) clearTimeout(t1)
   if (t2) clearTimeout(t2)
+  // #ifdef H5
+  if (onPageShow) {
+    window.removeEventListener('pageshow', onPageShow)
+    onPageShow = null
+  }
+  // #endif
 })
 
 /**
@@ -637,16 +679,30 @@ onMounted(() => {
   z-index: 6;
   pointer-events: none;
   opacity: 0;
+  /*
+    底色取页面底 #f4f6f8，而不是具体某个页面的首屏色。
+    reLaunch 那一瞬新页面还没绘制，浏览器先露的就是 body 底色；
+    这一层的终点与它一致，才不会在换手时闪出一帧白。
+  */
+  background: #f4f6f8;
   transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/*
+  手机：顶部 37% 是目标页的绿色 header，往下接页面底。
+  深绿加载页淡进来时，顶部保持绿、下方渐亮，不会整屏翻白。
+*/
+.handoff.tall {
+  background: linear-gradient(
+    180deg,
+    #14503a 0%,
+    #1f7a4d 20%,
+    #2b8f5d 33%,
+    #eef4f0 47%,
+    #f4f6f8 56%
+  );
 }
 .launch.leaving .handoff {
   opacity: 1;
-}
-.handoff.light {
-  background: #f6f8f7;
-}
-.handoff.green {
-  background: linear-gradient(160deg, #1f7a4d 0%, #2f9e63 100%);
 }
 .relay-tip {
   margin-top: 16px;
