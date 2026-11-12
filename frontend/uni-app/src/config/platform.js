@@ -157,12 +157,27 @@ export function isAppShell() {
   // #endif
 }
 
+/**
+ * 是否使用「App 同款版式」：App 首页 + 五格 Dock（中间凸起扫码）。
+ *
+ * App 壳（WebView）本来就是这套；现在手机浏览器与微信小程序也统一过来，
+ * 三端的底部功能键与首页版式完全一致，只有 PC 宽屏仍进管理台。
+ *
+ * 注意：这里只决定"用哪套界面"，不参与登录、权限等业务判断。
+ */
+export function isAppUI() {
+  // #ifdef H5
+  return isAppShell() || !isPcWidth()
+  // #endif
+  // #ifndef H5
+  return true
+  // #endif
+}
+
 /** 状态栏高度（自定义导航栏用） */
 export function statusBarHeight() {
   return sys().statusBarHeight || 0
-}
-
-/** 平台中文名，用于日志与设置页展示 */
+}/** 平台中文名，用于日志与设置页展示 */
 export function platformName() {
   if (isApp) {
     // #ifdef APP-PLUS

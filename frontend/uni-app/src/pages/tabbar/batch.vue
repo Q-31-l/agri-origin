@@ -42,10 +42,12 @@ import EmptyState from '@/components/common/empty-state.vue'
 import LoadMore from '@/components/common/load-more.vue'
 import { useList } from '@/composables/useList'
 import AppDock from '@/components/app/app-dock.vue'
-import { isAppShell } from '@/config/platform'
+import { isAppUI } from '@/config/platform'
+import { useHideTabBar } from '@/utils/app-dock'
 
-/** 壳内：改用自绘 Dock，系统 tabBar 已在全局样式里隐藏 */
-const appShell = isAppShell()
+/** App 版式（壳内 / 手机浏览器 / 小程序）：改用自绘 Dock，原生 tabBar 收起 */
+const appShell = isAppUI()
+useHideTabBar()
 import { batchPage } from '@/api'
 import { useUserStore } from '@/store/user'
 import { useCacheStore } from '@/store/cache'

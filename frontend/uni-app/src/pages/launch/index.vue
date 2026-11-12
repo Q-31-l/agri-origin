@@ -28,7 +28,6 @@
       reLaunch 那一瞬间底色已经完全一致，不会出现"唰"地换一张屏。
       PC 登录页是浅色底，手机登录页首屏是品牌绿。
     -->
-    <view v-if="hop" class="handoff" :class="handoffTone"></view>
 
     <template v-else>
       <view class="center">
@@ -83,8 +82,8 @@ const plate = ref('web')
 /** 是否"从官网过来"：官网已经播过一次过场，这里只接力，不再重播 */
 const hop = ref(false)
 
-/** 换手底色：tall = 手机（顶部品牌绿 + 下方浅底），flat = 宽屏（整屏浅底） */
-const handoffTone = ref('flat')
+/** 收尾时幕布提前多少毫秒盖上来（要早于跳转，才能无缝接住） */
+const CURTAIN_LEAD = 90
 /** 收尾要跳去哪（onLoad 里算好，供 bfcache 恢复时兜底） */
 let targetUrl = ''
 /** pageshow 监听引用，卸载时摘掉 */
@@ -154,15 +153,14 @@ const footNote = computed(() => {
 
 /**
  * 落点只算一次。
- * 壳内 App 走专属首页/登录页；浏览器（含 PC 宽屏）与小程序完全不变。
- * App 一定是手机宽度，先分流可以少算一次窗口尺寸。
+ * 只有 PC 宽屏进管理台；App 壳、手机浏览器、小程序统一落到 App 首页/登录页，
+ * 三端进入后看到的是同一套版式（五格 Dock + App 首页）。
  */
 function resolveTarget(hasToken) {
   // #ifdef H5
-  if (isAppShell()) return hasToken ? ROUTES.APP_HOME : ROUTES.APP_LOGIN
   if (isPcWidth()) return hasToken ? ROUTES.PC_DASHBOARD : ROUTES.LOGIN
   // #endif
-  return hasToken ? ROUTES.HOME : ROUTES.LOGIN
+  return hasToken ? ROUTES.APP_HOME : ROUTES.APP_LOGIN
 }
 
 onLoad(() => {
@@ -192,23 +190,10 @@ onLoad(() => {
 
   if (hop.value) {
     /*
-     * 官网那边条已经走满，这里绝不能再"停一下"：条满就是用户预期立刻进界面，
-     * 原来挂载后还要静止 180ms 才开始淡出，那就是他说的"顿一下"。
-     * 现在挂载后 60ms 就开始淡出（FADE 240），300ms 完成换手；
-     * 淡出期间 handoff 层同步铺到登录页的首屏色，reLaunch 时底色已经一致。
-     */
-    /*
-     * 320 而不是贴着 FADE 走：目标页首帧只有底部 tabbar、内容区还是空的，
-     * 换手底色得先铺稳一帧，缩到最小时的"白一下"才不会撞上来。
+     * 官网那边条已经走满，这里只做"接住 + 换手"：不再停留、不再演第二遍。
+     * 320ms 是给人眼确认"条满了"的一点点时间，之后幕布盖上来、切页、淡出。
      */
     holdMs.value = 320
-    // #ifdef H5
-    /*
-     * 手机落地页（工作台 / 登录页）顶部都是品牌绿 header，
-     * 整屏铺浅色会让画面"从深绿一下翻白"；这里做成上绿下浅，换手时顶部绿色是连续的。
-     */
-    handoffTone.value = isPcWidth() ? 'flat' : 'tall'
-    // #endif
   } else if (plate.value === 'app') {
     /*
      * App 是"点开一瞬间"，但也不能快到看不清：
@@ -246,12 +231,32 @@ onLoad(() => {
   window.addEventListener('pageshow', onPageShow)
   // #endif
 
-  // 先淡出，再跳转：直接 reLaunch 会"啪"地切走，动画等于白做
+  /*
+    先淡出，再跳转：直接 reLaunch 会"啪"地切走，动画等于白做。
+    接力模式不需要淡出，而是提前 90ms 让幕布盖上来（两者同构，换手看不出）。
+  */
   t1 = setTimeout(() => {
+    // #ifdef H5
+    /*
+     * 接力模式不再用"整屏渐变"做换手底色 —— 那块渐变下面还没有内容，
+     * 露出来就是一次"滋"的闪白（录屏里最刺眼的就是这 4 帧）。
+     * 现在改成：把 index.html 里那张与接力画面同构的幕布重新盖上来，
+     * 盖住之后才 reLaunch，等目标页在下面画好，幕布再用 0.52s 淡出。
+     * 全程只要"盖住 → 淡出"两步，没有中间色，也就没有闪。
+     */
+    if (hop.value && window.__agriCurtain) {
+      window.__agriCurtain.hold()
+      return
+    }
+    // #endif
     leaving.value = true
-  }, holdMs.value - FADE)
+  }, holdMs.value - (hop.value ? CURTAIN_LEAD : FADE))
   t2 = setTimeout(() => {
     uni.reLaunch({ url: targetUrl })
+    // #ifdef H5
+    // 跳过去之后目标页还要一两帧才画好，留 90ms 再开始淡出，淡出 0.52s
+    if (hop.value && window.__agriCurtain) window.__agriCurtain.release(90, 520)
+    // #endif
   }, holdMs.value)
 })
 
@@ -276,9 +281,12 @@ onUnload(() => {
 onMounted(() => {
   // #ifdef H5
   requestAnimationFrame(() => {
-    document.documentElement.classList.remove('agri-boot')
-    const curtain = document.getElementById('agri-curtain')
-    if (curtain && curtain.parentNode) curtain.parentNode.removeChild(curtain)
+    /*
+     * 幕布交给页面自己画了：收掉它、同时把浅色页面底恢复。
+     * 不再删除节点 —— 收尾时还要靠它盖住目标页再淡出，删了就接不住。
+     */
+    if (window.__agriCurtain) window.__agriCurtain.off()
+    else document.documentElement.classList.remove('agri-boot')
   })
   // #endif
 })
@@ -669,41 +677,6 @@ onMounted(() => {
   }
 }
 
-/*
-  换手底色：淡出时同步铺满，颜色 = 目标页首屏色。
-  reLaunch 是瞬间替换，只要这一层和登录页第一帧同色，就不会"唰"地闪一下。
-*/
-.handoff {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
-  opacity: 0;
-  /*
-    底色取页面底 #f4f6f8，而不是具体某个页面的首屏色。
-    reLaunch 那一瞬新页面还没绘制，浏览器先露的就是 body 底色；
-    这一层的终点与它一致，才不会在换手时闪出一帧白。
-  */
-  background: #f4f6f8;
-  transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-}
-/*
-  手机：顶部 37% 是目标页的绿色 header，往下接页面底。
-  深绿加载页淡进来时，顶部保持绿、下方渐亮，不会整屏翻白。
-*/
-.handoff.tall {
-  background: linear-gradient(
-    180deg,
-    #14503a 0%,
-    #1f7a4d 20%,
-    #2b8f5d 33%,
-    #eef4f0 47%,
-    #f4f6f8 56%
-  );
-}
-.launch.leaving .handoff {
-  opacity: 1;
-}
 .relay-tip {
   margin-top: 16px;
   font-size: clamp(11px, 1vw, 12.5px);

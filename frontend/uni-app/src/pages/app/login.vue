@@ -112,7 +112,7 @@ import { ROUTES } from '@/config/routes'
 import { storage } from '@/utils/storage'
 import { toast } from '@/utils/ui'
 import AppIcon from '@/components/common/app-icon.vue'
-import { isAppShell, isPcWidth } from '@/config/platform'
+import { isAppUI, isPcWidth } from '@/config/platform'
 import { getToken } from '@/utils/auth'
 
 const store = useUserStore()
@@ -133,7 +133,7 @@ onLoad((opt) => {
   if (last) form.username = last
 
   // 直接访问这一页的浏览器用户送回浏览器版登录，避免出现"半成品 App 页"
-  if (!isAppShell()) {
+  if (!isAppUI()) {
     // #ifdef H5
     uni.reLaunch({ url: isPcWidth() ? ROUTES.PC_DASHBOARD : ROUTES.LOGIN })
     // #endif

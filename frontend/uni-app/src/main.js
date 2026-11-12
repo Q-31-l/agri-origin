@@ -2,7 +2,7 @@ import { createSSRApp } from 'vue'
 import * as Pinia from 'pinia'
 import App from './App.vue'
 import { setupStore } from '@/store'
-import { isAppShell } from '@/config/platform'
+import { isAppUI } from '@/config/platform'
 import perm from '@/directives/perm'
 
 /**
@@ -44,11 +44,22 @@ function recoverFromChunkError(reason) {
 
 // #ifdef H5
 /*
- * 壳内标记：让全局样式隐藏系统 tabBar（四个 tab 页改用自绘 Dock）。
- * 必须在挂载前打，否则首帧会看到四格 tabBar 闪一下。
+ * App 版式标记：让全局样式隐藏系统 tabBar（tab 页改用自绘的五格 Dock）。
+ * 三端统一 —— 安装包壳、手机浏览器、微信小程序都走这套，只有 PC 宽屏例外。
+ * 必须在挂载前打，否则首帧会看到原生 tabBar 闪一下。
  */
-if (typeof document !== 'undefined' && isAppShell()) {
+if (typeof document !== 'undefined' && isAppUI()) {
   document.body.classList.add('agri-app-shell')
+}
+/* 窗口从宽屏拖窄（或平板转屏）时补打标记，避免 Dock 与原生 tabBar 同时出现 */
+if (typeof window !== 'undefined') {
+  let lastAppUI = isAppUI()
+  window.addEventListener('resize', () => {
+    const now = isAppUI()
+    if (now === lastAppUI) return
+    lastAppUI = now
+    document.body.classList.toggle('agri-app-shell', now)
+  })
 }
 
 if (typeof window !== 'undefined') {

@@ -138,7 +138,7 @@ import { batchPage, statsOverview, workflowTodo } from '@/api'
 import { nav } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
 import { formatDate, formatQty } from '@/utils/format'
-import { isAppShell, isPcWidth } from '@/config/platform'
+import { isAppUI, isPcWidth } from '@/config/platform'
 import { getToken } from '@/utils/auth'
 
 const store = useUserStore()
@@ -193,7 +193,7 @@ onLoad(() => {
    * 这一页是壳内专页。若被浏览器直接访问（分享链接、刷新），
    * 宽屏直接回 PC 看板，窄屏回浏览器版首页，避免出现"半成品 App 页"。
    */
-  if (!isAppShell()) {
+  if (!isAppUI()) {
     // #ifdef H5
     const hasToken = !!getToken()
     if (isPcWidth()) {

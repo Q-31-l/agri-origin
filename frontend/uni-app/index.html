@@ -39,7 +39,40 @@
       #agri-curtain {
         display: none;
       }
-      html.agri-boot #agri-curtain {
+      /*
+        .cu-on 让幕布可以在收尾时"重新盖回来"，盖的是已经切过去的目标页。
+        换手流程：启动页最后一帧 → 幕布盖上来（同构，看不出换手）→ reLaunch →
+        目标页在下面画好 → 幕布淡出 0.52s 露出目标页。
+        这样全程没有"先铺一块浅色再等页面"的中间态，也就不会闪。
+      */
+      #agri-curtain.cu-on {
+        display: flex;
+        opacity: 1;
+      }
+      #agri-curtain.cu-fade {
+        transition: opacity 0.52s cubic-bezier(0.33, 0, 0.2, 1);
+      }
+      #agri-curtain.cu-out {
+        opacity: 0 !important;
+      }
+      /*
+        内容（标识 / 名称 / 条 / 提示）比底色退得快：
+        底色慢慢化开的同时，标识和"正在进入业务系统"先淡掉，
+        否则半透明时会浮在新页面上，看着又像叠了两层。
+      */
+      #agri-curtain.cu-out .ac-mark,
+      #agri-curtain.cu-out .ac-name,
+      #agri-curtain.cu-out .ac-bar,
+      #agri-curtain.cu-out .ac-tip {
+        opacity: 0;
+        transition: opacity 0.18s ease-out;
+      }
+      /* 呼吸动画会盖掉上面这行 transition，退场时必须先停掉 */
+      #agri-curtain.cu-out .ac-mark {
+        animation: none;
+      }
+      html.agri-boot #agri-curtain,
+      #agri-curtain.cu-on {
         position: fixed;
         inset: 0;
         z-index: 9999;
@@ -141,6 +174,68 @@
           document.documentElement.className += ' agri-boot'
         }
       } catch (e) {}
+    </script>
+    <script>
+      /*
+        幕布的三段口子，给启动页调用（它只认 window.__agriCurtain，不关心内部实现）：
+          hold()      把幕布重新盖上来（与接力画面同构，看不出换手）
+          release(d)  d 毫秒后开始淡出，淡完彻底摘掉，同时恢复浅色页面底
+          off()       立刻收掉（启动页挂载时用：幕布交给页面自己画）
+        用 element.classList 而不是改 html 的 class，是为了让"首帧幕布"和
+        "收尾幕布"互不干扰 —— 首帧靠 html.agri-boot，收尾靠 .cu-on。
+      */
+      window.__agriCurtain = (function () {
+        var el = null
+        var timer = 0
+        function get() {
+          if (!el || !el.parentNode) el = document.getElementById('agri-curtain')
+          return el
+        }
+        function unlockBg() {
+          try {
+            document.documentElement.className = document.documentElement.className
+              .replace(/\s*\bagri-boot\b/g, '')
+              .trim()
+          } catch (e) {}
+        }
+        return {
+          hold: function () {
+            var e = get()
+            if (!e) return
+            clearTimeout(timer)
+            e.classList.remove('cu-fade', 'cu-out')
+            e.classList.add('cu-on')
+          },
+          release: function (delay, dur) {
+            var e = get()
+            if (!e) return
+            timer = setTimeout(function () {
+              var n = get()
+              if (!n) return
+              n.style.transition = 'opacity ' + (dur || 520) + 'ms cubic-bezier(0.33, 0, 0.2, 1)'
+              n.classList.add('cu-fade')
+              // 强制一帧再改 opacity，保证 transition 真的跑起来
+              void n.offsetWidth
+              n.classList.add('cu-out')
+              timer = setTimeout(function () {
+                var x = get()
+                if (x) {
+                  x.classList.remove('cu-on', 'cu-fade', 'cu-out')
+                  x.style.transition = ''
+                }
+                unlockBg()
+              }, (dur || 520) + 80)
+            }, delay || 0)
+          },
+          off: function () {
+            var e = get()
+            if (!e) return
+            clearTimeout(timer)
+            e.classList.remove('cu-on', 'cu-fade', 'cu-out')
+            unlockBg()
+          }
+        }
+      })()
     </script>
     <!-- 站点图标直接用品牌矢量产出的 PNG，避免额外维护一份 ico -->
     <link rel="icon" type="image/png" href="/static/logo/mark.png" />

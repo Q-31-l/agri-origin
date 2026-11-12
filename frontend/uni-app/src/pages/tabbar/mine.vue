@@ -93,13 +93,15 @@ import { statsOverview } from '@/api'
 import { nav, relaunch } from '@/utils/router'
 import { ROUTES } from '@/config/routes'
 import AppDock from '@/components/app/app-dock.vue'
-import { isAppShell } from '@/config/platform'
+import { isAppUI } from '@/config/platform'
+import { useHideTabBar } from '@/utils/app-dock'
 import { platformName } from '@/config/platform'
 import { ENV } from '@/config/env'
 import { confirm } from '@/utils/ui'
 
-/** 壳内：改用自绘 Dock，系统 tabBar 已在全局样式里隐藏 */
-const appShell = isAppShell()
+/** App 版式（壳内 / 手机浏览器 / 小程序）：改用自绘 Dock，原生 tabBar 收起 */
+const appShell = isAppUI()
+useHideTabBar()
 
 const store = useUserStore()
 const stats = ref({})

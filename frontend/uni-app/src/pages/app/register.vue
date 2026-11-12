@@ -86,7 +86,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import AppIcon from '@/components/common/app-icon.vue'
 import { REGISTER_ROLES, REVIEW_ROLE_CODES, ROLE_TONE } from '@/config/roles'
 import { ROUTES } from '@/config/routes'
-import { isAppShell, isPcWidth } from '@/config/platform'
+import { isAppUI, isPcWidth } from '@/config/platform'
 
 let redirect = ''
 
@@ -96,7 +96,7 @@ const reviewRoles = computed(() => REGISTER_ROLES.filter((r) => REVIEW_ROLE_CODE
 onLoad((opt) => {
   redirect = opt && opt.redirect ? decodeURIComponent(opt.redirect) : ''
   // 浏览器直接访问时回原注册页，这一页只服务于壳内 App
-  if (!isAppShell()) {
+  if (!isAppUI()) {
     // #ifdef H5
     uni.reLaunch({ url: isPcWidth() ? ROUTES.PC_DASHBOARD : ROUTES.REGISTER })
     // #endif

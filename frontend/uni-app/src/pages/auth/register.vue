@@ -341,7 +341,7 @@ import AppIcon from '@/components/common/app-icon.vue'
 import { useUserStore } from '@/store/user'
 import { publicVillages } from '@/api'
 import { locate, explainLocationError } from '@/utils/geo'
-import { isAppShell, isPcWidth } from '@/config/platform'
+import { isAppUI, isPcWidth } from '@/config/platform'
 import { ROUTES } from '@/config/routes'
 import { toast } from '@/utils/ui'
 
@@ -591,13 +591,13 @@ function afterRegister() {
  */
 function entryHome() {
   // #ifdef H5
-  if (isAppShell()) return ROUTES.APP_HOME
+  if (isAppUI()) return ROUTES.APP_HOME
   // #endif
   return ROUTES.HOME
 }
 function entryLogin() {
   // #ifdef H5
-  if (isAppShell()) return ROUTES.APP_LOGIN
+  if (isAppUI()) return ROUTES.APP_LOGIN
   // #endif
   return ROUTES.LOGIN
 }

@@ -136,7 +136,7 @@ import PcLogin from '@/components/auth/pc-login.vue'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import AppIcon from '@/components/common/app-icon.vue'
-import { isAppShell, isPcWidth } from '@/config/platform'
+import { isAppUI, isPcWidth } from '@/config/platform'
 import { ENV } from '@/config/env'
 import { storage } from '@/utils/storage'
 import { toast } from '@/utils/ui'
@@ -177,7 +177,7 @@ onLoad((opt) => {
    * redirect 原样带过去，登录后仍落回原来要去的地方。
    */
   // #ifdef H5
-  if (isAppShell()) {
+  if (isAppUI()) {
     const q = redirect.value ? '?redirect=' + encodeURIComponent(redirect.value) : ''
     return uni.reLaunch({ url: ROUTES.APP_LOGIN + q })
   }
@@ -195,7 +195,7 @@ function afterLogin() {
     return
   }
   // #ifdef H5
-  if (isAppShell()) return uni.reLaunch({ url: ROUTES.APP_HOME })
+  if (isAppUI()) return uni.reLaunch({ url: ROUTES.APP_HOME })
   if (isPcWidth()) return uni.reLaunch({ url: ROUTES.PC_DASHBOARD })
   // #endif
   uni.reLaunch({ url: ROUTES.HOME })
@@ -259,7 +259,7 @@ function toRegister() {
   const q = redirect.value ? `?redirect=${encodeURIComponent(redirect.value)}` : ''
   // #ifdef H5
   // 壳内先走"选择身份"页，再进表单
-  if (isAppShell()) return uni.navigateTo({ url: ROUTES.APP_REGISTER + q })
+  if (isAppUI()) return uni.navigateTo({ url: ROUTES.APP_REGISTER + q })
   // #endif
   uni.navigateTo({ url: ROUTES.REGISTER + q })
 }
