@@ -1,5 +1,5 @@
 <template>
-  <view class="launch" :class="[plate, { leaving }]">
+  <view class="launch" :class="[plate, { leaving, hop }]">
     <!-- 背景层：底色 → 渐变 → 两团柔光 + 细网格 + 同心弧，纯 CSS，小程序也能画 -->
     <view class="bg">
       <view class="grad"></view>
@@ -10,31 +10,48 @@
       <view class="arc b"></view>
     </view>
 
-    <view class="center">
-      <!-- 标识：背后两圈涟漪扩散，标识本身从下方浮起 -->
-      <view class="mark-wrap">
-        <view class="ripple r1"></view>
-        <view class="ripple r2"></view>
-        <image class="mark" src="/static/logo/mark.png" mode="aspectFit" />
-      </view>
-
-      <view class="title">
-        <text class="t1">农安</text>
-        <text class="t2">链溯源</text>
-      </view>
-      <text class="sub">AGRI-ORIGIN · 区块链农产品溯源平台</text>
-
-      <view class="divider"></view>
-      <text class="slogan">每一份农产品，都有可信的来路</text>
+    <!--
+      从官网点"进入业务系统"过来：官网的过场已经播过一遍，
+      这里只把同一个画面接住（标识 / 名称 / 进度条的位置与尺寸都和官网一致），
+      让进度条补完最后一小段就进系统 —— 不再重播第二遍品牌动画。
+    -->
+    <view v-if="hop" class="relay">
+      <image class="relay-mark" src="/static/logo/mark.png" mode="aspectFit" />
+      <view class="relay-name">农安链溯源</view>
+      <view class="relay-bar"><view class="relay-fill"></view></view>
+      <text class="relay-tip">正在进入业务系统</text>
     </view>
 
-    <view class="foot">
-      <!-- 进度条按时长走满，比一直转圈的加载条更像"正在开场" -->
-      <view class="progress">
-        <view class="bar" :style="{ animationDuration: holdMs + 'ms' }"></view>
+    <template v-else>
+      <view class="center">
+        <!-- 标识：背后两圈涟漪扩散，标识本身从下方浮起 -->
+        <view class="mark-wrap">
+          <view class="ripple r1"></view>
+          <view class="ripple r2"></view>
+          <image class="mark" src="/static/logo/mark.png" mode="aspectFit" />
+        </view>
+
+        <view class="title">
+          <text class="t1">农安</text>
+          <text class="t2">链溯源</text>
+        </view>
+        <text class="sub">AGRI-ORIGIN · 区块链农产品溯源平台</text>
+
+        <view class="divider"></view>
+        <text class="slogan">每一份农产品，都有可信的来路</text>
       </view>
-      <text class="chain">{{ footNote }}</text>
-    </view>
+
+      <view class="foot" :style="{ animationDelay: footDelay + 'ms' }">
+        <!-- 进度条按时长走满，比一直转圈的加载条更像"正在开场" -->
+        <view class="progress">
+          <view
+            class="bar"
+            :style="{ animationDelay: footDelay + 'ms', animationDuration: barMs + 'ms' }"
+          ></view>
+        </view>
+        <text class="chain">{{ footNote }}</text>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -51,6 +68,9 @@ import { ROUTES } from '@/config/routes'
  */
 const plate = ref('web')
 
+/** 是否"从官网过来"：官网已经播过一次过场，这里只接力，不再重播 */
+const hop = ref(false)
+
 /**
  * 开场动画的时长。
  * App 是"点开一瞬间"，比网页短；小程序有微信自己的加载，也偏快；
@@ -60,6 +80,48 @@ const holdMs = ref(1900)
 const leaving = ref(false)
 let t1 = null
 let t2 = null
+
+/** 淡出耗时，与样式里 .launch 的 opacity transition 一致 */
+const FADE = 240
+
+/**
+ * 走满之后先停一下再淡出。
+ * CSS 动画是从元素渲染那帧开始计时，比 onLoad 晚几十毫秒，
+ * 不留这点余量的话，条总是差最后一两个百分点就开始透明，
+ * 看起来就是"没走完"。80ms 既够补齐误差，又不会让人觉得在等。
+ */
+const GAP = 80
+
+/**
+ * 进度条的入场延迟与走完时长（毫秒）。
+ *
+ * 以前进度条元素一挂载就开始计时，但它所在的 .foot 要等 0.4~0.95s 才淡入，
+ * 结果是"看不见的时候已经走了大半"，等它出现时只剩最后一小截，
+ * 看起来就像"条没走完就进主界面"。
+ *
+ * 现在把三端的时间轴统一在这里算：
+ *   · 进度条与 .foot 同时出现（同一个延迟）；
+ *   · 走完的时刻正好是开始淡出的时刻，条满 → 淡出 → 进系统。
+ */
+const footDelay = ref(950)
+const barMs = ref(710)
+
+/**
+ * @param {number} hold   整段停留时长
+ * @param {number} foot   进度条容器（也是进度条本身）的入场延迟
+ * @param {number} fixed  指定进度条时长（接力模式用，不参与剩余时间分配）
+ */
+function plan(hold, foot, fixed) {
+  holdMs.value = hold
+  let fd = foot
+  let bar = fixed || 0
+  if (!bar) {
+    if (hold - fd - FADE - GAP < 380) fd = Math.max(180, hold - FADE - GAP - 380)
+    bar = hold - fd - FADE - GAP
+  }
+  footDelay.value = fd
+  barMs.value = bar
+}
 
 /** 底部那行小字，三端各说各的：App 说"进入应用"，小程序说"无需安装" */
 const footNote = computed(() => {
@@ -78,31 +140,37 @@ onLoad(() => {
   if (isAppShell()) plate.value = 'app'
   // #endif
 
-  if (plate.value === 'app') {
-    holdMs.value = hasToken ? 900 : 1200
+  /*
+   * 从官网点"进入业务系统"过来的：官网那一下已经播完品牌的过场，
+   * 这里如果再来一遍（标识浮起 + 标题 + 标语 + 进度条），就是同一段动画演两次，
+   * 用户会觉得"加载完了又跳出来一个界面"。
+   * 所以接住画面，只把进度条补完最后一小段。标记读完即删，只影响这一次。
+   */
+  // #ifdef H5
+  try {
+    if (plate.value !== 'app' && sessionStorage.getItem('agri_portal_hop') === '1') {
+      sessionStorage.removeItem('agri_portal_hop')
+      hop.value = true
+    }
+  } catch (e) {}
+  // #endif
+
+  if (hop.value) {
+    // 官网那边遮罩 620ms 里进度条已经走满，这里只做收尾：补一点点、停一下、淡出
+    plan(600, 0, 200)
+  } else if (plate.value === 'app') {
+    // 比浏览器短，但要让条真正走完：1000ms（回访）/ 1350ms（首次）
+    plan(hasToken ? 1000 : 1350, 400)
   } else if (plate.value === 'mp') {
-    holdMs.value = hasToken ? 1000 : 1450
+    plan(hasToken ? 1000 : 1450, 500)
   } else {
-    holdMs.value = hasToken ? 1300 : 1900
-    // #ifdef H5
-    /*
-     * 从官网点"进入业务系统"过来的，入口已经播过一次过场（logo + 进度条），
-     * 这里再完整讲一遍品牌会让人觉得"卡住了"，所以缩短一档。
-     * 标记读完即删，避免影响后续正常打开。
-     */
-    try {
-      if (sessionStorage.getItem('agri_portal_hop') === '1') {
-        sessionStorage.removeItem('agri_portal_hop')
-        holdMs.value = hasToken ? 820 : 1080
-      }
-    } catch (e) {}
-    // #endif
+    plan(hasToken ? 1300 : 1900, 950)
   }
 
   // 先淡出，再跳转：直接 reLaunch 会"啪"地切走，动画等于白做
   t1 = setTimeout(() => {
     leaving.value = true
-  }, holdMs.value - 240)
+  }, holdMs.value - FADE)
   t2 = setTimeout(() => {
     // #ifdef H5
     /*
@@ -402,6 +470,85 @@ onUnload(() => {
   }
 }
 
+/* ---------------- 官网过来的接力画面（仅 H5，结构与官网遮罩一一对应） ---------------- */
+/* #ifdef H5 */
+.launch.hop .grad {
+  background: radial-gradient(120% 100% at 50% 0%, #123528 0%, #0b1e17 58%, #070f0c 100%);
+}
+/*
+  网格与同心弧是"业务系统启动页"才有的装饰。
+  接力模式下去掉，画面与官网遮罩逐像素一致 —— 跨页面切换时看不出换了一层。
+*/
+.launch.hop .grid,
+.launch.hop .arc,
+.launch.hop .glow {
+  display: none;
+}
+.relay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+/* 以下尺寸 / 间距 / 颜色与官网 .rv-* 完全一致，跨页面切换时标识不会跳动 */
+.relay-mark {
+  width: clamp(72px, 9vw, 104px);
+  height: clamp(72px, 9vw, 104px);
+  filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.5));
+}
+.relay-name {
+  margin-top: 20px;
+  font-size: clamp(15px, 1.5vw, 19px);
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: #e8fff3;
+}
+.relay-bar {
+  margin-top: 28px;
+  width: clamp(150px, 17vw, 212px);
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.relay-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #45e0a6, #d6ffe9);
+  box-shadow: 0 0 12px rgba(69, 224, 166, 0.55);
+  transform-origin: left center;
+  animation: relayFill 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.relay-tip {
+  margin-top: 16px;
+  font-size: clamp(11px, 1vw, 12.5px);
+  letter-spacing: 0.16em;
+  color: rgba(224, 255, 238, 0.55);
+}
+/*
+  官网那 620ms 已经把条推到满格，这里千万不能从 0 再走一遍（会看到条往回缩）。
+  起点只相差 3.5%，肉眼几乎看不出，观感是"条在这儿轻轻一顶就到底了"。
+*/
+@keyframes relayFill {
+  from {
+    transform: scaleX(0.965);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .relay-fill {
+    animation: none;
+    transform: none;
+  }
+}
+/* #endif */
+
 /* ---------------- 三端各自的节奏 ---------------- */
 
 /*
@@ -411,16 +558,6 @@ onUnload(() => {
 */
 .launch.app .grad {
   animation: gradIn 0.6s ease both;
-}
-/*
-  启动图里标识是"屏幕正中"，这里也必须让标识的中点落在中线，
-  不能沿用"整个内容块居中"——内容块下方还有标题与标语，
-  整体居中会把标识顶到中线上方八十多像素，从启动图切过来时明显往上跳一截。
-  120px 的标识，所以中线减去一半高度。
-*/
-.launch.app {
-  justify-content: flex-start;
-  padding-top: calc(50vh - 60px);
 }
 /*
   启动图里标识是"屏幕正中"，这里也必须让标识的中点落在中线，

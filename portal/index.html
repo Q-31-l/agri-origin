@@ -1777,8 +1777,8 @@ section{position:relative}
     try { sessionStorage.setItem("agri_portal_hop", "1"); } catch (e) {}
     if (reduced) { window.location.href = href; return; }
     veil.className += " on";
-    /* 等遮罩淡入与进度条走完再切页，避免遮罩刚出现就被卸载 */
-    window.setTimeout(function () { window.location.href = href; }, 580);
+    /* 进度条 0.62s 走满，再多留 40ms，切页时它是满格而不是九成 */
+    window.setTimeout(function () { window.location.href = href; }, 660);
   }
 
   document.addEventListener("click", function (ev) {
