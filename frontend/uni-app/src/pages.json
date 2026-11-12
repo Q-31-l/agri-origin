@@ -357,15 +357,24 @@
     // #endif
   ],
   "globalStyle": {
+    /*
+     * 这三项是 uni-app 的 rpx 换算参数，只有 H5 / App 用得到。
+     * 原样编译到小程序会把它们写进 app.json 的 window，微信不认识这三个键，
+     * 每次启动都刷一条「无效的 app.json window["rpxCalc..."]」警告。
+     * 取值与 uni-app 运行时默认值（960 / 375 / 750）完全一致，
+     * 所以只在小程序端剔除，H5 / App 的换算规则一个字节都没变。
+     */
+    // #ifndef MP-WEIXIN
+    "rpxCalcMaxDeviceWidth": 960,
+    "rpxCalcBaseDeviceWidth": 375,
+    "rpxCalcIncludeWidth": 750,
+    // #endif
     "navigationBarTextStyle": "white",
     "navigationBarTitleText": "农安链溯源",
     "navigationBarBackgroundColor": "#1f7a4d",
     "backgroundColor": "#f4f6f8",
     "backgroundColorTop": "#f4f6f8",
-    "backgroundColorBottom": "#f4f6f8",
-    "rpxCalcMaxDeviceWidth": 960,
-    "rpxCalcBaseDeviceWidth": 375,
-    "rpxCalcIncludeWidth": 750
+    "backgroundColorBottom": "#f4f6f8"
   },
   "tabBar": {
     "color": "#8a94a6",

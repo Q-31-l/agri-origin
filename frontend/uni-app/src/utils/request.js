@@ -1,5 +1,5 @@
 import { ENV } from '@/config/env'
-import { getToken, clearAuth } from '@/utils/auth'
+import { getToken, clearAuth, isTokenExpiringSoon } from '@/utils/auth'
 import { refreshAccessToken } from '@/utils/token'
 import { toast } from '@/utils/ui'
 import { messageOf } from '@/utils/errors'
@@ -54,8 +54,26 @@ export function request(options) {
     auth = true,
     dedupe = true,
     timeout = 20000,
-    retry = 0
+    retry = 0,
+    skipRefresh = false
   } = options
+
+  /*
+   * 令牌临期或已过期：先把续期做完，再发这一条。
+   *
+   * access token 只有 12 小时，隔天打开小程序时本地那把已经失效。
+   * 如果照常发出去，服务端会回 401（控制台一片红色），然后才触发续期重放；
+   * 页面首屏并发好几条请求时，就是"一打开就好几条报错"的观感。
+   * 这里提前续期，多个并发请求共用 refreshAccessToken 的单飞逻辑，
+   * 只会打一次 /auth/refresh。令牌新鲜时直接跳过，不多发任何请求。
+   * skipRefresh 用来防止续期失败后反复重入。
+   */
+  if (auth !== false && !skipRefresh && getToken() && isTokenExpiringSoon()) {
+    return refreshAccessToken().then(
+      () => request({ ...options, skipRefresh: true }),
+      () => request({ ...options, skipRefresh: true })
+    )
+  }
 
   let fullUrl
   if (/^https?:\/\//.test(url)) {

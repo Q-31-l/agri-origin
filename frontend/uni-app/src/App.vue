@@ -3,8 +3,23 @@ import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import { useCacheStore } from '@/store/cache'
 import { socket } from '@/utils/socket'
-import { isTokenExpiringSoon } from '@/utils/auth'
+import { getToken, isTokenExpiringSoon } from '@/utils/auth'
 import { refreshAccessToken } from '@/utils/token'
+
+/**
+ * 冷启动 / 回前台前先确认本地令牌还能用。
+ *
+ * access token 只有 12 小时（application.yml 的 jwt.expire-hours），
+ * 隔天再打开时本地那把已经过期：直接拿去请求，第一条 /auth/profile 必然 401，
+ * 紧接着 WebSocket 握手也会被服务端 401 挡掉，于是控制台一进来就是两条红字。
+ * 这两条红字其实是"过期 → 静默续期 → 成功"过程中的正常中间态，
+ * 但看起来很像小程序坏了，所以改成先续期再动：
+ * 令牌还新鲜时不发任何额外请求，与原来的行为完全一致。
+ */
+function ensureFreshToken() {
+  if (!getToken()) return Promise.resolve(false)
+  return isTokenExpiringSoon() ? refreshAccessToken() : Promise.resolve(true)
+}
 
 /**
  * 三端实时同步：任一端写入批次 / 异常处置 / 上链存证后，
@@ -31,8 +46,6 @@ export default {
     app.init()
 
     const user = useUserStore()
-    // 冷启动静默刷新用户信息，保证多端数据一致
-    if (user.token) user.restore()
 
     // 请求层 401 时清空内存态
     uni.$on('auth:expired', () => {
@@ -45,6 +58,15 @@ export default {
     uni.$on('auth:refreshed', (data) => useUserStore().applyRefreshed(data))
 
     bindRealtime()
+
+    // 冷启动静默刷新用户信息，保证多端数据一致（同样先确认令牌可用）
+    if (user.token) {
+      ensureFreshToken().then((ok) => {
+        if (!ok) return
+        const u = useUserStore()
+        if (u.token) u.restore()
+      })
+    }
 
     // #ifdef MP-WEIXIN
     if (typeof wx !== 'undefined' && wx.getPrivacySetting) {
@@ -62,9 +84,11 @@ export default {
   onShow() {
     const user = useUserStore()
     if (!user.token) return
-    socket.connect()
-    // 临近过期先静默续期：比等第一个请求 401 再补要平滑，用户看不到任何中断
-    if (isTokenExpiringSoon()) refreshAccessToken()
+    // 令牌还新鲜就直接连；已经过期/临期就先续期再连，
+    // 否则握手会被服务端 401 拒掉，控制台里就是一条红色的 WebSocket connection failed
+    ensureFreshToken().then((ok) => {
+      if (ok) socket.connect()
+    })
   },
 
   onHide() {
